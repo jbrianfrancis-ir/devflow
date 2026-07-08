@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: DevFlow README
+    url: https://github.com/jbrianfrancis-ir/devflow#readme
+    about: Command reference and autonomous-operation recipes.
