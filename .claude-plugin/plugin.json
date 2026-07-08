@@ -1,0 +1,14 @@
+{
+  "name": "devflow",
+  "displayName": "DevFlow",
+  "version": "0.1.0",
+  "description": "Token-efficient spec-driven development for Claude Code: plan, execute, verify, then deploy through UAT to production with Aspire on Azure. Autonomous operation via /goal and /loop; architecture and Claude Design constraints enforced. Commands are /flow-*.",
+  "author": {
+    "name": "jbrianfrancis-ir",
+    "url": "https://github.com/jbrianfrancis-ir"
+  },
+  "license": "MIT",
+  "keywords": ["spec-driven-development", "planning", "workflow", "autonomous", "aspire", "azure", "design-system"],
+  "skills": "./skills/",
+  "agents": "./agents/"
+}

@@ -1,0 +1,14 @@
+DevFlow
+Copyright (c) 2026 jbrianfrancis-ir
+
+DevFlow is an independent, ground-up reimplementation. Its phase-loop discipline
+— fresh-context subagents, wave-parallel execution, plan checking, goal-backward
+verification, and durable .planning/ state — is derived in concept from GSD:
+
+  GSD Core (open-gsd/gsd-core) — MIT License
+  Copyright (c) 2026 Open GSD
+  https://github.com/open-gsd/gsd-core
+
+No source files from GSD Core are included in DevFlow; the behavioral contracts
+were reimplemented in a compressed, Claude-Code-only form. This notice is
+provided as attribution under the spirit of the MIT License.
