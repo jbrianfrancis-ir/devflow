@@ -25,6 +25,8 @@ Context rules: read `.planning/STATE.md` first; paths not contents.
    | uat | — | no | — | — | — |
    | prod | — | no | — | — | — |
    ```
-   Update STATE.md (Status: hardened, Next: `/flow-uat`). Commit: `chore(flow): hardening pass`. Repeat runs are cheap — re-audit and report "already hardened" when clean.
+   Update STATE.md (Status: hardened, Next: `/flow-pr` — integrate before deploying). Commit `chore(flow): hardening pass` on the feature branch and `git push origin <branch>`. Repeat runs are cheap — re-audit and report "already hardened" when clean.
 
-End with the status line per `${CLAUDE_PLUGIN_ROOT}/references/autonomy.md` — clean: `FLOW: GATE | hardened; UAT requires human | next: /flow-uat`; findings being fixed: `CONTINUE`; missing CLIs/AppHost decision: `GATE`.
+Hardening fixes are code, so they land on the feature branch like any other work and reach base via `/flow-pr`; deploy (`/flow-uat`, `/flow-release`) runs from merged base code.
+
+End with the status line per `${CLAUDE_PLUGIN_ROOT}/references/autonomy.md` — clean: `FLOW: GATE | hardened; open a PR before deploy | next: /flow-pr`; findings being fixed: `CONTINUE`; missing CLIs/AppHost decision: `GATE`.

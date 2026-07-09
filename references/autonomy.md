@@ -11,14 +11,14 @@ FLOW: <state> | <position> | next: <command>
 
 States (the `/goal` evaluator matches these tokens):
 - `CONTINUE` — more autonomous work is available; the next command can run without human input.
-- `GATE` — human input required: checkpoint decision/human-action (incl. package legitimacy), UAT acceptance + sign-off, production confirmation, azd login. Include what's needed in `<position>`.
+- `GATE` — human input required: checkpoint decision/human-action (incl. package legitimacy), PR to upstream, UAT acceptance + sign-off, production confirmation, azd login. Include what's needed in `<position>`.
 - `BLOCKED` — an error needs investigation before anything can proceed.
 - `DONE` — roadmap fully verified (or released, after /flow-release).
 
 Example: `FLOW: CONTINUE | phase 2/4 executed, verification pass | next: /flow-plan 3`
 
 ## Human gates — never auto-proceed, even in auto mode or under /goal//loop
-Checkpoint `decision` and `human-action` tasks; failed-package verification; UAT acceptance results and SIGNOFF.md; production release confirmation; pushing tags; anything destructive in git.
+Checkpoint `decision` and `human-action` tasks; failed-package verification; UAT acceptance results and SIGNOFF.md; production release confirmation; opening a pull request to upstream; pushing tags; anything destructive in git. Also a hard rule (not a gate): never commit to the base branch (`dev`/`main`) — always a feature branch (see `conventions.md`).
 
 ## Under /loop (dynamic mode)
 After emitting the status line: `CONTINUE` → reschedule soon and keep going next iteration. `GATE`/`BLOCKED`/`DONE` → stop the loop (ScheduleWakeup `stop: true`) and state plainly why it stopped and what the human should do.

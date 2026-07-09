@@ -12,7 +12,9 @@ No `.planning/` → point to `/flow-new`. STATE.md missing but `.planning/` exis
 - plans exist, not all SUMMARYs → `/flow-execute N`
 - VERIFICATION has gaps → `/flow-plan N --gaps`
 - phase verified, more phases → `/flow-plan N+1`
-- all phases verified → `/flow-harden`, then `/flow-uat` (see `.planning/deploy/PIPELINE.md` if present)
+- all phases verified → `/flow-harden`
+- hardened, work not yet PR'd/merged → `/flow-pr` (push origin + PR upstream)
+- PR merged to base → `/flow-uat`, then sign-off, `/flow-release` (see `.planning/deploy/PIPELINE.md` if present)
 
 Mention: `/flow-next` advances one step automatically; see the README's Autonomous operation recipes (`/goal` + `/flow-next`, `/loop /flow-next`).
 

@@ -1,6 +1,6 @@
 # DevFlow
 
-Token-efficient spec-driven development for Claude Code. Fresh-context subagents, wave-parallel execution, plan checking, goal-backward verification, and durable `.planning/` state — at ~65KB of prompt content (each command loads ~1–5k tokens). Commands use the `/flow-*` prefix.
+Token-efficient spec-driven development for Claude Code. Fresh-context subagents, wave-parallel execution, plan checking, goal-backward verification, and durable `.planning/` state — at ~70KB of prompt content (each command loads ~1–5k tokens). Commands use the `/flow-*` prefix.
 
 Claude Code only. No installer, no Node runtime, no hooks. "Ship" is a real pipeline: harden → UAT → human sign-off → production, orchestrated with [Aspire](https://aspire.dev) + azd on Azure.
 
@@ -26,6 +26,7 @@ Claude Code only. No installer, no Node runtime, no hooks. "Ship" is a real pipe
 | ad-hoc | `/flow-todo <idea>` | Capture without derailing |
 | memory | `/flow-map` | Codebase memory for planners/executors (`--docs`, `--refresh`) |
 | design | `/flow-design` | Link + pull a Claude Design (claude.ai/design) design system as hard UI constraints (`--refresh`) |
+| integrate | `/flow-pr` | Push the feature branch to origin and open a PR against upstream |
 | deploy | `/flow-harden` | Production audit vs Aspire checklist; fix findings |
 | deploy | `/flow-uat` | Deploy to UAT (provision on first deploy), generate acceptance test plan |
 | deploy | `/flow-release` | Production deploy, gated on per-SHA UAT sign-off |
@@ -34,10 +35,12 @@ Claude Code only. No installer, no Node runtime, no hooks. "Ship" is a real pipe
 
 ```
 /flow-new ──► /flow-plan 1 ──► /flow-execute 1 ──► … all phases verified …
-         ──► /flow-harden ──► /flow-uat ──► human sign-off ──► /flow-release
+         ──► /flow-harden ──► /flow-pr ──► (merge) ──► /flow-uat ──► human sign-off ──► /flow-release
 ```
 
 State lives in `.planning/` (hard size caps, sections overwritten not appended — see `templates/`). Every skill reads `STATE.md` first, so any session resumes cold.
+
+**Conventions** (`references/conventions.md`): code lives under `src/` off the repo root, and every change flows through git the same way — a feature branch off `dev` (or `main`), commits pushed to `origin`, integrated by pull request against `upstream` (or the base branch when there's no separate upstream). Deploy runs from merged base code. `ARCHITECTURE.md` can override the layout; the git workflow always applies.
 
 **Architecture constraints**: `.planning/ARCHITECTURE.md` (created by `/flow-new`, or write it yourself from `templates/architecture.md`) pins your exact stack — runtime, frameworks, and library versions, patterns, Azure/Aspire resources, forbidden items. Planner, plan-checker, executor, and researcher treat it as law: plans pin the listed versions, nothing gets substituted or upgraded silently, and anything outside it surfaces as a decision checkpoint. `/flow-harden` audits for drift between the pins and reality.
 
@@ -51,7 +54,7 @@ Every skill ends with a machine-checkable status line — `FLOW: CONTINUE|GATE|B
 - **Background cadence**: `/loop /flow-next` — one step per iteration, self-paced; the loop stops itself on GATE/BLOCKED/DONE.
 - **Watch a deployment**: `/loop 15m curl the UAT health endpoints and report any change`.
 
-Human gates that never auto-proceed: checkpoint decisions/human-actions (incl. package legitimacy), UAT acceptance + sign-off, production confirmation, tag pushes. Cost note: `/goal` turns and `/loop` iterations accumulate context in one session — small STATE.md and one-step-per-turn keep each cheap, but start a fresh session for each milestone-sized run.
+Human gates that never auto-proceed: checkpoint decisions/human-actions (incl. package legitimacy), PRs to upstream, UAT acceptance + sign-off, production confirmation, tag pushes. Cost note: `/goal` turns and `/loop` iterations accumulate context in one session — small STATE.md and one-step-per-turn keep each cheap, but start a fresh session for each milestone-sized run.
 
 ## Acknowledgements
 
