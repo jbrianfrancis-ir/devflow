@@ -17,6 +17,7 @@ Rules:
 - Waves: no dependencies → wave 1; else max(dependency wave) + 1. Same-wave plans must have disjoint `files_modified`.
 - Derive `must_haves` goal-backward from the phase goal — observable truths, artifacts, key_links — not restatements of tasks.
 - Each task's `<verify>` is a command or observable check. Human verification goes in `<verify><human-check>` (batched to end-of-phase), not a checkpoint. Checkpoints only for genuine decisions or human-only actions; then set `autonomous: false`.
+- Follow `conventions.md` when your prompt lists it: task `<files>` paths live under `src/` off the repo root (unless ARCHITECTURE.md sets a different layout).
 - Match MAP.md conventions (layout, naming, error handling, test patterns) so executor output fits the codebase.
 - List external setup the human must do (accounts, secrets) in `user_setup` frontmatter.
 

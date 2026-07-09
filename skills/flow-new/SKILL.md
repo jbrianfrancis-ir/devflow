@@ -9,6 +9,8 @@ Context rules (all flow skills): read `.planning/STATE.md` before acting when it
 
 **Pre-flight**: if `.planning/` exists → stop, point to `/flow-status`. If not a git repo (`git rev-parse --git-dir`) → offer `git init` (required for commits).
 
+**Git setup** (read `${CLAUDE_PLUGIN_ROOT}/references/conventions.md`): resolve the base branch — `dev` if it exists (local or remote), else `main` (create `main` if the repo has no commits yet). Detect remotes: `origin` (your working remote); `upstream` if present (fork model). Create and switch to a feature branch off the base — `git checkout -b flow/<project-slug> <base>` (skip if already on a non-base feature branch). All code lives under `src/` off the repo root.
+
 1. **Detect existing code**: `git ls-files | head -50` + look for manifests (package.json, *.csproj, pyproject.toml, go.mod). If real code exists, spawn agent `flow-mapper` with: template path `${CLAUDE_PLUGIN_ROOT}/templates/codebase-map.md`, output path `.planning/codebase/MAP.md`. Use its digest for questioning and roadmap.
 
 2. **Understand**: if the user gave an idea file or description (or `--auto`), work from that. Otherwise read `${CLAUDE_PLUGIN_ROOT}/references/questioning.md` and run the bounded Q&A (≤5 questions, one round, AskUserQuestion).
@@ -22,9 +24,9 @@ Context rules (all flow skills): read `.planning/STATE.md` before acting when it
    - `REQUIREMENTS.md` — REQ-NN one-liners with acceptance hints. **Show to user for confirmation before the roadmap** (skip confirmation in `--auto`).
    - `ROADMAP.md` — 3–6 phases; each: name, one-line goal, REQ-IDs. Every REQ-ID in exactly one phase; each phase independently verifiable.
    - `STATE.md` — Position: phase 1 of N, status planning, Next: `/flow-plan 1`.
-   - `config.json` — `{"mode":"interactive","commit_docs":true,"deploy":{"tool":"aspire+azd"}}` (`--auto` → `"mode":"auto"`).
+   - `config.json` — `{"mode":"interactive","commit_docs":true,"deploy":{"tool":"aspire+azd"},"git":{"base":"<dev|main>","origin":"origin","upstream":"<upstream|null>","branch":"flow/<slug>"}}` (`--auto` → `"mode":"auto"`).
 
-5. **Commit** (if commit_docs): `chore(flow): initialize project`. Print the roadmap table, then the autonomy recipes:
+5. **Commit** (if commit_docs): `chore(flow): initialize project` on the feature branch, then `git push -u origin <branch>`. Print the roadmap table, then the autonomy recipes:
    - Drive to completion: `/goal FLOW says DONE or GATE, or stop after 40 turns` then `/flow-next`
    - Background cadence: `/loop /flow-next`
    If the user indicated they'll drive autonomously, set `"mode":"auto"` in config.json.

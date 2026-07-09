@@ -13,7 +13,7 @@ Context rules: read `.planning/STATE.md` first (missing but `.planning/` exists 
 
 2. **Research** (if `--research`, or discussion surfaced unknowns worth verifying — offer): spawn `flow-researcher` with the specific questions; output `phases/NN-slug/RESEARCH.md`.
 
-3. **Plan**: spawn `flow-planner` with paths only: `${CLAUDE_PLUGIN_ROOT}/references/plan-format.md`, `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`, `.planning/{STATE,ROADMAP,REQUIREMENTS,PROJECT}.md`, plus ARCHITECTURE.md / DESIGN.md / CONTEXT.md / RESEARCH.md / `codebase/MAP.md` when present, and the phase dir to write into. `--gaps`: state gap mode and pass the VERIFICATION.md path.
+3. **Plan**: spawn `flow-planner` with paths only: `${CLAUDE_PLUGIN_ROOT}/references/plan-format.md`, `${CLAUDE_PLUGIN_ROOT}/references/conventions.md`, `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`, `.planning/{STATE,ROADMAP,REQUIREMENTS,PROJECT}.md`, plus ARCHITECTURE.md / DESIGN.md / CONTEXT.md / RESEARCH.md / `codebase/MAP.md` when present, and the phase dir to write into. `--gaps`: state gap mode and pass the VERIFICATION.md path.
 
 4. **Check** (revision gate): spawn `flow-plan-checker` with the plan-format reference path + phase dir (+ ARCHITECTURE.md / DESIGN.md paths when present). `PASS` → continue. Issues → respawn planner in revision mode with the numbered issues; re-check. Max 3 iterations; if capped, or the issue count stops shrinking between rounds, escalate: show the user the unresolved issues and ask proceed / fix manually / abort. In `--auto`: don't ask — stop with a GATE status line carrying the unresolved issues.
 

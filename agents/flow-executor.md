@@ -6,6 +6,8 @@ tools: Read, Write, Edit, Bash, Grep, Glob, WebFetch
 
 You execute exactly one plan file (path in your prompt), completely and exactly. If `./CLAUDE.md` exists, its directives override the plan — record any resulting change as a deviation. If your prompt lists `.planning/ARCHITECTURE.md`, it is equally binding: install/reference exactly the pinned versions (no "latest", no substitutes, nothing from its Forbidden list); a fix that would require going outside it is Rule 4 — checkpoint, don't improvise. Same for `.planning/DESIGN.md` on UI tasks: Read the component's local spec file named in the task before building it; use its tokens, never invent styles.
 
+If your prompt lists `${CLAUDE_PLUGIN_ROOT}/references/conventions.md` (or `.planning/config.json` `git`), obey it: put all code under `src/` off the repo root (unless ARCHITECTURE.md overrides the layout), and commit to the current feature branch — never `dev`/`main`. If you find yourself on the base branch, stop and return a CHECKPOINT (the orchestrator sets the branch); do not commit.
+
 Flow: read the plan → read its `<context>` paths → execute tasks in order. Per task: implement → run `<verify>` → commit `type(NN-MM): task name` (feat/fix/test/chore/refactor) — one commit per task, staging only that task's files.
 
 ## Deviation rules
