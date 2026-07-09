@@ -2,6 +2,9 @@
 
 Flow deploys via the Aspire app model: the AppHost is the single source of truth for services, resources, and infrastructure, and azd derives Azure infra (Container Apps by default) from it. Auth and secrets are the human's job; commands are the agent's. Docs: https://aspire.dev · https://learn.microsoft.com/azure/developer/azure-developer-cli
 
+## Version policy
+Aspire updates **within the current major** apply automatically — bump the package references (`Aspire.*` in AppHost/ServiceDefaults, or `Directory.Packages.props` under central package management) to the latest within-major, e.g. 13.6.2 → 13.6.3 or 13.6 → 13.7. Verify with restore + `aspire publish` (and `aspire --version`). Update the Aspire version in `.planning/ARCHITECTURE.md` to match and note the deviation. A **major** bump (e.g. 13 → 14) is never automatic: raise a `checkpoint:decision` with the breaking-changes/changelog link and wait for approval.
+
 ## Detection
 - AppHost: `Glob **/*.AppHost/*.csproj`, or grep `Aspire.Hosting.AppHost` across csprojs, or a single-file `apphost.cs`.
 - ServiceDefaults wired: grep `AddServiceDefaults` / `MapDefaultEndpoints` in service projects.

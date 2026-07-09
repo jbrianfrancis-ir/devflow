@@ -40,7 +40,7 @@ Claude Code only. No installer, no Node runtime, no hooks. "Ship" is a real pipe
 
 State lives in `.planning/` (hard size caps, sections overwritten not appended — see `templates/`). Every skill reads `STATE.md` first, so any session resumes cold.
 
-**Conventions** (`references/conventions.md`): code lives under `src/` off the repo root, and every change flows through git the same way — a feature branch off `dev` (or `main`), commits pushed to `origin`, integrated by pull request against `upstream` (or the base branch when there's no separate upstream). Deploy runs from merged base code. `ARCHITECTURE.md` can override the layout; the git workflow always applies.
+**Conventions** (`references/conventions.md`): code lives under `src/` and tests under `tests/` off the repo root, and every change flows through git the same way — a feature branch off `dev` (or `main`), commits pushed to `origin`, integrated by pull request against `upstream` (or the base branch when there's no separate upstream). Deploy runs from merged base code. Aspire updates within the current major apply automatically; a major bump (e.g. 13→14) needs approval. `ARCHITECTURE.md` can override the layout; the git workflow always applies.
 
 **Architecture constraints**: `.planning/ARCHITECTURE.md` (created by `/flow-new`, or write it yourself from `templates/architecture.md`) pins your exact stack — runtime, frameworks, and library versions, patterns, Azure/Aspire resources, forbidden items. Planner, plan-checker, executor, and researcher treat it as law: plans pin the listed versions, nothing gets substituted or upgraded silently, and anything outside it surfaces as a decision checkpoint. `/flow-harden` audits for drift between the pins and reality.
 

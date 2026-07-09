@@ -8,7 +8,10 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 |------|---------|---------|
 | Runtime | {e.g. .NET} | {e.g. 9.0} |
 | Language | {e.g. C#} | {13} |
-| Orchestration | Aspire | {9.x} |
+| Orchestration | Aspire | {13.6.x} |
+<!-- Aspire: within-major updates auto-apply (13.6.2→13.6.3, 13.6→13.7); a major bump (13→14) needs approval. -->
+
+
 
 ## Frameworks & libraries
 | Library | Version | Use for |

@@ -3,7 +3,10 @@
 Base principles applied to every project unless `.planning/ARCHITECTURE.md` overrides them.
 
 ## Code layout
-All application, library, and test code lives under `src/` off the repo root. Keep config, docs, `.planning/`, CI, and tooling at the root — `src/` is for code. Planner: every task `<files>` path is under `src/`. Executor: create code there; never scatter source at the repo root. (An ecosystem with a firm different idiom may override this in ARCHITECTURE.md; absent that, use `src/`.)
+Application and library code lives under `src/` off the repo root; **tests live under `tests/`** off the repo root. Keep config, docs, `.planning/`, CI, and tooling at the root. Planner: task `<files>` paths go under `src/` for code and `tests/` for tests. Executor: create code in `src/` and tests in `tests/`; never scatter either at the repo root. (An ecosystem with a firm different idiom may override this in ARCHITECTURE.md; absent that, use `src/` and `tests/`.)
+
+## Dependency versions
+Follow `.planning/ARCHITECTURE.md` pins exactly — no `latest`, no silent upgrades — with one carve-out: **Aspire updates within the current major apply automatically** (e.g. 13.6.2 → 13.6.3, 13.6 → 13.7). A **major** Aspire bump (e.g. 13 → 14) requires user approval — raise a `checkpoint:decision`. When you auto-apply an Aspire within-major update, bump the version in ARCHITECTURE.md to match and log it as a deviation. Mechanics in `aspire.md`.
 
 ## Git workflow — branch → origin → PR upstream
 - **Base branch**: `dev` if it exists (locally or on a remote), else `main`. Resolved once at `/flow-new` and recorded in `.planning/config.json` under `git`.
