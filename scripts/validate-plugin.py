@@ -47,12 +47,17 @@ def frontmatter(path):
     return fm
 
 
-# 1. plugin.json
+# 1. plugin.json — metadata only; skills/ and agents/ auto-discover from plugin root.
+# A directory string in `agents` is rejected by Claude Code ("agents: Invalid input"),
+# and re-declaring `skills: ./skills/` double-scans the default — so neither should be set here.
 plugin = load_json(".claude-plugin/plugin.json")
 if plugin:
-    for k in ("name", "version", "description", "skills", "agents"):
+    for k in ("name", "version", "description"):
         if k not in plugin:
             err(f"plugin.json: missing key '{k}'")
+    if plugin.get("agents") == "./agents/" or plugin.get("skills") == "./skills/":
+        err("plugin.json: drop 'skills'/'agents' dir strings — those dirs auto-discover; "
+            "a directory in 'agents' is rejected by Claude Code")
 
 # 2. marketplace.json
 mkt = load_json(".claude-plugin/marketplace.json")

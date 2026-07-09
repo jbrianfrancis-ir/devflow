@@ -8,7 +8,5 @@
     "url": "https://github.com/jbrianfrancis-ir"
   },
   "license": "MIT",
-  "keywords": ["spec-driven-development", "planning", "workflow", "autonomous", "aspire", "azure", "design-system"],
-  "skills": "./skills/",
-  "agents": "./agents/"
+  "keywords": ["spec-driven-development", "planning", "workflow", "autonomous", "aspire", "azure", "design-system"]
 }
