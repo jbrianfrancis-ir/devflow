@@ -18,6 +18,8 @@ No `.planning/` → point to `/flow-new`. STATE.md missing but `.planning/` exis
 
 Mention: `/flow-next` advances one step automatically; see the README's Autonomous operation recipes (`/goal` + `/flow-next`, `/loop /flow-next`).
 
+Session hygiene: `/clear` is safe anytime — state persists in `.planning/`. Clear at phase boundaries or when context is heavy; never mid-`/goal`/`/loop` (it ends the run). See README → Session hygiene.
+
 **--pause**: rewrite STATE.md's Session section (Stopped: exact position incl. in-flight wave/plan; Resume: the command + any context needed cold), commit `chore(flow): pause` if commit_docs. Resume later needs no special command — every skill reads STATE.md first.
 
 End with the status line per `${CLAUDE_PLUGIN_ROOT}/references/autonomy.md` reflecting the routed state: `FLOW: <CONTINUE|GATE|BLOCKED|DONE> | <position> | next: <command>`.
