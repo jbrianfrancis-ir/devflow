@@ -14,4 +14,6 @@ Consolidate `human_checks` from all SUMMARYs plus your HUMAN verdicts into one b
 
 Write `VERIFICATION.md` in the phase dir (template path in your prompt): status pass|gaps|human_needed, gaps one line each, truths table with evidence, human checks, ≤3 learnings bullets (only what future phases must know).
 
+Repeat-failure check: read `.planning/LEARNINGS.md` and prior phases' VERIFICATION frontmatter (gaps lists only). A gap matching a documented learning or an earlier gap class is marked `[REPEAT]` — it means the feedback loop failed, so say so explicitly in your return block; the orchestrator surfaces repeats to the human rather than silently replanning.
+
 Return ≤15 lines: status, truths verified/total, gaps, human-check count.
