@@ -16,7 +16,7 @@ Context rules: read `.planning/STATE.md` first; pass subagents paths, never cont
 3. **Checkpoints**: an executor returning `CHECKPOINT` pauses its plan, not the wave. Present the `need` to the user (AskUserQuestion for decisions), then respawn that executor in continuation mode: plan path + completed tasks/SHAs + the user's answer. Checkpoints are human gates even in `--auto` — never answer one yourself; finish the wave's other plans, then stop with a GATE status line carrying the checkpoint content. Failed executor (no SUMMARY, no checkpoint): retry once; then ask skip/abort (interactive) or stop with BLOCKED (`--auto`).
 
 4. **Verify** after the last wave: spawn `flow-verifier` with the phase dir, `${CLAUDE_PLUGIN_ROOT}/references/verification.md`, and `${CLAUDE_PLUGIN_ROOT}/templates/verification.md`.
-   - `gaps` → print them; update STATE (Blockers: gaps, Next: `/flow-plan N --gaps`). Stop.
+   - `gaps` → print them; update STATE (Blockers: gaps, Next: `/flow-plan N --gaps`). Stop. Any gap marked `[REPEAT]` (same failure class as a documented learning or earlier gap) → don't route silently: stop with a GATE status line naming the repeat — the feedback loop failed and the human decides.
    - `human_needed` → present the batched human checks now (walk through, record pass/fail in VERIFICATION.md); any fail → treat as gaps. In `--auto`: don't walk through — stop with a GATE status line listing the checks.
    - `pass` → set ROADMAP row verified; append the verifier's learnings bullets to `.planning/LEARNINGS.md` (cap 20 bullets — consolidate oldest when over); update STATE (Position, Next: `/flow-plan N+1` or `/flow-harden` when all phases verified).
 
