@@ -11,6 +11,8 @@ Claude Code only. No installer, no Node runtime, no hooks. "Ship" is a real pipe
 /plugin install devflow@devflow
 ```
 
+DevFlow projects are **self-bootstrapping**: `/flow-new` and `/flow-migrate` write a `.claude/settings.json` declaring this marketplace + plugin, so any session opening the repo — including Claude Code on the web, where fresh containers don't carry your locally installed plugins — installs DevFlow at session start (desktop shows a one-time trust prompt).
+
 ## Commands
 
 | Loop | Command | Does |

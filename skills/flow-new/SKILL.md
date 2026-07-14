@@ -25,6 +25,7 @@ Context rules (all flow skills): read `.planning/STATE.md` before acting when it
    - `ROADMAP.md` — 3–6 phases; each: name, one-line goal, REQ-IDs. Every REQ-ID in exactly one phase; each phase independently verifiable.
    - `STATE.md` — Position: phase 1 of N, status planning, Next: `/flow-plan 1`.
    - `config.json` — `{"mode":"interactive","commit_docs":true,"deploy":{"tool":"aspire+azd"},"git":{"base":"<dev|main>","origin":"origin","upstream":"<upstream|null>","branch":"flow/<slug>"}}` (`--auto` → `"mode":"auto"`).
+   - `.claude/settings.json` (repo root) — the plugin self-bootstrap block from conventions.md (Plugin self-bootstrap section), so cloud/fresh sessions install DevFlow automatically. Merge into an existing file, never overwrite.
 
 5. **Commit** (if commit_docs): `chore(flow): initialize project` on the feature branch, then `git push -u origin <branch>`. Print the roadmap table, then the autonomy recipes:
    - Drive to completion: `/goal FLOW says DONE or GATE, or stop after 40 turns` then `/flow-next`
