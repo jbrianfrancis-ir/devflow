@@ -56,6 +56,13 @@ Every skill ends with a machine-checkable status line — `FLOW: CONTINUE|GATE|B
 
 Human gates that never auto-proceed: checkpoint decisions/human-actions (incl. package legitimacy), PRs to upstream, UAT acceptance + sign-off, production confirmation, tag pushes. Cost note: `/goal` turns and `/loop` iterations accumulate context in one session — small STATE.md and one-step-per-turn keep each cheap, but start a fresh session for each milestone-sized run.
 
+## Session hygiene (`/clear`)
+
+Unlike GSD, DevFlow does **not** need a `/clear` between every step. Each command loads ~1–5k tokens (not 20–26k), the heavy work runs in fresh-context subagents, and all state persists in `.planning/` — so a fresh session resumes cold (every skill reads `STATE.md` first). Clearing is a cheap convenience, not a requirement.
+
+- **Driving manually**: `/clear` at phase boundaries, or when `/context` looks heavy — not between plan → execute → verify of the same phase. After a clear, run `/flow-status` to re-orient (or just run the next `/flow-` command; they self-orient).
+- **Autonomous (`/goal`, `/loop`)**: do **not** `/clear` mid-run — it kills the goal/loop and its accumulated context. Let it reach a `GATE`/`DONE`, then `/clear` and start the next run. One autonomous run ≈ one phase or milestone.
+
 ## Acknowledgements
 
 DevFlow's phase-loop discipline is derived in concept from [GSD Core](https://github.com/open-gsd/gsd-core) (MIT). It is an independent, ground-up reimplementation — no GSD source files are included; the behavioral contracts were rebuilt in a compressed, Claude-Code-only form. See `NOTICE`.
