@@ -16,6 +16,7 @@ Claude Code only. No installer, no Node runtime, no hooks. "Ship" is a real pipe
 | Loop | Command | Does |
 |------|---------|------|
 | core | `/flow-new` | Initialize project (greenfield or existing repo) → requirements, roadmap, state |
+| core | `/flow-migrate` | Convert a GSD project to DevFlow — history archived, context distilled, position preserved |
 | core | `/flow-plan N` | Discuss decisions, optional research, write + check plans (`--auto`, `--gaps`, `--research`) |
 | core | `/flow-execute N` | Run plans in parallel waves via executor subagents, then verify |
 | core | `/flow-verify N` | Re-verify a phase; walk through batched human checks |
