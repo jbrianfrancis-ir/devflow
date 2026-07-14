@@ -21,3 +21,15 @@ Follow `.planning/ARCHITECTURE.md` pins exactly — no `latest`, no silent upgra
 "git": { "base": "dev", "origin": "origin", "upstream": "upstream", "branch": "flow/<slug>" }
 ```
 `upstream` is `null` when there is no separate canonical remote.
+
+## Plugin self-bootstrap (cloud-ready projects)
+Every DevFlow project carries its own plugin declaration so any session — Claude Code on the web, a fresh container, a teammate's machine — gets DevFlow at session start. `/flow-new` and `/flow-migrate` write `.claude/settings.json` at the repo root with exactly:
+```json
+{
+  "extraKnownMarketplaces": {
+    "devflow": { "source": { "source": "github", "repo": "jbrianfrancis-ir/devflow" } }
+  },
+  "enabledPlugins": { "devflow@devflow": true }
+}
+```
+If `.claude/settings.json` already exists, **merge** these two keys into it — never overwrite other settings, and never remove marketplaces/plugins the project already declares.

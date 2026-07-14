@@ -21,6 +21,7 @@ Read by /flow-migrate and the flow-migrator agent. Source: a GSD (open-gsd/gsd-c
 | Anything unrecognized | archive | List in the migration report |
 
 ## New files GSD lacks (created during migration)
+- **`.claude/settings.json`** — the plugin self-bootstrap block (see conventions.md), so every future session — cloud included — installs DevFlow at start. Merged, never overwritten.
 - **`ARCHITECTURE.md`** — the human's constraints file. Draft from manifests + GSD PROJECT/config, but the human confirms/edits before it becomes binding (versions especially).
 - **`DESIGN.md`** — only via `/flow-design` if the project has a UI and a Claude Design system.
 - **`deploy/PIPELINE.md`** — not created at migration; `/flow-harden` initializes it.
