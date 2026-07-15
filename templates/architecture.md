@@ -30,6 +30,8 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 | Var / parameter | Source | Used by |
 |-----------------|--------|---------|
 | {e.g. POSTGRES_PASSWORD} | {azd parameter (secret) / Key Vault / .env.example (local) / CI secret} | {service} |
+
+**Fail fast — no fallback values.** Every setting/env var here is required unless marked `(optional, default: X)`. Code must not silently default a required value (`?? "..."`, `os.environ.get(k, default)`, `GetValueOrDefault`, empty-string coalescing) — validate at startup and fail immediately with an error naming the missing key (e.g. options validation / `ValidateOnStart`).
 <!-- Discovery never opens .env* files: names come from code accessors and .env.example.
 /flow-harden audits code references against this list; values live in azd/Key Vault, never the repo. -->
 

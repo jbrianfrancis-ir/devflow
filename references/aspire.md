@@ -39,6 +39,7 @@ Parameters, not literals: `builder.AddParameter("name", secret: true)` in the Ap
 - [ ] ServiceDefaults in every service: health endpoints (`/health`, `/alive`), OpenTelemetry, HTTP resilience
 - [ ] No secrets or environment-specific literals in code/config — parameters/Key Vault; no hardcoded localhost URLs outside the AppHost
 - [ ] Every env var / parameter name referenced in code appears in ARCHITECTURE.md's Environment section (names only, provisioning source recorded); the secret scan (`conventions.md`) over the branch diff is clean
+- [ ] No silent fallbacks on required settings (`?? "..."`, `os.environ.get(k, default)`, `GetValueOrDefault`) — required values fail fast at startup naming the missing key; defaults only on settings the Environment section marks optional
 - [ ] `aspire publish` succeeds
 - [ ] Telemetry has a destination in cloud (Application Insights / OTLP endpoint), not just the local dashboard
 - [ ] Tests pass; CI (if present) runs build + tests
