@@ -18,16 +18,17 @@ Context rules (all flow skills): read `.planning/STATE.md` before acting when it
 3. **Research** (only if `--research`, the user asks, or the domain has real unknowns — offer, don't assume): spawn `flow-researcher` with the 2–4 questions that block roadmap decisions; output `.planning/research/RESEARCH.md`.
 
 4. **Write** from templates at `${CLAUDE_PLUGIN_ROOT}/templates/` (architecture.md, project.md, requirements.md, roadmap.md, state.md):
-   - `ARCHITECTURE.md` — the user's exact stack: runtime/frameworks/libraries **with versions**, patterns, Azure/Aspire resources, forbidden items. If they provided a spec (file or description), transcribe it faithfully; otherwise ask for it directly (most users have one) — only offer to draft it from MAP.md/research if they truly don't. These are hard constraints on every agent; show it for confirmation before continuing.
+   - `ARCHITECTURE.md` — the user's exact stack: runtime/frameworks/libraries **with versions**, patterns, Azure/Aspire resources, forbidden items, and the Environment section — env-var/parameter NAMES + provisioning source (never values), from the mapper digest, code accessors, and `.env.example` (never open `.env` files). If they provided a spec (file or description), transcribe it faithfully; otherwise ask for it directly (most users have one) — only offer to draft it from MAP.md/research if they truly don't. These are hard constraints on every agent; show it for confirmation before continuing.
    - `DESIGN.md` — if the project has a UI, ask whether to link a Claude Design (claude.ai/design) design system now: yes → run the `/flow-design` flow (Skill tool) after init; no design system → skip, note "none" in config.
    - `PROJECT.md` — what, core value, out of scope, D-NN decisions from Q&A.
    - `REQUIREMENTS.md` — REQ-NN one-liners with acceptance hints. **Show to user for confirmation before the roadmap** (skip confirmation in `--auto`).
    - `ROADMAP.md` — 3–6 phases; each: name, one-line goal, REQ-IDs. Every REQ-ID in exactly one phase; each phase independently verifiable.
    - `STATE.md` — Position: phase 1 of N, status planning, Next: `/flow-plan 1`.
    - `config.json` — `{"mode":"interactive","commit_docs":true,"deploy":{"tool":"aspire+azd"},"git":{"base":"<dev|main>","origin":"origin","upstream":"<upstream|null>","branch":"flow/<slug>"}}` (`--auto` → `"mode":"auto"`).
+   - `JOURNAL.md` — from `${CLAUDE_PLUGIN_ROOT}/templates/journal.md`, one init line.
    - `.claude/settings.json` (repo root) — the plugin self-bootstrap block from conventions.md (Plugin self-bootstrap section), so cloud/fresh sessions install DevFlow automatically. Merge into an existing file, never overwrite.
 
-5. **Commit** (if commit_docs): `chore(flow): initialize project` on the feature branch, then `git push -u origin <branch>`. Print the roadmap table, then the autonomy recipes:
+5. **Commit** (if commit_docs): `chore(flow): initialize project` on the feature branch, then `git push -u origin <branch>` (the push canary — an auth failure is a GATE per conventions.md Credential modes, not a retry loop). Print the roadmap table, then the autonomy recipes:
    - Drive to completion: `/goal FLOW says DONE or GATE, or stop after 40 turns` then `/flow-next`
    - Background cadence: `/loop /flow-next`
    If the user indicated they'll drive autonomously, set `"mode":"auto"` in config.json.

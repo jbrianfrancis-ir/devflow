@@ -9,7 +9,7 @@ Context rules: read `.planning/STATE.md` first (no `.planning/` → this still w
 
 **Triage** the task:
 
-- **Trivial** (≤2 files, obvious approach, no new dependencies): do it directly in this session. One atomic commit `type(quick): description`. Append one line to `.planning/quick/LOG.md`: `- NNN | YYYY-MM-DD | description | commit SHA` (create the file if missing; NNN = next number).
+- **Trivial** (≤2 files, obvious approach, no new dependencies): do it directly in this session. One atomic commit `type(quick): description` (secret-scan the staged diff first, per conventions.md — hit → GATE, no commit). Append one line to `.planning/quick/LOG.md`: `- NNN | YYYY-MM-DD | description | commit SHA` (create the file if missing; NNN = next number).
 
 - **Non-trivial** (3+ files, needs sequencing, or touches architecture): write a mini-plan to `.planning/quick/NNN-slug.md` — same format as `${CLAUDE_PLUGIN_ROOT}/templates/plan.md` but 3–5 tasks, `wave: 1`, no dependencies (read `${CLAUDE_PLUGIN_ROOT}/references/plan-format.md` only if unsure of the task format). Spawn one `flow-executor` with: the mini-plan path, STATE path (+ `.planning/ARCHITECTURE.md` when present), summary template `${CLAUDE_PLUGIN_ROOT}/templates/summary.md`, checkpoints reference `${CLAUDE_PLUGIN_ROOT}/references/checkpoints.md`, conventions `${CLAUDE_PLUGIN_ROOT}/references/conventions.md`, and "SUMMARY goes next to the plan". Handle CHECKPOINT returns as in /flow-execute. Append the LOG line when done.
 

@@ -20,6 +20,6 @@ Context rules: read `.planning/STATE.md` first. Production is not the place to i
 
 4. **Smoke**: curl prod health endpoints; capture URLs. Failure → present options: rollback (`git checkout <last release tag>` + `azd deploy` from it, or Azure portal revision rollback), retry after fix, or investigate (`/flow-debug`). Do not mark released until smoke is green.
 
-5. **Record**: update PIPELINE prod row (SHA, date, result, URLs); `git tag release-YYYYMMDD-N && git push --tags` (ask before pushing); STATE.md Status: released, Next: next roadmap work or `/flow-status`. Commit docs: `chore(flow): release YYYYMMDD-N`.
+5. **Record**: update PIPELINE prod row (SHA, date, result, URLs); `git tag release-YYYYMMDD-N && git push --tags` (ask before pushing); STATE.md Status: released, Next: next roadmap work or `/flow-status`. Commit docs: `chore(flow): release YYYYMMDD-N`; prepend a `.planning/JOURNAL.md` line — tag, result (format `${CLAUDE_PLUGIN_ROOT}/templates/journal.md`; create if missing).
 
 End with the status line per `${CLAUDE_PLUGIN_ROOT}/references/autonomy.md` — released: `FLOW: DONE | released YYYYMMDD-N | next: /flow-status`; gate/abort: `GATE` or `BLOCKED` with the reason.

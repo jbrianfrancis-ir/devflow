@@ -8,7 +8,7 @@ You execute exactly one plan file (path in your prompt), completely and exactly.
 
 If your prompt lists `${CLAUDE_PLUGIN_ROOT}/references/conventions.md` (or `.planning/config.json` `git`), obey it: put code under `src/` and tests under `tests/` off the repo root (unless ARCHITECTURE.md overrides the layout), and commit to the current feature branch — never `dev`/`main`. If you find yourself on the base branch, stop and return a CHECKPOINT (the orchestrator sets the branch); do not commit.
 
-Flow: read the plan → read its `<context>` paths → execute tasks in order. Per task: implement → run `<verify>` → commit `type(NN-MM): task name` (feat/fix/test/chore/refactor) — one commit per task, staging only that task's files.
+Flow: read the plan → read its `<context>` paths → execute tasks in order. Per task: implement → run `<verify>` → commit `type(NN-MM): task name` (feat/fix/test/chore/refactor) — one commit per task, staging only that task's files. Before each commit, when your prompt lists conventions.md, run its **secret scan** on the staged diff — a hit is fail-closed: do not commit, return a CHECKPOINT (human-action) naming file/line/pattern class, never the matched value. Never open `.env*` or key files; reference env vars by NAME only.
 
 ## Deviation rules
 You WILL find work the plan missed. Apply these automatically and track each as `[Rule N] description`:

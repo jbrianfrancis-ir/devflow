@@ -22,6 +22,22 @@ Follow `.planning/ARCHITECTURE.md` pins exactly — no `latest`, no silent upgra
 ```
 `upstream` is `null` when there is no separate canonical remote.
 
+## Secret scan (fail-closed)
+Run before **every commit** on the staged diff (`git diff --cached -U0`) and before **every push** on the outgoing diff (`git diff <base>...HEAD -U0`). One canonical check — write this pattern to a temp file (avoids shell-quoting errors) and `grep -inEf <pattern-file>` the diff's added lines:
+```
+-----BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|eyJhbGciOi[A-Za-z0-9_-]{20,}|(password|passwd|secret|token|api[_-]?key|connection[_-]?string)["' ]*[=:] *["'][^"']{8,}["']|(password|passwd|secret|token|api[_-]?key|connection[_-]?string)["' ]*[=:] *[A-Za-z0-9+/=_-]{16,} *$
+```
+(Assignment branches require a quoted literal or a long bare token — `os.environ["API_KEY"]`-style accessors and `${VAR}` references don't hit.)
+Additionally, any **added** line in `.env*` (except `.env.example`/`.env.template`), `*.pem`, `*.pfx`, `*.key`, or `id_rsa*` is a hit regardless of content. On a hit: report file + line + pattern class only — **never echo the matched value** — and do not commit or push. Executor → `CHECKPOINT` (human-action); orchestrating skill → `FLOW: GATE | secret-scan hit in <file> | next: remove/rotate the credential, then rerun`. Only a human clears a hit (including false positives) — fail closed even in `--auto` mode and under `/goal`//`/loop`.
+
+## Credential modes & push canary
+- **Default rail**: the session's platform-provided git credentials (Claude Code's GitHub rail in cloud sessions; local `gh auth`). Sufficient for the whole DevFlow workflow; the set of repos granted to the session is the security boundary.
+- **Push canary**: the first `git push -u origin <branch>` (at `/flow-new`) is the only real credential test. If it fails with an auth error → `FLOW: GATE` with fix instructions (grant the repo to the session, or `gh auth login`) — never a retry loop. Network errors (not auth) may retry with backoff.
+- **Token mode** (pushing beyond the session's grant, e.g. a context repo): the token arrives as an environment variable only — never echoed, never written to any file, never committed, never placed in git config that gets committed.
+
+## Session journal (`.planning/JOURNAL.md`)
+One line per completed state-changing skill run, **newest first** — format in `templates/journal.md`. Cap 2KB (~25 lines): when over, rewrite dropping the oldest lines. Create the file on first write; its absence is always fine (pre-existing projects keep working). Read by `/flow-status` (top line = last activity) and indexable by BlitzOS-style context repos as session entries (see `docs/blitzos.md`).
+
 ## Plugin self-bootstrap (cloud-ready projects)
 Every DevFlow project carries its own plugin declaration so any session — Claude Code on the web, a fresh container, a teammate's machine — gets DevFlow at session start. `/flow-new` and `/flow-migrate` write `.claude/settings.json` at the repo root with exactly:
 ```json
@@ -32,4 +48,4 @@ Every DevFlow project carries its own plugin declaration so any session — Clau
   "enabledPlugins": { "devflow@devflow": true }
 }
 ```
-If `.claude/settings.json` already exists, **merge** these two keys into it — never overwrite other settings, and never remove marketplaces/plugins the project already declares.
+If `.claude/settings.json` already exists, **merge** these two keys into it — never overwrite other settings, and never remove marketplaces/plugins the project already declares. Context repos (BlitzOS-style) that aggregate DevFlow projects declare the same marketplace block in their own `.claude/settings.json` — contract in `docs/blitzos.md`.

@@ -2,7 +2,7 @@
 
 Three types:
 - **decision** — the user must choose between approaches. Present options + trade-offs. Blocks execution.
-- **human-action** — the user must do something the agent can't: create an account, set a secret, click a console, verify a suspicious package. Give exact steps. Blocks execution.
+- **human-action** — the user must do something the agent can't: create an account, set a secret, click a console, verify a suspicious package, clear a secret-scan hit. Give exact steps. Blocks execution.
 - **human-verify** — the user confirms built behavior works. NOT blocking mid-execution: batch to end of phase. Executors record these in SUMMARY frontmatter `human_checks`; the verifier consolidates them into one list in VERIFICATION.md. (Every mid-flight stop costs a full executor cold-start — only block for the first two types.)
 
 ## Executor checkpoint protocol

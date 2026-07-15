@@ -7,7 +7,7 @@ description: Show where the project is and what to run next; --pause records a c
 
 No `.planning/` → point to `/flow-new`. STATE.md missing but `.planning/` exists → offer reconstruction (ROADMAP statuses + newest SUMMARY frontmatter → rewrite STATE.md from `${CLAUDE_PLUGIN_ROOT}/templates/state.md`).
 
-**Default**: read STATE.md + ROADMAP.md (table only). Print: position (phase, plans done, status), blockers, open TODO count (`.planning/TODOS.md`), last activity, and the next command by this routing:
+**Default**: read STATE.md + ROADMAP.md (table only). Print: position (phase, plans done, status), blockers, open TODO count (`.planning/TODOS.md`), last activity (STATE `Last:` plus the top line of `.planning/JOURNAL.md` when present), and the next command by this routing:
 - current phase has no plans → `/flow-plan N`
 - plans exist, not all SUMMARYs → `/flow-execute N`
 - VERIFICATION has gaps → `/flow-plan N --gaps`

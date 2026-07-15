@@ -7,7 +7,7 @@ description: Build or refresh codebase memory (MAP.md), distill docs (--docs pat
 
 Context rules: read `.planning/STATE.md` first if present; the mapper works in its own context — don't re-explore here.
 
-**Default** (also with `--refresh` of the map): spawn `flow-mapper` with: template path `${CLAUDE_PLUGIN_ROOT}/templates/codebase-map.md`, output `.planning/codebase/MAP.md` (cap 6KB, overwrite whole file). Print its ≤10-line digest. Note the map date in STATE.md's Last line.
+**Default** (also with `--refresh` of the map): spawn `flow-mapper` with: template path `${CLAUDE_PLUGIN_ROOT}/templates/codebase-map.md`, output `.planning/codebase/MAP.md` (cap 6KB, overwrite whole file; includes Env vars and Related repos sections — names only, omitted when empty). Print its ≤10-line digest. Note the map date in STATE.md's Last line.
 
 **--docs `<path>`**: spawn `flow-mapper` in docs mode with the doc path(s); output `.planning/codebase/DOCS.md` (cap 3KB digest with pointers — never wholesale copies).
 
