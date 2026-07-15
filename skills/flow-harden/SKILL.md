@@ -13,7 +13,7 @@ Context rules: read `.planning/STATE.md` first; paths not contents.
 
 2. **AppHost gate**: detect the Aspire AppHost and CLIs per the reference. No AppHost → the first hardening task is creating one that models every existing service and external resource (per the reference), gated by `aspire run` working locally. Missing CLIs → give the user the install pointers and stop.
 
-3. **Audit** (read-only, this session): walk the hardening checklist against the codebase. If `.planning/ARCHITECTURE.md` exists, also diff it against reality (manifest versions, libraries in use, forbidden items) — drift is a finding. Check Aspire against the latest within its current major (per `aspire.md` Version policy): an available within-major update becomes a hardening task applied automatically; a *major* bump (e.g. 13→14) is a `checkpoint:decision`, not an auto-fix. Run `aspire publish` as the build gate. Record each finding as: what, where, why it blocks production.
+3. **Audit** (read-only, this session): walk the hardening checklist against the codebase. If `.planning/ARCHITECTURE.md` exists, also diff it against reality (manifest versions, libraries in use, forbidden items) — drift is a finding. Check Aspire against the latest within its current major (per `aspire.md` Version policy): an available within-major update becomes a hardening task applied automatically; a *major* bump (e.g. 13→14) is a `checkpoint:decision`, not an auto-fix. Run `aspire publish` as the build gate. **Environment audit**: collect env/parameter names referenced in code (accessor greps per the mapper's list; never open `.env*`) and diff against ARCHITECTURE.md's Environment section — unlisted names, or any credential value found in the repo, are findings; also run the conventions.md secret scan over `git diff <base>...HEAD`. Record each finding as: what, where, why it blocks production.
 
 4. **Fix**: no findings → skip to 5. Otherwise write the findings as a standard plan (spawn `flow-planner` with the findings, gap-mode style: smallest change per finding; phase dir `.planning/phases/H1-hardening/`), then spawn `flow-executor` per plan and `flow-verifier` after — same contracts as /flow-execute (templates and references from `${CLAUDE_PLUGIN_ROOT}` as usual). Re-run `aspire publish` to confirm green.
 
@@ -25,7 +25,7 @@ Context rules: read `.planning/STATE.md` first; paths not contents.
    | uat | — | no | — | — | — |
    | prod | — | no | — | — | — |
    ```
-   Update STATE.md (Status: hardened, Next: `/flow-pr` — integrate before deploying). Commit `chore(flow): hardening pass` on the feature branch and `git push origin <branch>`. Repeat runs are cheap — re-audit and report "already hardened" when clean.
+   Update STATE.md (Status: hardened, Next: `/flow-pr` — integrate before deploying). Commit `chore(flow): hardening pass` on the feature branch, prepend a `.planning/JOURNAL.md` line (format `${CLAUDE_PLUGIN_ROOT}/templates/journal.md`; create if missing), and `git push origin <branch>`. Repeat runs are cheap — re-audit and report "already hardened" when clean.
 
 Hardening fixes are code, so they land on the feature branch like any other work and reach base via `/flow-pr`; deploy (`/flow-uat`, `/flow-release`) runs from merged base code.
 

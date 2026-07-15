@@ -20,6 +20,6 @@ Context rules: read `.planning/STATE.md` first; pass subagents paths, never cont
    - `human_needed` → present the batched human checks now (walk through, record pass/fail in VERIFICATION.md); any fail → treat as gaps. In `--auto`: don't walk through — stop with a GATE status line listing the checks.
    - `pass` → set ROADMAP row verified; append the verifier's learnings bullets to `.planning/LEARNINGS.md` (cap 20 bullets — consolidate oldest when over); update STATE (Position, Next: `/flow-plan N+1` or `/flow-harden` when all phases verified).
 
-5. **Close**: commit docs (if commit_docs): `chore(flow): phase NN executed + verified`, then `git push origin <branch>` (origin mirrors the feature branch). Print: plans done, commits, deviations flagged, verification status.
+5. **Close**: commit docs (if commit_docs): `chore(flow): phase NN executed + verified`; prepend a `.planning/JOURNAL.md` line (format `${CLAUDE_PLUGIN_ROOT}/templates/journal.md`; create if missing); secret-scan the outgoing diff (`git diff <base>...HEAD`, per conventions.md — a hit means no push, GATE status line); then `git push origin <branch>` (origin mirrors the feature branch). Print: plans done, commits, deviations flagged, verification status.
 
 End with the status line per `${CLAUDE_PLUGIN_ROOT}/references/autonomy.md` — pass: `FLOW: CONTINUE | phase N verified | next: {/flow-plan N+1 or /flow-harden}`; gaps: `CONTINUE` toward `--gaps`; checkpoint/human checks pending: `GATE`; unrecoverable: `BLOCKED`.

@@ -23,6 +23,6 @@ Context rules: read `.planning/STATE.md` first. Auth and secrets are the human's
 
 After a successful deploy, offer the monitoring recipe: `/loop 15m curl the UAT health endpoints and report any change`. The acceptance walkthrough and sign-off are always human-gated — never record results or write SIGNOFF.md autonomously.
 
-Commit docs: `chore(flow): uat round N`.
+Commit docs: `chore(flow): uat round N`; prepend a `.planning/JOURNAL.md` line — round, result (format `${CLAUDE_PLUGIN_ROOT}/templates/journal.md`; create if missing).
 
 End with the status line per `${CLAUDE_PLUGIN_ROOT}/references/autonomy.md` — deployed, awaiting acceptance: `FLOW: GATE | uat round N deployed, acceptance pending | next: walk UAT-PLAN.md`; signed off: `CONTINUE | next: /flow-release`; failures: `CONTINUE` toward the fix route.

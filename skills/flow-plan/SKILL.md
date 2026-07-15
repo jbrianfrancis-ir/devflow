@@ -17,6 +17,6 @@ Context rules: read `.planning/STATE.md` first (missing but `.planning/` exists 
 
 4. **Check** (revision gate): spawn `flow-plan-checker` with the plan-format reference path + phase dir (+ ARCHITECTURE.md / DESIGN.md / LEARNINGS.md paths when present). `PASS` → continue. Issues → respawn planner in revision mode with the numbered issues; re-check. Max 3 iterations; if capped, or the issue count stops shrinking between rounds, escalate: show the user the unresolved issues and ask proceed / fix manually / abort. In `--auto`: don't ask — stop with a GATE status line carrying the unresolved issues.
 
-5. **Close**: update STATE.md (Position: status ready, Next: `/flow-execute N`), set the ROADMAP row to planned. Commit (if commit_docs): `chore(flow): plan phase NN`. Print plan list (id — objective, wave).
+5. **Close**: update STATE.md (Position: status ready, Next: `/flow-execute N`), set the ROADMAP row to planned. Commit (if commit_docs): `chore(flow): plan phase NN`; prepend a `.planning/JOURNAL.md` line (format `${CLAUDE_PLUGIN_ROOT}/templates/journal.md`; create if missing). Print plan list (id — objective, wave).
 
 End with the status line per `${CLAUDE_PLUGIN_ROOT}/references/autonomy.md` — success: `FLOW: CONTINUE | phase N planned, M plans | next: /flow-execute N`; escalation: `GATE`.

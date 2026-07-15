@@ -15,6 +15,6 @@ Context rules: read `.planning/STATE.md` first; paths not contents; frontmatter-
 
 3. **Human checks**: walk the user through the batched list one item at a time (what to do, what they should see); record pass/fail in VERIFICATION.md. Failures become gaps.
 
-4. Route: gaps → STATE Blockers + `Next: /flow-plan N --gaps`; all pass → ROADMAP row verified, STATE updated (Next: next unplanned phase, or `/flow-harden` when all verified). Commit docs if commit_docs: `chore(flow): phase NN verified`.
+4. Route: gaps → STATE Blockers + `Next: /flow-plan N --gaps`; all pass → ROADMAP row verified, STATE updated (Next: next unplanned phase, or `/flow-harden` when all verified). Commit docs if commit_docs: `chore(flow): phase NN verified`; prepend a `.planning/JOURNAL.md` line (format `${CLAUDE_PLUGIN_ROOT}/templates/journal.md`; create if missing).
 
 End with the status line per `${CLAUDE_PLUGIN_ROOT}/references/autonomy.md` — pass: `FLOW: CONTINUE | phase N verified | next: {next command}`; gaps: `CONTINUE` toward `--gaps`; human checks pending: `GATE`.

@@ -19,5 +19,11 @@ mapped: {YYYY-MM-DD}
 ## Commands
 build: {cmd} | test: {cmd} | run: {cmd}   <!-- verified where safe -->
 
+## Env vars
+{NAMES only + accessor location — never values; from code accessors and .env.example. Omit section if none.}
+
+## Related repos
+- {repo/URL} — {relation: consumes API of / shares contracts / deployed together}   <!-- omit section if none -->
+
 ## Gotchas
 - {trap: generated dirs, pinned versions, unusual patterns}

@@ -26,5 +26,12 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 ## Infrastructure (Azure / Aspire resources)
 - {e.g. PostgreSQL Flexible Server via AddAzurePostgresFlexibleServer; Redis for cache; Key Vault for secrets}
 
+## Environment (names only — never values)
+| Var / parameter | Source | Used by |
+|-----------------|--------|---------|
+| {e.g. POSTGRES_PASSWORD} | {azd parameter (secret) / Key Vault / .env.example (local) / CI secret} | {service} |
+<!-- Discovery never opens .env* files: names come from code accessors and .env.example.
+/flow-harden audits code references against this list; values live in azd/Key Vault, never the repo. -->
+
 ## Forbidden
 - {libraries, patterns, or shortcuts explicitly not allowed}
