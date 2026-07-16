@@ -1,7 +1,7 @@
 {
   "name": "devflow",
   "displayName": "DevFlow",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Token-efficient spec-driven development for Claude Code: plan, execute, verify, then deploy through UAT to production with Aspire on Azure. Autonomous operation via /goal and /loop; architecture and Claude Design constraints enforced. Commands are /flow-*.",
   "author": {
     "name": "jbrianfrancis-ir",
