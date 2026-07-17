@@ -1,0 +1,45 @@
+name: release
+
+# Cuts a GitHub Release (and tag) whenever the plugin version on main is new.
+# The version string in .claude-plugin/plugin.json is the source of truth —
+# no release without a bump, no bump without a release.
+# Back-fill older versions via workflow_dispatch (version + target inputs).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 0.2.0); defaults to plugin.json's version"
+        required: false
+      target:
+        description: "Commit SHA to tag; defaults to the current main tip"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create release if version is untagged
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.version }}"
+          [ -n "$VERSION" ] || VERSION="$(jq -r .version .claude-plugin/plugin.json)"
+          TARGET="${{ inputs.target }}"
+          [ -n "$TARGET" ] || TARGET="$GITHUB_SHA"
+          if git ls-remote --exit-code origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "v$VERSION already released — nothing to do."
+            exit 0
+          fi
+          gh release create "v$VERSION" --target "$TARGET" --title "v$VERSION" --generate-notes
