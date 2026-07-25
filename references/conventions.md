@@ -23,7 +23,7 @@ Follow `.planning/ARCHITECTURE.md` pins exactly — no `latest`, no silent upgra
 `upstream` is `null` when there is no separate canonical remote.
 
 ## Secret scan (fail-closed)
-Run before **every commit** on the staged diff (`git diff --cached -U0`) and before **every push** on the outgoing diff (`git diff <base>...HEAD -U0`). One canonical check — write this pattern to a temp file (avoids shell-quoting errors) and `grep -inEf <pattern-file>` the diff's added lines:
+Run before **every commit** on the staged diff (`git diff --cached -U0`), before **every push** on the outgoing diff (`git diff <base>...HEAD -U0`), and over **every outbound consult bundle** before it leaves the machine (`/flow-oracle` — see `oracle.md`). One canonical check — write this pattern to a temp file (avoids shell-quoting errors) and `grep -inEf <pattern-file>` the diff's added lines:
 ```
 -----BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|eyJhbGciOi[A-Za-z0-9_-]{20,}|(password|passwd|secret|token|api[_-]?key|connection[_-]?string)["' ]*[=:] *["'][^"']{8,}["']|(password|passwd|secret|token|api[_-]?key|connection[_-]?string)["' ]*[=:] *[A-Za-z0-9+/=_-]{16,} *$
 ```

@@ -27,6 +27,7 @@ DevFlow projects are **self-bootstrapping**: `/flow-new` and `/flow-migrate` wri
 | auto | `/flow-next` | Advance exactly one step — the driver for `/goal` and `/loop` |
 | ad-hoc | `/flow-quick <task>` | Small task with Flow guarantees, no ceremony |
 | ad-hoc | `/flow-debug <symptom>` | Hypothesis-driven debugging with session-resumable state |
+| ad-hoc | `/flow-oracle <question>` | Second opinion from an external model — curated context bundle, `--panel` cross-check, resumable consults |
 | ad-hoc | `/flow-status` | Position + next command (`--pause` to stop cleanly) |
 | ad-hoc | `/flow-todo <idea>` | Capture without derailing |
 | memory | `/flow-map` | Codebase memory for planners/executors (`--docs`, `--refresh`) |
@@ -49,6 +50,8 @@ State lives in `.planning/` (hard size caps, sections overwritten not appended �
 
 **Architecture constraints**: `.planning/ARCHITECTURE.md` (created by `/flow-new`, or write it yourself from `templates/architecture.md`) pins your exact stack — runtime, frameworks, and library versions, patterns, Azure/Aspire resources, forbidden items. Planner, plan-checker, executor, and researcher treat it as law: plans pin the listed versions, nothing gets substituted or upgraded silently, and anything outside it surfaces as a decision checkpoint. `/flow-harden` audits for drift between the pins and reality.
 
+**Second opinions** (`/flow-oracle`): when you're stuck or facing a high-stakes decision, ask an external frontier model — concepts from [steipete/oracle](https://github.com/steipete/oracle). The skill packs the question + only the files that change the answer into a context bundle, runs it through the best available engine (the `oracle` CLI or MCP server when installed; otherwise a render-and-copy bundle you paste into any chat UI — no install required), and distills the reply into a ≤10-line advisory verdict. `--panel` cross-checks 2–3 models; `--followup` chains onto a prior consult's session. Consults persist in `.planning/consults/` (resumable, with lineage), and DevFlow's rules still apply: the fail-closed secret scan runs over every outbound bundle, every send is a human gate, and advice conflicting with ARCHITECTURE.md pins surfaces as a decision checkpoint — never adopted silently. `/flow-debug` (when hypotheses run dry), `/flow-plan` (checker escalation), and `/flow-harden` (ambiguous findings) offer it at their stuck points.
+
 **Design constraints**: `/flow-design` links a [Claude Design](https://claude.ai/design) design-system project up front (offered during `/flow-new` for UI projects), pulls it into `design-system/`, and distills tokens + component inventory into `.planning/DESIGN.md`. UI plans must name the component and its local spec path; executors read the spec before building; invented styles and one-off components are verification gaps. Missing components route back to the design system via a decision checkpoint, then `/flow-design --refresh`.
 
 ## Autonomous operation
@@ -59,7 +62,7 @@ Every skill ends with a machine-checkable status line — `FLOW: CONTINUE|GATE|B
 - **Background cadence**: `/loop /flow-next` — one step per iteration, self-paced; the loop stops itself on GATE/BLOCKED/DONE.
 - **Watch a deployment**: `/loop 15m curl the UAT health endpoints and report any change`.
 
-Human gates that never auto-proceed: checkpoint decisions/human-actions (incl. package legitimacy), secret-scan hits, PRs to upstream, UAT acceptance + sign-off, production confirmation, tag pushes. Cost note: `/goal` turns and `/loop` iterations accumulate context in one session — small STATE.md and one-step-per-turn keep each cheap, but start a fresh session for each milestone-sized run.
+Human gates that never auto-proceed: checkpoint decisions/human-actions (incl. package legitimacy), secret-scan hits, external consult sends, PRs to upstream, UAT acceptance + sign-off, production confirmation, tag pushes. Cost note: `/goal` turns and `/loop` iterations accumulate context in one session — small STATE.md and one-step-per-turn keep each cheap, but start a fresh session for each milestone-sized run.
 
 ## Session hygiene (`/clear`)
 
@@ -71,5 +74,7 @@ Unlike GSD, DevFlow does **not** need a `/clear` between every step. Each comman
 ## Acknowledgements
 
 DevFlow's phase-loop discipline is derived in concept from [GSD Core](https://github.com/open-gsd/gsd-core) (MIT). It is an independent, ground-up reimplementation — no GSD source files are included; the behavioral contracts were rebuilt in a compressed, Claude-Code-only form. See `NOTICE`.
+
+The `/flow-oracle` consultation loop derives its concepts — context bundles, advisory panels, session lineage, detached runs, and the render-and-copy fallback — from [oracle](https://github.com/steipete/oracle) by Peter Steinberger (MIT), and drives the `oracle` CLI/MCP server directly when installed. No oracle source files are included.
 
 MIT licensed — see `LICENSE`.

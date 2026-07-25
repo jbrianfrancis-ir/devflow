@@ -12,7 +12,7 @@ Context rules: read `.planning/STATE.md` first if present. Keep output terse.
 2. **Loop** until a hypothesis is confirmed:
    - Pick the highest-value untested hypothesis.
    - Test it with the cheapest decisive evidence (log, breakpoint-equivalent, minimal repro, bisect). For heavy investigation spawn `flow-executor` in **investigate mode** (prompt: debug file path + the hypothesis + "gather evidence only, no commits") and merge its findings into the file.
-   - Record evidence; mark hypothesis confirmed/refuted. All refuted → widen: add hypotheses one abstraction level up (config, environment, caller) rather than re-testing the same layer.
+   - Record evidence; mark hypothesis confirmed/refuted. All refuted → widen: add hypotheses one abstraction level up (config, environment, caller) rather than re-testing the same layer. Still stuck after a widen round → offer `/flow-oracle` seeded with the debug file (an external second opinion beats a third blind round); merge surviving suggestions back as new hypotheses.
    - Update the file every iteration — it must let a fresh session resume cold.
 
 3. **Fix**: on confirmed root cause, fix via the /flow-quick flow (trivial → direct; bigger → mini-plan + executor), commit message referencing the debug file. Verify the original repro now passes.
