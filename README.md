@@ -32,7 +32,7 @@ DevFlow projects are **self-bootstrapping**: `/flow-new` and `/flow-migrate` wri
 | ad-hoc | `/flow-todo <idea>` | Capture without derailing |
 | memory | `/flow-map` | Codebase memory for planners/executors (`--docs`, `--refresh`) |
 | design | `/flow-design` | Link + pull a Claude Design (claude.ai/design) design system as hard UI constraints (`--refresh`) |
-| integrate | `/flow-pr` | Push the feature branch to origin and open a PR against upstream |
+| integrate | `/flow-pr` | Self-review the outgoing diff, push to origin, open a PR (narrative recap body) against upstream |
 | deploy | `/flow-harden` | Production audit vs Aspire checklist; fix findings |
 | deploy | `/flow-uat` | Deploy to UAT (provision on first deploy), generate acceptance test plan |
 | deploy | `/flow-release` | Production deploy, gated on per-SHA UAT sign-off |
@@ -76,5 +76,7 @@ Unlike GSD, DevFlow does **not** need a `/clear` between every step. Each comman
 DevFlow's phase-loop discipline is derived in concept from [GSD Core](https://github.com/open-gsd/gsd-core) (MIT). It is an independent, ground-up reimplementation — no GSD source files are included; the behavioral contracts were rebuilt in a compressed, Claude-Code-only form. See `NOTICE`.
 
 The `/flow-oracle` consultation loop derives its concepts — context bundles, advisory panels, session lineage, detached runs, and the render-and-copy fallback — from [oracle](https://github.com/steipete/oracle) by Peter Steinberger (MIT), and drives the `oracle` CLI/MCP server directly when installed. No oracle source files are included.
+
+Several workflow rules also trace to Peter Steinberger's agent tooling: the pre-PR self-review ("autoreview") and narrative-recap PR bodies, the regression-test-per-bug-fix rule, and the dead-code-deletion default come from [agent-scripts](https://github.com/steipete/agent-scripts)/[agent-rules](https://github.com/steipete/agent-rules); the UAT route sweep with console/network evidence and readiness-over-sleeps come from [sweetlink](https://github.com/steipete/sweetlink); researcher/mapper doc distillation optionally drives the [summarize](https://github.com/steipete/summarize) CLI when installed. Concepts only — no source files from any of these are included.
 
 MIT licensed — see `LICENSE`.

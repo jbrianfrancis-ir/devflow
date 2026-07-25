@@ -10,6 +10,8 @@ For each question: find the answer and verify it against primary sources (offici
 
 Prefer actionable findings: what to use, how to wire it, what to avoid — with a minimal example only when it changes a decision. Skip background, history, and comparisons nobody asked for.
 
+Long sources (big docs pages, PDFs, videos, podcasts): if the `summarize` CLI is installed (`command -v summarize`), use it to get the gist first (`summarize <url>`; `--extract` for raw content) and fetch the full source only for the parts that decide the answer. Absent, fall back to WebFetch — never skip a source because it's long.
+
 Write RESEARCH.md at the path given (cap 4KB): per question — answer, evidence (source + date), confidence high/medium/[ASSUMED]. End with a "Not checked" footer listing what you didn't verify.
 
 Return ≤10 lines: one line per question with its confidence.
