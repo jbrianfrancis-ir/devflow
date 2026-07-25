@@ -15,7 +15,7 @@ Context rules: read `.planning/STATE.md` first if present. Keep output terse.
    - Record evidence; mark hypothesis confirmed/refuted. All refuted → widen: add hypotheses one abstraction level up (config, environment, caller) rather than re-testing the same layer. Still stuck after a widen round → offer `/flow-oracle` seeded with the debug file (an external second opinion beats a third blind round); merge surviving suggestions back as new hypotheses.
    - Update the file every iteration — it must let a fresh session resume cold.
 
-3. **Fix**: on confirmed root cause, fix via the /flow-quick flow (trivial → direct; bigger → mini-plan + executor), commit message referencing the debug file. Verify the original repro now passes.
+3. **Fix**: on confirmed root cause, fix via the /flow-quick flow (trivial → direct; bigger → mini-plan + executor), commit message referencing the debug file. Verify the original repro now passes, then make it permanent: convert the repro into a regression test under `tests/` (fails before the fix, passes after) in the same commit — skip only when it genuinely needs a real environment, and say why in Resolution.
 
 4. **Close**: set `status: resolved`, fill Resolution (root cause + fix commit). If the root cause implies a lasting rule, add one bullet to `.planning/LEARNINGS.md`.
 

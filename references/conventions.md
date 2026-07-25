@@ -8,6 +8,9 @@ Application and library code lives under `src/` off the repo root; **tests live 
 ## Dependency versions
 Follow `.planning/ARCHITECTURE.md` pins exactly — no `latest`, no silent upgrades — with one carve-out: **Aspire updates within the current major apply automatically** (e.g. 13.6.2 → 13.6.3, 13.6 → 13.7). A **major** Aspire bump (e.g. 13 → 14) requires user approval — raise a `checkpoint:decision`. When you auto-apply an Aspire within-major update, bump the version in ARCHITECTURE.md to match and log it as a deviation. Mechanics in `aspire.md`.
 
+## Dead code
+When a change supersedes an old code path, **delete the old path in the same change** — never leave both alive "just in case". The only reason to keep one is a **named contract**: public API, CLI surface, config/data format, security boundary, or observed production traffic still on it. Keeping a superseded path is a logged deviation naming that contract, plus a removal note in `.planning/LEARNINGS.md` so it doesn't outlive the reason.
+
 ## Git workflow — branch → origin → PR upstream
 - **Base branch**: `dev` if it exists (locally or on a remote), else `main`. Resolved once at `/flow-new` and recorded in `.planning/config.json` under `git`.
 - **Never commit to the base branch.** All code changes land on a feature branch cut from the base: `flow/<slug>` (project, phase, or task slug).
