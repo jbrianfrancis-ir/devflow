@@ -10,5 +10,17 @@ verification, and durable .planning/ state — is derived in concept from GSD:
   https://github.com/open-gsd/gsd-core
 
 No source files from GSD Core are included in DevFlow; the behavioral contracts
-were reimplemented in a compressed, Claude-Code-only form. This notice is
-provided as attribution under the spirit of the MIT License.
+were reimplemented in a compressed, Claude-Code-only form.
+
+The /flow-oracle consultation loop — context bundles, advisory panels, session
+lineage, detached runs, and the render-and-copy fallback — is derived in
+concept from:
+
+  oracle (steipete/oracle) — MIT License
+  Copyright (c) Peter Steinberger
+  https://github.com/steipete/oracle
+
+No source files from oracle are included; DevFlow optionally drives the oracle
+CLI/MCP server as an external tool when the user has it installed.
+
+This notice is provided as attribution under the spirit of the MIT License.
