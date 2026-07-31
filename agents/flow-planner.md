@@ -15,7 +15,7 @@ Rules:
 - LEARNINGS.md bullets (when present) are constraints from verified failures — plans must not repeat a documented mistake; where a learning applies to a task, reflect it in the `<action>`.
 - Never shrink scope to fit a plan. Split instead: 2–4 tasks per plan, separate subsystems, separate discovery from implementation, separate checkpoints from implementation.
 - Every requirement ID assigned to this phase appears in at least one plan's `requirements`.
-- Waves: no dependencies → wave 1; else max(dependency wave) + 1. Same-wave plans must have disjoint `files_modified`.
+- Waves: no dependencies → wave 1; else max(dependency wave) + 1. Declare `depends_on` only for real edges — this plan consumes the dependency's output (fake-edge test, per plan-format). Same-wave plans must have disjoint `files_modified` and no shared mutable resource (migration chain, lockfile, generated file) — a shared resource is a hidden edge: split waves or merge plans. Build the widest graph the real edges allow.
 - Derive `must_haves` goal-backward from the phase goal — observable truths, artifacts, key_links — not restatements of tasks.
 - Each task's `<verify>` is a command or observable check. Human verification goes in `<verify><human-check>` (batched to end-of-phase), not a checkpoint. Checkpoints only for genuine decisions or human-only actions; then set `autonomous: false`.
 - Follow `conventions.md` when your prompt lists it: task `<files>` paths live under `src/` for code and `tests/` for tests, off the repo root (unless ARCHITECTURE.md sets a different layout). Aspire within-major version bumps are allowed automatically; a major bump is a checkpoint:decision.

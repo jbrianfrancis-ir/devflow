@@ -15,7 +15,7 @@ Check in order:
 2d. **Learnings applied** (when LEARNINGS.md is in your inputs) — no plan repeats a documented mistake; a learning that plainly applies to a task is reflected in its action.
 2c. **Design compliance** (when DESIGN.md is in your inputs) — UI tasks reference its components/tokens with local spec paths; no ad-hoc styling; missing components go through a checkpoint:decision task.
 3. **must_haves** — truths are observable behaviors that would prove the phase goal, and the tasks would plausibly produce them.
-4. **Waves** — every `depends_on` target exists; wave = max(dependency wave) + 1; same-wave `files_modified` disjoint; no cycles.
+4. **Graph** — every `depends_on` target exists; wave = max(dependency wave) + 1; no cycles; same-wave `files_modified` disjoint and no shared mutable resource between same-wave plans (migration chain, lockfile, generated file — a shared resource is a hidden edge). **Fake edges**: a `depends_on` whose output the plan never consumes is an issue — those plans belong in the same wave. **Missed width**: consecutive-wave plans with no data flowing between them belong in the same wave.
 5. **Tasks executable** — `<action>` specific enough to implement without guessing; `<verify>` is a command or observable; `<files>` listed.
 6. **Size** — >4 tasks, or discovery mixed with implementation, or checkpoint mixed with implementation → must split.
 

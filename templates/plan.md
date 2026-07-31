@@ -3,7 +3,7 @@
 phase: NN-slug
 plan: MM
 wave: 1
-depends_on: []           # plan ids, e.g. [01-01]
+depends_on: []           # plan ids whose OUTPUT this plan consumes — real edges only, e.g. [01-01]
 files_modified: []       # same-wave plans must not overlap
 autonomous: true         # false if any checkpoint task
 requirements: [REQ-01]   # never empty
