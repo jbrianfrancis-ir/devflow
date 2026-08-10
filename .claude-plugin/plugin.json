@@ -1,8 +1,8 @@
 {
   "name": "devflow",
   "displayName": "DevFlow",
-  "version": "0.6.0",
-  "description": "Token-efficient spec-driven development for Claude Code: plan, execute, verify, then deploy through UAT to production with Aspire on Azure. Autonomous operation via /goal and /loop; architecture and Claude Design constraints enforced. Commands are /flow-*.",
+  "version": "0.7.0",
+  "description": "Token-efficient spec-driven development for Claude Code: plan, execute, verify, review, drive the PR to green, then deploy through UAT to production with Aspire on Azure. Orchestrator-agnostic — a fleet board across repos, worktree workstreams, and autonomous operation via /goal and /loop. Commands are /flow-*.",
   "author": {
     "name": "jbrianfrancis-ir",
     "url": "https://github.com/jbrianfrancis-ir"
