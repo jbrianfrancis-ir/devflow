@@ -1,8 +1,10 @@
 # DevFlow
 
-Token-efficient spec-driven development for Claude Code. Fresh-context subagents, wave-parallel execution, plan checking, goal-backward verification, and durable `.planning/` state — at ~70KB of prompt content (each command loads ~1–5k tokens). Commands use the `/flow-*` prefix.
+Token-efficient spec-driven development for Claude Code. Fresh-context subagents, wave-parallel execution, plan checking, independent diff review, goal-backward verification, and durable `.planning/` state. 19 commands and 9 subagents across ~130KB of prompt content — but nothing loads it all: each command pulls ~1–5k tokens and the heavy work runs in subagents. Commands use the `/flow-*` prefix.
 
 Claude Code only. No installer, no Node runtime, no hooks. "Ship" is a real pipeline: harden → UAT → human sign-off → production, orchestrated with [Aspire](https://aspire.dev) + azd on Azure.
+
+**Orchestrator-agnostic.** DevFlow is a crew member, not a multiplexer — it runs inside whatever you already use (tmux, [herdr](https://herdr.dev), cmux, Orca, Superset, Conductor, the desktop app, or plain terminal tabs) and doesn't compete with any of them. It is skills in a normal interactive session: no `claude -p`, no headless spawning, no Agent SDK pool — usage stays on your subscription. What it adds is *legibility*: every skill ends in a machine-checkable `FLOW:` line, all state lives in files, and `/flow-status --all` boards every DevFlow project on the machine. Any outside session — a "foreman", a dashboard, a cron job — can observe and drive it without screen-scraping. Contract: [`docs/status-contract.md`](docs/status-contract.md).
 
 ## Install
 
@@ -28,11 +30,13 @@ DevFlow projects are **self-bootstrapping**: `/flow-new` and `/flow-migrate` wri
 | ad-hoc | `/flow-quick <task>` | Small task with Flow guarantees, no ceremony |
 | ad-hoc | `/flow-debug <symptom>` | Hypothesis-driven debugging with session-resumable state |
 | ad-hoc | `/flow-oracle <question>` | Second opinion from an external model — curated context bundle, `--panel` cross-check, resumable consults |
-| ad-hoc | `/flow-status` | Position + next command (`--pause` to stop cleanly) |
+| ad-hoc | `/flow-status` | Position + next command (`--all` for the fleet board, `--pause` to stop cleanly) |
+| parallel | `/flow-workstream` | Run phases side by side — one git worktree per stream (`new`, `list`, `drop`) |
 | ad-hoc | `/flow-todo <idea>` | Capture without derailing |
 | memory | `/flow-map` | Codebase memory for planners/executors (`--docs`, `--refresh`) |
 | design | `/flow-design` | Link + pull a Claude Design (claude.ai/design) design system as hard UI constraints (`--refresh`) |
-| integrate | `/flow-pr` | Self-review the outgoing diff, push to origin, open a PR (narrative recap body) against upstream |
+| integrate | `/flow-pr` | Independent lens review of the outgoing diff, push to origin, open a PR (narrative recap + reviewer's guide) against upstream |
+| integrate | `/flow-ci` | Drive the open PR to green — watch checks, fix failures, answer bot review threads |
 | deploy | `/flow-harden` | Production audit vs Aspire checklist; fix findings |
 | deploy | `/flow-uat` | Deploy to UAT (provision on first deploy), generate acceptance test plan |
 | deploy | `/flow-release` | Production deploy, gated on per-SHA UAT sign-off |
@@ -41,7 +45,7 @@ DevFlow projects are **self-bootstrapping**: `/flow-new` and `/flow-migrate` wri
 
 ```
 /flow-new ──► /flow-plan 1 ──► /flow-execute 1 ──► … all phases verified …
-         ──► /flow-harden ──► /flow-pr ──► (merge) ──► /flow-uat ──► human sign-off ──► /flow-release
+         ──► /flow-harden ──► /flow-pr ──► /flow-ci ──► (merge) ──► /flow-uat ──► human sign-off ──► /flow-release
 ```
 
 **Graph execution** (`references/plan-format.md`): a phase's plans form a dependency graph — plans are nodes, `depends_on` edges exist only where one plan consumes another's output (the *fake-edge test*), and waves are the graph's parallel layers. Same-wave plans share no files and no mutable resources (a shared migration chain or lockfile is a *hidden edge*). `/flow-execute` fans out one fresh-context executor per plan per wave; a *fan-in guard* counts results against spawns so a dead executor can't slip silently into a "complete" phase; and a fresh-context verifier — never the executors that did the work — proves the phase's `must_haves` against *anchors*: commands actually run, tests actually passed, code traced. must_haves freeze at execution start; gaps close by changing code, never by weakening a truth.
@@ -56,15 +60,29 @@ State lives in `.planning/` (hard size caps, sections overwritten not appended �
 
 **Design constraints**: `/flow-design` links a [Claude Design](https://claude.ai/design) design-system project up front (offered during `/flow-new` for UI projects), pulls it into `design-system/`, and distills tokens + component inventory into `.planning/DESIGN.md`. UI plans must name the component and its local spec path; executors read the spec before building; invented styles and one-off components are verification gaps. Missing components route back to the design system via a decision checkpoint, then `/flow-design --refresh`.
 
+## Many streams at once
+
+The bottleneck in agent-assisted work isn't decomposition — it's losing track of what each session is doing, and reading its output cold at the end. Four pieces address that:
+
+**Fleet board** — `/flow-status --all` runs `scripts/flow-fleet.py`, which walks your roots for `.planning/STATE.md` and prints one row per project: phase, status, last `FLOW:` state, age, dirty/stale/on-base flags, and the exact next command. It reads files, never screens, so it works under every multiplexer and survives their updates. Attention-first ordering, a "needs a human" footer with copy-pasteable `cd … && /flow-…` lines, `--json` for programmatic drivers, and exit status `1` when anything needs you. Configure roots once in `~/.devflow/fleet.json`: `{"roots": ["~/dev"], "stale_days": 3}`.
+
+**Workstreams** — `/flow-workstream new <slug>` cuts a git worktree on its own `flow/<slug>` branch so two phases run side by side without fighting over one checkout. It refuses streams that share a hidden edge (migration chain, lockfile, generated output, shared dev database), assigns a port offset so both apps can run, and names the untracked local files the new tree lacks. `.planning/` reconciliation at merge is specified in `references/conventions.md` → Parallel workstreams: `STATE.md`/`config.json` are branch-local, `JOURNAL.md`/`LEARNINGS.md` merge as unions, `ARCHITECTURE.md` and the other pins are single-writer.
+
+**PR to green** — `/flow-ci` takes the PR from opened to mergeable: polls checks, pulls the real failure logs, classifies each failure as caused-by-this-branch / pre-existing-on-base / flake / needs-a-decision, fixes what's its own (with a regression test), and triages bot review threads into fix / refute / defer — replying and resolving each. It never disables a check to get green, never force-pushes, never merges, and never answers a human reviewer. Built for `/loop /flow-ci`.
+
+**Review that isn't self-review** — `/flow-pr` no longer grades its own homework. It spawns parallel fresh-context `flow-reviewer` agents, one per lens (correctness, security, architecture, conventions, reuse, tests, design), selected from what the diff actually touches; findings are deduped across lenses and classified `blocking` / `should-fix` / `nit`, where blocking demands a concrete failure scenario. Findings can be **refuted** with a written reason rather than reflexively obeyed — but refuting a blocking finding is a human gate. The PR body then carries a **Review guide**: the 2–4 files to read first ranked by blast radius, which `must_haves` were proven by a command versus by a code trace, where verification was thin, and every deviation — so a reviewer never meets the diff cold.
+
 ## Autonomous operation
 
 Every skill ends with a machine-checkable status line — `FLOW: CONTINUE|GATE|BLOCKED|DONE | position | next: command` — which Claude Code's `/goal` evaluator can verify from the transcript. Recipes:
 
 - **Drive to completion** (primary): `/goal FLOW says DONE or GATE, or stop after 40 turns` then `/flow-next`. Claude keeps advancing phase by phase, turn after turn, stopping when done or when a human is needed.
 - **Background cadence**: `/loop /flow-next` — one step per iteration, self-paced; the loop stops itself on GATE/BLOCKED/DONE.
+- **Drive a PR to green**: `/loop /flow-ci` — checks watched, failures fixed, bot threads answered; stops when it's green or a human is needed.
+- **Sweep the fleet**: `/flow-status --all` in any session (no `.planning/` required) — every project, attention first.
 - **Watch a deployment**: `/loop 15m curl the UAT health endpoints and report any change`.
 
-Human gates that never auto-proceed: checkpoint decisions/human-actions (incl. package legitimacy), secret-scan hits, external consult sends, PRs to upstream, UAT acceptance + sign-off, production confirmation, tag pushes. Cost note: `/goal` turns and `/loop` iterations accumulate context in one session — small STATE.md and one-step-per-turn keep each cheap, but start a fresh session for each milestone-sized run.
+Human gates that never auto-proceed: checkpoint decisions/human-actions (incl. package legitimacy), secret-scan hits, external consult sends, PRs to upstream, replies to human PR reviewers and merges, refuting a blocking review finding, dropping a worktree with unmerged work, UAT acceptance + sign-off, production confirmation, tag pushes. Cost note: `/goal` turns and `/loop` iterations accumulate context in one session — small STATE.md and one-step-per-turn keep each cheap, but start a fresh session for each milestone-sized run.
 
 ## Session hygiene (`/clear`)
 
@@ -80,6 +98,8 @@ DevFlow's phase-loop discipline is derived in concept from [GSD Core](https://gi
 The `/flow-oracle` consultation loop derives its concepts — context bundles, advisory panels, session lineage, detached runs, and the render-and-copy fallback — from [oracle](https://github.com/steipete/oracle) by Peter Steinberger (MIT), and drives the `oracle` CLI/MCP server directly when installed. No oracle source files are included.
 
 The dependency-graph rules — the fake-edge test, hidden edges (shared mutable resources), fan-in guards against silent node failure, worker/verifier context separation, and frozen verification anchors — follow the graph-engineering framing articulated by Anatoli Kopadze (and the loops-to-graphs shift prompted by Peter Steinberger). Concepts only — no external source is included.
+
+The multi-session shape — a fleet board over many repos instead of many terminal tabs, one worktree per stream, driving a PR to green before a human reads it, and an independent review crew whose findings are deduped, severity-classified, and refutable — was prompted by practitioners in [r/ClaudeCode's orchestrator thread](https://www.reddit.com/r/ClaudeCode/), whose "foreman and crew" setups (and the finding that decompose-and-fan-out underperforms one contained unit of work per session) shaped what DevFlow does and deliberately doesn't do. Concepts only — no external source is included.
 
 Several workflow rules also trace to Peter Steinberger's agent tooling: the pre-PR self-review ("autoreview") and narrative-recap PR bodies, the regression-test-per-bug-fix rule, and the dead-code-deletion default come from [agent-scripts](https://github.com/steipete/agent-scripts)/[agent-rules](https://github.com/steipete/agent-rules); the UAT route sweep with console/network evidence and readiness-over-sleeps come from [sweetlink](https://github.com/steipete/sweetlink); researcher/mapper doc distillation optionally drives the [summarize](https://github.com/steipete/summarize) CLI when installed. Concepts only — no source files from any of these are included.
 
