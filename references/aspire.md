@@ -3,7 +3,15 @@
 Flow deploys via the Aspire app model: the AppHost is the single source of truth for services, resources, and infrastructure, and azd derives Azure infra (Container Apps by default) from it. Auth and secrets are the human's job; commands are the agent's. Docs: https://aspire.dev · https://learn.microsoft.com/azure/developer/azure-developer-cli
 
 ## Version policy
-Aspire updates **within the current major** apply automatically — bump the package references (`Aspire.*` in AppHost/ServiceDefaults, or `Directory.Packages.props` under central package management) to the latest within-major, e.g. 13.6.2 → 13.6.3 or 13.6 → 13.7. Verify with restore + `aspire publish` (and `aspire --version`). Update the Aspire version in `.planning/ARCHITECTURE.md` to match and note the deviation. A **major** bump (e.g. 13 → 14) is never automatic: raise a `checkpoint:decision` with the breaking-changes/changelog link and wait for approval.
+Aspire updates **within the current major** apply automatically — bump the package references (`Aspire.*` in AppHost/ServiceDefaults, or `Directory.Packages.props` under central package management) to the latest within-major, e.g. 13.4.5 → 13.4.6 or 13.3 → 13.4. Verify with restore + `aspire publish` (and `aspire --version`). Update the Aspire version in `.planning/ARCHITECTURE.md` to match and note the deviation. A **major** bump (e.g. 13 → 14) is never automatic: raise a `checkpoint:decision` with the breaking-changes/changelog link and wait for approval.
+
+**Resolve the current version from the feed, never from this file.** Every version number here is illustrative and goes stale between DevFlow releases — treat them as format examples, not as targets. Before bumping, ask the feed what exists:
+```
+dotnet package search Aspire.Hosting.AppHost --exact-match --take 5
+curl -s https://api.nuget.org/v3-flatcontainer/aspire.hosting.apphost/index.json   # every published version
+aspire --version                                                                   # the installed CLI
+```
+Latest stable when this was last checked: **13.4.6** (released 2026-06-20; release notes at https://aspire.dev/whats-new/). A version a document mentions but the feed doesn't carry is not a near-miss to route around — per the executor's package rule, a package that can't be found is a `CHECKPOINT` (human-action), never a retry with a neighbouring version.
 
 ## Detection
 - AppHost: `Glob **/*.AppHost/*.csproj`, or grep `Aspire.Hosting.AppHost` across csprojs, or a single-file `apphost.cs`.
