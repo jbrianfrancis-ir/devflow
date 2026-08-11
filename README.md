@@ -1,6 +1,6 @@
 # DevFlow
 
-Token-efficient spec-driven development for Claude Code. Fresh-context subagents, wave-parallel execution, plan checking, independent diff review, goal-backward verification, and durable `.planning/` state. 19 commands and 9 subagents across ~130KB of prompt content — but nothing loads it all: each command pulls ~1–5k tokens and the heavy work runs in subagents. Commands use the `/flow-*` prefix.
+Token-efficient spec-driven development for Claude Code. Fresh-context subagents, wave-parallel execution, plan checking, independent diff review, goal-backward verification that abstains rather than guessing, and durable `.planning/` state. 20 commands and 9 subagents across ~160KB of prompt content — but nothing loads it all: each command pulls ~1–5k tokens and the heavy work runs in subagents. Commands use the `/flow-*` prefix.
 
 Claude Code only. No installer, no Node runtime, no hooks. "Ship" is a real pipeline: harden → UAT → human sign-off → production, orchestrated with [Aspire](https://aspire.dev) + azd on Azure.
 
