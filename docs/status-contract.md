@@ -1,0 +1,80 @@
+# DevFlow status contract — the agent-facing interface
+
+DevFlow is a **crew member, not an orchestrator**. It runs inside whatever substrate you already use — tmux, herdr, cmux, Orca, Superset, Conductor, the desktop app, plain terminal tabs — and exposes its state as files and one status line so an outside session (a "foreman", a dashboard, a cron job, a context repo) can observe and drive it without ever reading a screen.
+
+This document is that interface. Everything here is stable: it does not change without a minor version bump, and DevFlow's own skills are held to it. `docs/blitzos.md` is one consumer of this contract; this file is the general form.
+
+## 1. The status line
+
+Every orchestrating skill ends its final message with exactly one line:
+
+```
+FLOW: <state> | <position> | next: <command>
+```
+
+| State | Meaning for a driver |
+|---|---|
+| `CONTINUE` | Autonomous work remains. Run `next`. No human needed. |
+| `GATE` | A human must decide or act. `<position>` names what. **Never auto-answer.** |
+| `BLOCKED` | An error needs investigation before anything proceeds. |
+| `DONE` | Roadmap fully verified (or released, after `/flow-release`). |
+
+Grammar: one line, three `|`-separated fields, `next:` prefix on the third. Parse it with `grep -oE '^FLOW: [A-Z]+ \| .* \| next: .*$'` against the last message — not with a model. The full state list and the permanent human gates live in `references/autonomy.md`.
+
+## 2. Files (read these; never screen-scrape)
+
+All paths are relative to the project repo. A repo is DevFlow-managed **iff** `.planning/STATE.md` exists.
+
+| File | Contract |
+|---|---|
+| `.planning/STATE.md` | ≤1.5KB, rewritten in place, never appended. `## Position` holds `Phase: N of M (name) \| Plans: d/t \| Status: <token>`, then `Last:` and `Next:`. `## Blockers` is a bullet list or `- none`. `## Session` holds `Stopped:` / `Resume:`. Quote these lines verbatim — they are written to be quoted. |
+| `.planning/JOURNAL.md` | ≤2KB, **newest first**, one line per state-changing run: `- YYYY-MM-DD \| /flow-cmd \| outcome \| FLOW-STATE`. The top line is "last activity". Lines added during a session are that session's record. |
+| `.planning/ROADMAP.md` | Phase table with per-phase status. |
+| `.planning/config.json` | `git` block (`base`, `origin`, `upstream`, `branch`); `workstream` block when the checkout is a worktree. |
+| `phases/NN-slug/*-SUMMARY.md` | Frontmatter: `commits`, `deviations`, `human_checks`, `deferred`. |
+| `phases/NN-slug/VERIFICATION.md` | Frontmatter: `status` (`pass`/`gaps`/`human_needed`), `gaps`. |
+
+`STATE.md` and `config.json` are **branch-local** — in a multi-worktree repo each workstream has its own. See `references/conventions.md` → Parallel workstreams.
+
+A reader of this contract reads **only** the files above plus git metadata. Never source, never `.env*`, never key files.
+
+## 3. The fleet scanner
+
+```
+python3 scripts/flow-fleet.py [ROOT ...] [--json] [--stale-days N] [--depth N]
+```
+
+Walks roots for DevFlow projects (including git worktrees of any repo it finds, even outside the roots) and returns one row per project. `--json` emits:
+
+```json
+{ "scanned": ["~/dev"], "stale_days": 3,
+  "projects": [{
+    "path": "...", "repo": "owner/name", "branch": "flow/payments", "worktree": false,
+    "phase": "3/6", "plans": "2/4", "status": "executing", "position": "<STATE Position, verbatim>",
+    "next": "/flow-execute 3", "last": "...", "resume": "...", "blockers": ["..."],
+    "journal": "<top JOURNAL line, verbatim>", "flow": "GATE", "last_date": "2026-08-10",
+    "age_days": 0, "dirty": 2, "flags": ["WT"], "needs_human": true }] }
+```
+
+`flags`: `ON-BASE` (committing to the base branch — a convention violation), `DIRTY:n`, `STALE:nd` (in-flight with no activity), `WT` (git worktree), `NO-DECL` (missing the plugin self-bootstrap block).
+
+**Exit status is the cheap signal**: `0` when every project is fine, `1` when any needs a human. A foreman can branch on that without parsing anything. Roots default to `~/.devflow/fleet.json` (`{"roots": ["~/dev"], "stale_days": 3}`), else the parent of the working directory.
+
+## 4. Driving a DevFlow session from outside
+
+```
+cd <repo> && /flow-status          # orient (cold start needs nothing else)
+cd <repo> && /flow-next            # advance exactly one step, then stop with FLOW:
+```
+
+`/flow-next` is the driver: one step per invocation, bounded turns, always terminating in a status line. Loop it (`/loop /flow-next`) or gate it (`/goal FLOW says DONE or GATE, or stop after 40 turns`). `/flow-ci` drives an open PR to green the same way. `/flow-status --all` boards every project; `/flow-workstream` adds a parallel worktree.
+
+**Gates a driver must surface and never answer itself** (authoritative list in `references/autonomy.md`): checkpoint decisions and human-actions; failed-package (typosquat) verification; a fail-closed secret-scan hit; sending an external consult bundle; opening a PR to upstream; replying to human PR reviewers; UAT acceptance and sign-off; production release confirmation; pushing tags; anything destructive in git. Hard rule, not a gate: never commit to the base branch.
+
+## 5. What not to build against
+
+- **Don't screen-scrape the TUI.** Terminal output is not an interface; the files above are. Anything you'd learn by scraping is in `STATE.md` or the status line.
+- **Don't parse skill prose.** Only the `FLOW:` line and the file formats in §2 are stable.
+- **Don't summarize `STATE.md` or `JOURNAL.md` with a model at scan time.** They are already capped and written to be quoted verbatim — a model pass adds cost, latency, and drift.
+- **Don't spawn `claude -p` per step.** DevFlow is skills inside a normal interactive session; its work runs in ordinary subagents. Keep sessions interactive and the usage stays on your subscription.
+- **Don't treat a `GATE` as a retry.** It means a human is required. Re-running the same command produces the same gate.

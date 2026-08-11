@@ -25,6 +25,23 @@ When a change supersedes an old code path, **delete the old path in the same cha
 ```
 `upstream` is `null` when there is no separate canonical remote.
 
+## Parallel workstreams (git worktrees)
+One checkout runs **one** stream of Flow work. Two phases in flight in the same working tree is not parallelism — it is two agents fighting over one branch, one `.planning/`, and one set of ports. Concurrency means **one git worktree per workstream** (`/flow-workstream`), each on its own `flow/<slug>` branch off the base.
+
+**`.planning/` is a shared mutable resource** — a *hidden edge* in `plan-format.md` terms, applied to DevFlow itself. Worktrees give each stream its own checkout, so divergence is expected; what matters is how it reconciles at merge:
+
+| Artifact | Treatment |
+|---|---|
+| `STATE.md`, `config.json` | **Branch-local.** Never hand-merge. On conflict take the base's version, then run `/flow-status` — it reconstructs Position from ROADMAP statuses + the newest SUMMARY frontmatter. |
+| `JOURNAL.md`, `LEARNINGS.md` | **Union.** Marked `merge=union` in `.gitattributes`; after the merge, re-sort the journal newest-first, drop duplicates, and re-cap (2KB / 20 bullets). |
+| `ROADMAP.md` | A workstream touches **only its own phase's row**. Two streams editing one row means they were never independent — that is the hidden edge, not a merge problem. |
+| `phases/NN-slug/` | Disjoint by construction: one stream owns a phase. |
+| `PROJECT.md`, `REQUIREMENTS.md`, `ARCHITECTURE.md`, `DESIGN.md` | **Shared law, single-writer.** Changing them mid-stream is a cross-stream decision — raise a `checkpoint:decision`, land it on the base branch, and rebase the other streams onto it. Never let two streams edit the pins independently. |
+
+**Non-file hidden edges** — worktrees isolate files, not the machine. Two streams collide on all of these, and each needs an explicit split before they run concurrently: the **migration chain** (shared schema history — serialize the streams or merge the plans), the **lockfile** (concurrent dependency adds), **generated/committed build output**, **ports** (each workstream takes a port offset — stream index × 100 — recorded in its `config.json`), and **shared dev infrastructure** (database, storage emulator, queue — per-workstream name or container, never one shared instance). Untracked local files (`.env*`, certs) do not come with a new worktree: list what is missing **by name** as `user_setup`, never open or echo their contents.
+
+Everything else is unchanged: never commit to the base branch, secret-scan every commit and push, one PR per workstream.
+
 ## Secret scan (fail-closed)
 Run before **every commit** on the staged diff (`git diff --cached -U0`), before **every push** on the outgoing diff (`git diff <base>...HEAD -U0`), and over **every outbound consult bundle** before it leaves the machine (`/flow-oracle` — see `oracle.md`). One canonical check — write this pattern to a temp file (avoids shell-quoting errors) and `grep -inEf <pattern-file>` the diff's added lines:
 ```

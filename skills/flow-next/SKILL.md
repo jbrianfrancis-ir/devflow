@@ -18,7 +18,8 @@ Routing (first match wins):
 6. Phase verified, more phases remain → step 3 for the next phase.
 7. All phases verified, no `.planning/deploy/PIPELINE.md` → run `/flow-harden`.
 8. Hardened, no PR URL recorded in STATE → run `/flow-pr` (it gates on human confirmation before opening the PR).
-9. PR open / not yet merged → stop: UAT needs the merge + a human (azd auth, acceptance testing). `FLOW: GATE | awaiting merge, then UAT | next: /flow-uat`
+9. PR open, not green (checks failing/pending, or unresolved bot review threads) → run `/flow-ci`. It is autonomous work: driving a PR to green needs no human.
+10. PR open and green / awaiting human review or merge → stop: review and merge are human, and UAT needs the merge plus azd auth. `FLOW: GATE | PR #N green, awaiting review/merge | next: after merge, /flow-uat`
 
 If the step itself ends at a gate (checkpoint, escalation, gaps needing a decision), report that state — the invoked skill's outcome decides CONTINUE vs GATE/BLOCKED. All phases verified and deploy pipeline released → `FLOW: DONE`.
 
