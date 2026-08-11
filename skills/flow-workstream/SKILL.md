@@ -33,6 +33,8 @@ Destructive and outward-adjacent — always a human gate, even in `--auto`.
 
 **Pre-flight, all reported before asking**: uncommitted changes in the worktree (`git status --porcelain`), commits not pushed to origin (`git log origin/flow/<slug>..flow/<slug>`), and whether the branch is merged into the base (`git branch --merged <base>`). Unmerged or unpushed work is named explicitly — this is the one place DevFlow can destroy work that was never written down.
 
+Also run the **scope-conformance** check before dropping a merged stream: `git diff --name-only <base>...flow/<slug>` against the union of `files_modified` across the phase's plans. Paths outside it are advisory, but they are the last cheap chance to notice that a stream reached beyond its brief into shared state — report them, then proceed. Base unavailable → report the check as not run, never as clean.
+
 Confirmed → `git worktree remove <dir>` then `git branch -d flow/<slug>` (plain `-d`; `-D` on an unmerged branch requires a second explicit confirmation). Then `git worktree prune`. Log a `.planning/JOURNAL.md` line in the main checkout.
 
 ## Status line
