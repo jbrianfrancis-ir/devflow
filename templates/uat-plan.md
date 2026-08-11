@@ -25,3 +25,14 @@ result: pending             # pending | passed | failed
 Steps: 1. {step} 2. {step}
 Expect: {observable result}
 Result: [ ] pass [ ] fail — notes:
+
+## Success criteria — one case per SC
+### SC-01: {criterion, with its threshold}
+How measured: {command, tool, or observation — the number is the pass condition, not an impression}
+Measured: {value} | Threshold: {value}
+Result: [ ] pass [ ] fail — notes:
+
+## Unverified behavior (backstop truths)
+<!-- From phases' VERIFICATION.md `unverified` lists: behavior the requirements never settled and no test pins
+     down. Exercise it against the real deployment and decide the rule — then it becomes a requirement or a test. -->
+- [ ] {truth} — what you saw: | is that the behavior you want?
