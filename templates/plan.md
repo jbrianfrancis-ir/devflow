@@ -9,6 +9,7 @@ autonomous: true         # false if any checkpoint task
 requirements: [REQ-01]   # never empty
 must_haves:
   truths: []             # observable behaviors that prove the goal
+  backstop_truths: []    # truths the requirements don't settle — verifier abstains without a real test
   artifacts: []          # files that must exist
   key_links: []          # critical connections ("X calls Y")
 ---
