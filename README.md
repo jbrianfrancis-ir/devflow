@@ -93,7 +93,7 @@ Unlike GSD, DevFlow does **not** need a `/clear` between every step. Each comman
 
 ## Acknowledgements
 
-DevFlow's phase-loop discipline is derived in concept from [GSD Core](https://github.com/open-gsd/gsd-core) (MIT). It is an independent, ground-up reimplementation — no GSD source files are included; the behavioral contracts were rebuilt in a compressed, Claude-Code-only form. See `NOTICE`.
+DevFlow's phase-loop discipline is derived in concept from [GSD Core](https://github.com/open-gsd/gsd-core) (MIT). It is an independent, ground-up reimplementation — no GSD source files are included; the behavioral contracts were rebuilt in a compressed, Claude-Code-only form. So is DevFlow's verification honesty: **exogenous abstention** on non-inferable truths (GSD's measurement — a verifier confidently false-passes a check it can't infer ~100% of the time, dropping to ~17% when routed on a tag applied at plan time, and only to ~67% when merely asked to be careful — is why `backstop_truths` is a structured field the planner sets rather than a judgment the verifier makes), the coincidental-reliance advisory, diff-scope conformance after execution, and the rule that a guard which could not run never reports success. See `NOTICE`.
 
 The `/flow-oracle` consultation loop derives its concepts — context bundles, advisory panels, session lineage, detached runs, and the render-and-copy fallback — from [oracle](https://github.com/steipete/oracle) by Peter Steinberger (MIT), and drives the `oracle` CLI/MCP server directly when installed. No oracle source files are included.
 
