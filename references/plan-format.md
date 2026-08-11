@@ -23,6 +23,8 @@ must_haves are the phase's **anchors** — signals that can't argue back. Once e
 ### backstop_truths (non-inferable behavior)
 An optional fourth list: truths whose **correct answer is not derivable from the requirements**. Not "hard to test" — *under-specified*. Do adjacent intervals `[1,2]` and `[2,3]` merge? Is a "character" a grapheme or a code unit? Does a retry re-run the whole batch or the failed item? The requirements don't say, so any implementation is defensible and nothing in the plan settles it.
 
+They arrive two ways: the planner notices the spec never settled something, or REQUIREMENTS.md already carries an open `[NEEDS CLARIFICATION: …]` marker on one of the phase's requirements — a question someone judged would change what gets built and nobody answered. The second kind is not a judgment call: an unresolved marker on a requirement this phase implements **always** produces a backstop truth.
+
 Write them in `backstop_truths` **and not in `truths`** — one truth belongs to exactly one list. The planner tags them at plan time, because plan time is the only moment anyone is reasoning about what the spec does *not* pin down; by verification time the code exists and reads as obviously correct.
 
 The tag must be **structured, never prose**. A truth marked non-inferable by appending "(needs a held-out test)" to its text is a truth the verifier will grade green like any other — the signal has to survive as a field it can branch on, not a parenthetical it has to notice.
