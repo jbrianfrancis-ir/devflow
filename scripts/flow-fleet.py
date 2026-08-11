@@ -43,15 +43,21 @@ ATTENTION = ("GATE", "BLOCKED")
 # ---------------------------------------------------------------- helpers
 
 def git(repo, *args):
-    """Run a git command in `repo`; return stripped stdout, or "" on any failure."""
+    """Run a git command in `repo`. Returns stripped stdout, or None if the command
+    could not be answered (git missing, not a repo, timeout, non-zero exit).
+
+    None is deliberately distinct from "": a guard that cannot check must never
+    report the clean answer. Callers decide what an unanswerable check means; none
+    of them may treat it as "fine". See references/conventions.md → Fail-closed guards.
+    """
     try:
         out = subprocess.run(
             ("git", "-C", repo) + args,
             capture_output=True, text=True, timeout=15,
         )
     except (OSError, subprocess.SubprocessError):
-        return ""
-    return out.stdout.strip() if out.returncode == 0 else ""
+        return None
+    return out.stdout.strip() if out.returncode == 0 else None
 
 
 def read_capped(path, limit=8192):
@@ -118,7 +124,7 @@ def find_projects(roots, depth):
                 dirnames[:] = []  # a DevFlow project is a leaf; don't descend
     # Pull in worktrees of discovered repos even when they live outside the roots.
     for path in list(found):
-        for line in git(path, "worktree", "list", "--porcelain").splitlines():
+        for line in (git(path, "worktree", "list", "--porcelain") or "").splitlines():
             if not line.startswith("worktree "):
                 continue
             wt = line[len("worktree "):].strip()
@@ -193,18 +199,27 @@ def scan(path, today, stale_days):
     gitcfg = cfg.get("git") or {}
     base = gitcfg.get("base") or "main"
 
-    p["branch"] = git(path, "rev-parse", "--abbrev-ref", "HEAD") or "?"
-    p["dirty"] = len([ln for ln in git(path, "status", "--porcelain").splitlines() if ln])
+    branch = git(path, "rev-parse", "--abbrev-ref", "HEAD")
+    p["branch"] = branch if branch else "?"
+    status = git(path, "status", "--porcelain")
+    # None means the check could not run — report that, never "0 dirty files".
+    p["dirty"] = None if status is None else len([ln for ln in status.splitlines() if ln])
     common = git(path, "rev-parse", "--git-common-dir")
     gitdir = git(path, "rev-parse", "--git-dir")
-    p["worktree"] = bool(common and gitdir and os.path.realpath(
-        os.path.join(path, common)) != os.path.realpath(os.path.join(path, gitdir)))
+    p["worktree"] = None if (common is None or gitdir is None) else (
+        os.path.realpath(os.path.join(path, common))
+        != os.path.realpath(os.path.join(path, gitdir)))
     origin = git(path, "remote", "get-url", "origin")
     m = re.search(r"[:/]([^/:]+/[^/]+?)(?:\.git)?$", origin) if origin else None
     p["repo"] = m.group(1) if m else p["name"]
+    p["git_readable"] = branch is not None
 
     # --- flags: everything that means "a human should look"
-    if p["branch"] == base:
+    if not p["git_readable"]:
+        # Unanswerable is a finding in its own right: this project's branch, dirty
+        # state, and worktree status are all unknown, not clean.
+        p["flags"].append("GIT-UNKNOWN")
+    if branch is not None and branch == base:
         p["flags"].append("ON-BASE")  # conventions.md: code never lands on the base branch
     if p["dirty"]:
         p["flags"].append("DIRTY:%d" % p["dirty"])
@@ -220,6 +235,7 @@ def scan(path, today, stale_days):
     p["needs_human"] = bool(
         p["flow"] in ATTENTION or p["blockers"]
         or any(f.startswith("STALE") for f in p["flags"])
+        or not p["git_readable"]
     )
     return p
 
@@ -227,7 +243,9 @@ def scan(path, today, stale_days):
 # ---------------------------------------------------------------- render
 
 def rank(p):
-    """Attention first: blocked, gated, stale, then in-flight, then done."""
+    """Attention first: unreadable, blocked, gated, stale, then in-flight, then done."""
+    if not p.get("git_readable", True):
+        return 0  # a check that could not run outranks one that ran and found a problem
     if p["flow"] == "BLOCKED" or p["blockers"]:
         return 0
     if p["flow"] == "GATE":
@@ -266,7 +284,9 @@ def render(projects, stale_days):
         out.append("Needs a human (%d):" % len(attention))
         for p in attention:
             stale = next((f for f in p["flags"] if f.startswith("STALE")), "")
-            if p["blockers"]:
+            if not p["git_readable"]:
+                why = "git could not be read here — branch, dirty state and worktree status are UNKNOWN, not clean"
+            elif p["blockers"]:
                 why = p["blockers"][0]
             elif stale:
                 why = "no activity for %s while %s — %s" % (

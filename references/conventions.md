@@ -50,6 +50,13 @@ Run before **every commit** on the staged diff (`git diff --cached -U0`), before
 (Assignment branches require a quoted literal or a long bare token — `os.environ["API_KEY"]`-style accessors and `${VAR}` references don't hit.)
 Additionally, any **added** line in `.env*` (except `.env.example`/`.env.template`), `*.pem`, `*.pfx`, `*.key`, or `id_rsa*` is a hit regardless of content. On a hit: report file + line + pattern class only — **never echo the matched value** — and do not commit or push. Executor → `CHECKPOINT` (human-action); orchestrating skill → `FLOW: GATE | secret-scan hit in <file> | next: remove/rotate the credential, then rerun`. Only a human clears a hit (including false positives) — fail closed even in `--auto` mode and under `/goal`//`/loop`.
 
+## Fail-closed guards — never report success you didn't verify
+Every guard in DevFlow has three outcomes, not two: **pass**, **fail**, and **could not check**. Collapsing the third into the first is the failure mode that makes a guard worse than no guard, because it manufactures confidence: a secret scan whose `grep` never ran, a fan-in count taken from a directory listing that errored, a dirty-tree check whose `git` call failed, a diff-scope comparison with no reachable base. Each of those returns "nothing found", which reads exactly like "nothing there".
+
+The rule: when a check cannot be performed, report it as **not run** and treat it as attention-needed — never as clean, and never silently. In code, that means a distinct sentinel (`None`, not `""` or `0`) that callers must handle. In a skill, it means saying "could not verify X" in the report rather than omitting X. The secret scan is the strictest case and stays as specified above: unable to scan is a `GATE`, exactly like a hit, because the outgoing diff is unproven either way.
+
+This applies to the whole guard family: the secret scan, `/flow-execute`'s fan-in and scope-conformance checks, worktree pre-flight in `/flow-workstream`, check state in `/flow-ci`, and the fleet scanner's git reads (`GIT-UNKNOWN`). A guard reporting success it did not establish is a bug, not a rough edge.
+
 ## Credential modes & push canary
 - **Default rail**: the session's platform-provided git credentials (Claude Code's GitHub rail in cloud sessions; local `gh auth`). Sufficient for the whole DevFlow workflow; the set of repos granted to the session is the security boundary.
 - **Push canary**: the first `git push -u origin <branch>` (at `/flow-new`) is the only real credential test. If it fails with an auth error → `FLOW: GATE` with fix instructions (grant the repo to the session, or `gh auth login`) — never a retry loop. Network errors (not auth) may retry with backoff.

@@ -3,7 +3,12 @@ Copyright (c) 2026 jbrianfrancis-ir
 
 DevFlow is an independent, ground-up reimplementation. Its phase-loop discipline
 — fresh-context subagents, wave-parallel execution, plan checking, goal-backward
-verification, and durable .planning/ state — is derived in concept from GSD:
+verification, and durable .planning/ state — is derived in concept from GSD, as
+are four later additions: exogenous abstention on non-inferable truths (the
+backstop tier, where the verifier routes on a tag applied at plan time rather
+than on its own judgment), the coincidental-reliance advisory, post-execution
+conformance of a committed diff to its declared file scope, and the rule that a
+guard which could not run must never report success:
 
   GSD Core (open-gsd/gsd-core) — MIT License
   Copyright (c) 2026 Open GSD
