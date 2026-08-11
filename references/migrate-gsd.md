@@ -1,6 +1,8 @@
 # GSD → DevFlow migration map
 
-Read by /flow-migrate and the flow-migrator agent. Source: a GSD (open-gsd/gsd-core) project's `.planning/` (+ `.gsd/`). GSD versions vary — convert what you recognize, archive everything else. **Nothing is deleted**: originals move to `.planning/archive/gsd/` (same relative paths), and git history is untouched.
+Read by /flow-migrate and the flow-migrator agent. Source: a GSD (open-gsd/gsd-core) project's `.planning/` (+ `.gsd/`). GSD versions vary widely and the project moves fast — convert what you recognize, archive everything else. **Nothing is deleted**: originals move to `.planning/archive/gsd/` (same relative paths), and git history is untouched.
+
+Recent GSD (≥1.8) writes considerably more machine state than early versions: milestone directories, a `CONTEXT.md` fact-store queried through its own CLI, JSON ledgers with prose below them, install manifests, and capability/reviewer-lane state. Most of it has no DevFlow equivalent **by design** — DevFlow has no runtime to consume it. Archive generously; the test for converting something is whether a DevFlow skill will actually read it, not whether it looks important.
 
 ## File map
 | GSD | DevFlow | How |
@@ -16,6 +18,12 @@ Read by /flow-migrate and the flow-migrator agent. Source: a GSD (open-gsd/gsd-c
 | `research/*.md` | phase `RESEARCH.md` or `codebase/DOCS.md` digest | Keep if it informs remaining phases; else archive |
 | `phases/<done>/` (SUMMARY exists + verified) | archive as-is | Immutable history. Optionally add a frontmatter-only SUMMARY stub if the dir is referenced by remaining work |
 | `phases/<current>/` PLAN.md files | convert in place | GSD plan frontmatter (wave/depends_on/files_modified/must_haves/requirements) is DevFlow-compatible. Strip: `type: tdd` (→ note in action), `<execution_context>` @-includes, `<threat_model>` (fold real mitigations into task actions), model hints. Tasks/`<verify>`/`<done>` carry over |
+| must_have truths carrying a `backstop` verification tier (or a prose "needs a held-out/property-based test" note appended by GSD's plan-phase) | `must_haves.backstop_truths` | **Convert, don't drop.** GSD's edge-probe classifies non-inferable behavior at spec time; DevFlow's `backstop_truths` is the same tier by another name (`plan-format.md`). Move the truth into `backstop_truths` and delete the prose parenthetical — the whole point of the field is that the tag survives as structure rather than as text a verifier can skim past |
+| `CONTEXT.md` fact-store (+ `context-predicates` queries) | phase `CONTEXT.md` (locked/deferred/discretion) or `LEARNINGS.md` | Mine decisions and durable rules; the predicate/fact-store machinery is queried by GSD's CLI, which DevFlow doesn't have. Archive the rest |
+| `windows`/JSON ledgers (`append`/`waive`/`fixed` entries, prose below the JSON) | `TODOS.md` for anything still open | Keep the unresolved items as checkbox lines; archive the ledger. Preserve any prose beneath the JSON — it is hand-written and easy to lose |
+| `milestones/*-ROADMAP.md`, milestone state | `ROADMAP.md` + PROJECT.md summary lines | Per the ROADMAP row above: flatten into the single phase table, one summary line per completed milestone |
+| ADRs (`docs/adr/*`, ADR-NNN references in plans) | `PROJECT.md` Key Decisions, or leave in place | If the repo keeps ADRs as project docs, leave them where they are and cite the IDs from PROJECT.md — don't relocate a documentation practice the team already has |
+| install manifests, capability state, reviewer lanes, hooks (`gsd-write-guard.js` and friends), `bin/`, `src/*.cts` | archive / leave | GSD runtime, not planning state. DevFlow ships no hooks and no Node runtime; a project-level hook registered against GSD paths should be removed from the project's `.claude/settings.json` as part of the migration commit |
 | `UAT.md`, `deferred-items.md` | `deploy/UAT-PLAN.md` seed / TODOS.md | Deferred items → TODOS; old UAT content informs the next `/flow-uat` round |
 | `.gsd/`, capability state, mempalace/graphify/intel artifacts | archive | No DevFlow equivalent by design |
 | Anything unrecognized | archive | List in the migration report |
@@ -28,5 +36,6 @@ Read by /flow-migrate and the flow-migrator agent. Source: a GSD (open-gsd/gsd-c
 
 ## Invariants
 - Requirement IDs and phase numbers/slugs never change meaning during migration.
+- A non-inferable marker never degrades to prose. If GSD tagged a truth `backstop`, it lands in `backstop_truths` or the migration report names it as dropped — silently flattening it back to a normal truth re-creates the false-pass this tier exists to prevent.
 - The migration itself is one commit on a feature branch (`flow/migrate-from-gsd`), per conventions.md — review before merging.
 - After migration, `/gsd-*` commands must not run in this project again (both systems own `.planning/`). Remove or disable project-level GSD artifacts (project `.claude/` gsd settings, `.gsd/`, GSD sections in CLAUDE.md) as part of the migration commit; uninstalling the GSD plugin globally is the human's choice.
