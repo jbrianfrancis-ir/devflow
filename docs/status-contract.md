@@ -32,7 +32,7 @@ All paths are relative to the project repo. A repo is DevFlow-managed **iff** `.
 | `.planning/ROADMAP.md` | Phase table with per-phase status. |
 | `.planning/config.json` | `git` block (`base`, `origin`, `upstream`, `branch`); `workstream` block when the checkout is a worktree. |
 | `phases/NN-slug/*-SUMMARY.md` | Frontmatter: `commits`, `deviations`, `human_checks`, `deferred`. |
-| `phases/NN-slug/VERIFICATION.md` | Frontmatter: `status` (`pass`/`gaps`/`human_needed`), `gaps`. |
+| `phases/NN-slug/VERIFICATION.md` | Frontmatter: `status` (`pass`/`gaps`/`human_needed`), `gaps`, `unverified` (backstop truths the verifier abstained on — non-inferable behavior awaiting a held-out test; these are not defects and never become gaps). |
 
 `STATE.md` and `config.json` are **branch-local** — in a multi-worktree repo each workstream has its own. See `references/conventions.md` → Parallel workstreams.
 
@@ -56,7 +56,9 @@ Walks roots for DevFlow projects (including git worktrees of any repo it finds, 
     "age_days": 0, "dirty": 2, "flags": ["WT"], "needs_human": true }] }
 ```
 
-`flags`: `ON-BASE` (committing to the base branch — a convention violation), `DIRTY:n`, `STALE:nd` (in-flight with no activity), `WT` (git worktree), `NO-DECL` (missing the plugin self-bootstrap block).
+`flags`: `ON-BASE` (committing to the base branch — a convention violation), `DIRTY:n`, `STALE:nd` (in-flight with no activity), `WT` (git worktree), `NO-DECL` (missing the plugin self-bootstrap block), `GIT-UNKNOWN` (git could not be read here).
+
+**Unanswerable checks are `null`, not a clean value.** `dirty` and `worktree` are `null` — never `0` or `false` — when git could not be consulted, and `git_readable` says whether it could. A consumer must not read `null` as "fine"; the project is flagged `GIT-UNKNOWN` and counted in `needs_human` for exactly that reason (conventions.md → Fail-closed guards).
 
 **Exit status is the cheap signal**: `0` when every project is fine, `1` when any needs a human. A foreman can branch on that without parsing anything. Roots default to `~/.devflow/fleet.json` (`{"roots": ["~/dev"], "stale_days": 3}`), else the parent of the working directory.
 
