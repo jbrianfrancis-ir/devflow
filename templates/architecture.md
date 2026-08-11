@@ -14,6 +14,19 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 
 
 
+## Principles
+<!-- Practice law for THIS project — the rules a plan may not trade away for convenience.
+     The stack tables above say what to build with; this says how work is done here.
+     Keep 3–6, each testable enough that a reviewer can point at a violation. Delete the rest —
+     a principle nobody would enforce is a comment.
+     DevFlow's own defaults (src//tests/ layout, dead-code deletion, regression test per bug fix,
+     fail-closed guards) already apply everywhere and don't need restating; write only what is
+     specific or stricter here. A conflict is resolved by changing the plan, never by reinterpreting
+     the principle — if a principle is wrong, amend this file deliberately, as its own decision. -->
+- {e.g. No feature merges without an integration test against a real database — mocks don't count}
+- {e.g. Every endpoint enforces authorization at the handler; no reliance on gateway filtering}
+- {e.g. Public API changes ship behind a version; no breaking change without a deprecation window}
+
 ## Frameworks & libraries
 | Library | Version | Use for |
 |---------|---------|---------|

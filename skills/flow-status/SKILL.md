@@ -17,6 +17,8 @@ No `.planning/` → point to `/flow-new` (except `--all`, which needs no project
 - PR open but not green (failing/pending checks, unresolved bot threads) → `/flow-ci`
 - PR merged to base → `/flow-uat`, then sign-off, `/flow-release` (see `.planning/deploy/PIPELINE.md` if present)
 
+If the routing disagrees with what's on disk (ROADMAP status vs SUMMARYs vs VERIFICATION), say so and point at `/flow-audit` rather than guessing which artifact is right.
+
 Mention: `/flow-next` advances one step automatically; see the README's Autonomous operation recipes (`/goal` + `/flow-next`, `/loop /flow-next`).
 
 Session hygiene: `/clear` is safe anytime — state persists in `.planning/`. Clear at phase boundaries or when context is heavy; never mid-`/goal`/`/loop` (it ends the run). See README → Session hygiene.

@@ -17,6 +17,21 @@ guard which could not run must never report success:
 No source files from GSD Core are included in DevFlow; the behavioral contracts
 were reimplemented in a compressed, Claude-Code-only form.
 
+DevFlow's specification discipline — inline [NEEDS CLARIFICATION] markers for
+choices the spec never settled, a recorded Assumptions section, measurable
+technology-agnostic success criteria, severity-rated cross-artifact
+consistency analysis, and project principles whose violations are resolved by
+changing the work rather than reinterpreting the principle — is derived in
+concept from:
+
+  Spec Kit (github/spec-kit) — MIT License
+  Copyright (c) GitHub, Inc.
+  https://github.com/github/spec-kit
+
+No source files from Spec Kit are included; the concepts were reimplemented
+against DevFlow's own artifacts, and its constitution became a section of
+ARCHITECTURE.md rather than a separate governing file.
+
 The /flow-oracle consultation loop — context bundles, advisory panels, session
 lineage, detached runs, and the render-and-copy fallback — is derived in
 concept from:

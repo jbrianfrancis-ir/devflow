@@ -9,7 +9,7 @@
     {
       "name": "devflow",
       "description": "Spec-driven development driven through a lean phase loop into an Aspire/Azure deployment pipeline. Commands are /flow-*.",
-      "version": "0.8.0",
+      "version": "0.9.0",
       "source": "./",
       "author": {
         "name": "jbrianfrancis-ir",
