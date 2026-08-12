@@ -1,8 +1,8 @@
 name: release
 
 # Cuts a GitHub Release (and tag) whenever the plugin version on main is new.
-# The version string in .claude-plugin/plugin.json is the source of truth —
-# no release without a bump, no bump without a release.
+# The version string in plugins/devflow/.claude-plugin/plugin.json is the source
+# of truth; validation requires the Codex manifest to match it.
 # Back-fill older versions via workflow_dispatch (version + target inputs).
 
 on:
@@ -35,7 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ inputs.version }}"
-          [ -n "$VERSION" ] || VERSION="$(jq -r .version .claude-plugin/plugin.json)"
+          [ -n "$VERSION" ] || VERSION="$(jq -r .version plugins/devflow/.claude-plugin/plugin.json)"
           TARGET="${{ inputs.target }}"
           [ -n "$TARGET" ] || TARGET="$GITHUB_SHA"
           if git ls-remote --exit-code origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
