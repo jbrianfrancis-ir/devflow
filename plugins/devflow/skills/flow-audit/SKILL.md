@@ -1,6 +1,6 @@
 ---
 name: flow-audit
-description: Read-only cross-artifact consistency check across REQUIREMENTS, ROADMAP, plans, SUMMARYs, VERIFICATION and STATE - coverage both directions, drift, unmeasurable criteria, open clarifications, principle conflicts. Use before executing a phase, before /flow-harden, or when the planning docs feel out of sync.
+description: Read-only cross-artifact consistency check across REQUIREMENTS, ROADMAP, plans, SUMMARYs, VERIFICATION and STATE - coverage both directions, drift, unmeasurable criteria, open clarifications, principle conflicts. Use before executing a phase, before /flow-harden, or when the planning docs feel out of sync. --export assembles an agent-activity evidence pack (who had access, what changed, who approved) for a vendor or compliance review.
 ---
 
 # flow-audit
@@ -11,7 +11,7 @@ Context rules: read `.planning/STATE.md` first. Everything here is small and cap
 
 **STRICTLY READ-ONLY.** Change nothing — not a status, not a typo, not a marker. DevFlow spreads project knowledge across artifacts on purpose, and an auditor that edits while it reads destroys the evidence of what disagreed with what. Findings end in a report and a recommended route; the human decides.
 
-**Pre-flight**: `.planning/` with REQUIREMENTS.md and ROADMAP.md. Missing → point to `/flow-new`. Scope defaults to the whole project; `N` limits it to phase N's artifacts plus the project-level files they reference.
+**Pre-flight**: `.planning/` with REQUIREMENTS.md and ROADMAP.md. Missing → point to `/flow-new`. Scope defaults to the whole project; `N` limits it to phase N's artifacts plus the project-level files they reference. (`--export` needs only `.planning/` and a git checkout — it reports on what exists rather than checking it.)
 
 ## Passes
 Run all of them; report nothing you cannot point at with a file and a line or row.
@@ -38,5 +38,26 @@ One table — `ID | severity | pass | where (file:line/row) | finding | fix` —
 Clean is a real result: say "no findings" plainly rather than manufacturing LOWs to look thorough.
 
 Write nothing to `.planning/` — not even a JOURNAL line (this run changed nothing, and the journal records changes). The report lives in the transcript.
+
+## --export (evidence pack)
+
+`--export [--since <date|tag|sha>]` is a **separate mode**: it does not run the passes above. It assembles the record of agent activity — which agents had access, what they changed, and who approved it — from git history and `.planning/`. Default range is the whole history; `--since` narrows it (e.g. a vendor review period).
+
+Writing `.planning/exports/AUDIT-<YYYY-MM-DD>.md` does not break the read-only rule: that rule protects the artifacts being audited from an auditor that edits while it reads. A new derived file changes no evidence. Never modify anything it reads.
+
+Fill `{devflow_root}/templates/audit-export.md` — it carries the section structure and the standard it holds each figure to. Sources, in order:
+- **Changes** — `git log --format='%H|%ad|%an|%s|%(trailers:key=DevFlow-Agent,valueonly)|%(trailers:key=DevFlow-Plan,valueonly)' --date=short <range>`. Group by phase/plan; report attributed vs total and name the unattributed remainder rather than quietly excluding it.
+- **Access** — providers and models **observed in the trailers**, not read from `config.json`: config is current state and says nothing about what ran in March. Report the declared values too, and flag any difference.
+- **Approvals** — `.planning/DECISIONS.md` in range, verbatim, plus `deploy/SIGNOFF.md`.
+- **Verification** — `VERIFICATION.md` frontmatter per phase: status, smoke, human checks, `unverified`.
+- **Controls** — from `conventions.md` and `autonomy.md`: what is *enforced*, not outcomes you haven't measured.
+
+Two rules the template states and you must hold to: derive every figure from a command you ran or a file you read (unreproducible numbers are worse than absent ones — write "not recorded"), and put the limitations section first, including any period where the trailers or the decision log did not yet exist. A partial record presented as a complete one is the failure mode here.
+
+**Before finalizing**: run the conventions.md secret scan over the assembled pack, exactly as for an outbound consult bundle — this artifact leaves the machine. A hit is fail-closed: don't write the file, report file/line/pattern class (never the value), `FLOW: GATE`. Then tell the user the pack carries approver names and emails from the decision log, and that **DevFlow never sends it** — distribution is entirely their call.
+
+Commit when `commit_docs` (`chore(flow): audit export <date>`, attribution trailers per conventions.md) so the exact pack that was handed over stays reproducible at a known SHA. This is the one `/flow-audit` mode that writes, so it is also the one that journals: prepend a JOURNAL line.
+
+Status line: `FLOW: GATE | audit export written to <path> — review before sharing | next: {the command STATE points to}`. A pack going to a third party is a human decision, never an autonomous step.
 
 End with the status line per `{devflow_root}/references/autonomy.md` — clean: `FLOW: CONTINUE | audit clean | next: {the command STATE points to}`; findings that need a decision: `FLOW: GATE | audit: N critical, M high | next: {route}`; only MEDIUM/LOW: `CONTINUE` naming them as known debt.

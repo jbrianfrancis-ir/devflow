@@ -48,6 +48,8 @@ DevFlow-Plan: NN-MM
 
 `provider` is always concretely `claude` or `codex` (never `native`); `model` is `-` when the host does not expose it; `DevFlow-Plan` appears on plan-scoped commits only. Standard trailer syntax, so git's own tooling reads it — `git log --grep='^DevFlow-Agent:'` to list agent-produced commits in a range, or `git log --format='%h %s | %(trailers:key=DevFlow-Agent,valueonly)'` to extract the value per commit (empty for commits without it). Absence of the trailer means the commit did not come from DevFlow — it does **not** mean no agent touched it, since nothing outside DevFlow is required to attribute itself. The committer identity remains the human whose credentials made the commit; the trailer records what assisted, not who is accountable.
 
+`.planning/exports/AUDIT-<YYYY-MM-DD>.md` is an **output**, not an input: a dated evidence pack built from the files above plus git metadata by `/flow-audit --export`. Drivers should regenerate it rather than parse it, since every figure in it is derived from sources they can already read.
+
 A reader of this contract reads **only** the files above plus git metadata. Never source, never `.env*`, never key files.
 
 ## 3. The fleet scanner
