@@ -1,6 +1,6 @@
 # DevFlow ↔ BlitzOS context repos — fork integration contract
 
-Design contract for a [BlitzOS](https://github.com/blitzdotdev/blitzos) fork that manages DevFlow projects. **Not loaded by any skill** — this is for fork implementers (scanner, builder, portal, bootstrap). DevFlow-side counterparts live in `references/conventions.md` (secret scan, credential modes, session journal, self-bootstrap) and `references/autonomy.md` (status line, human gates).
+Design contract for a [BlitzOS](https://github.com/blitzdotdev/blitzos) fork that manages DevFlow projects. **Not loaded by any skill** — this is for fork implementers (scanner, builder, portal, bootstrap). DevFlow-side counterparts live in `plugins/devflow/references/conventions.md` (secret scan, credential modes, session journal, self-bootstrap) and `plugins/devflow/references/autonomy.md` (status line, human gates).
 
 ## 1. Detection (evidence-based)
 
@@ -47,7 +47,7 @@ FLOW: CONTINUE|GATE|BLOCKED|DONE | <position> | next: <command>
 - `GATE` / `BLOCKED` → stop; raise a steering notification carrying `<position>` (it names what the human must decide/do).
 - `DONE` → write the session record (§5), stop.
 
-**Permanent human gates the fork must surface and never auto-answer** (from `references/autonomy.md`): checkpoint decisions and human-actions; failed-package (typosquat) verification; a fail-closed secret-scan hit; UAT acceptance + SIGNOFF.md; production release confirmation; opening a PR to upstream; pushing tags; anything destructive in git. Hard rule: never commit to the base branch.
+**Permanent human gates the fork must surface and never auto-answer** (from `plugins/devflow/references/autonomy.md`): checkpoint decisions and human-actions; failed-package (typosquat) verification; a fail-closed secret-scan hit; UAT acceptance + SIGNOFF.md; production release confirmation; opening a PR to upstream; pushing tags; anything destructive in git. Hard rule: never commit to the base branch.
 
 ## 5. Session-record mapping
 

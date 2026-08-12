@@ -1,0 +1,27 @@
+{
+  "name": "devflow",
+  "version": "0.9.0",
+  "description": "Token-efficient, spec-driven development for Claude Code and Codex with native and cross-provider subagents.",
+  "author": {
+    "name": "jbrianfrancis-ir",
+    "url": "https://github.com/jbrianfrancis-ir"
+  },
+  "repository": "https://github.com/jbrianfrancis-ir/devflow",
+  "license": "MIT",
+  "keywords": ["spec-driven-development", "planning", "workflow", "multi-agent", "codex", "claude-code"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "DevFlow",
+    "shortDescription": "Spec-driven delivery with native or cross-provider agents",
+    "longDescription": "Plan, execute, independently review, verify, and ship software through durable repository state using Claude Code, Codex, or an explicitly selected peer provider.",
+    "developerName": "jbrianfrancis-ir",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Write"],
+    "websiteURL": "https://github.com/jbrianfrancis-ir/devflow",
+    "defaultPrompt": [
+      "Initialize this repository with DevFlow.",
+      "Plan the next DevFlow phase.",
+      "Show the current DevFlow status."
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "devflow",
+  "displayName": "DevFlow",
+  "version": "0.9.0",
+  "description": "Token-efficient spec-driven development for Claude Code and Codex: plan, execute, independently verify, review, and ship with native or explicitly selected cross-provider subagents.",
+  "author": {
+    "name": "jbrianfrancis-ir",
+    "url": "https://github.com/jbrianfrancis-ir"
+  },
+  "license": "MIT",
+  "keywords": ["spec-driven-development", "planning", "workflow", "multi-agent", "codex", "claude-code", "aspire", "azure"]
+}

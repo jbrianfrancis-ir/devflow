@@ -1,19 +1,41 @@
 # DevFlow
 
-Token-efficient spec-driven development for Claude Code. Fresh-context subagents, wave-parallel execution, plan checking, independent diff review, goal-backward verification that abstains rather than guessing, and durable `.planning/` state. 20 commands and 9 subagents across ~160KB of prompt content — but nothing loads it all: each command pulls ~1–5k tokens and the heavy work runs in subagents. Commands use the `/flow-*` prefix.
+Token-efficient spec-driven development for Claude Code and local Codex clients. Fresh-context subagents, wave-parallel execution, plan checking, independent diff review, goal-backward verification that abstains rather than guessing, and durable `.planning/` state. Twenty shared Agent Skills load progressively; heavy work runs in bounded native subagents or, when explicitly selected, through the other provider's authenticated CLI.
 
-Claude Code only. No installer, no Node runtime, no hooks. "Ship" is a real pipeline: harden → UAT → human sign-off → production, orchestrated with [Aspire](https://aspire.dev) + azd on Azure.
+No Node runtime and no hooks. "Ship" is a real pipeline: harden → UAT → human sign-off → production, orchestrated with [Aspire](https://aspire.dev) + azd on Azure. Claude invokes skills as `/flow-*`; Codex invokes the same skills as `$flow-*`.
 
-**Orchestrator-agnostic.** DevFlow is a crew member, not a multiplexer — it runs inside whatever you already use (tmux, [herdr](https://herdr.dev), cmux, Orca, Superset, Conductor, the desktop app, or plain terminal tabs) and doesn't compete with any of them. It is skills in a normal interactive session: no `claude -p`, no headless spawning, no Agent SDK pool — usage stays on your subscription. What it adds is *legibility*: every skill ends in a machine-checkable `FLOW:` line, all state lives in files, and `/flow-status --all` boards every DevFlow project on the machine. Any outside session — a "foreman", a dashboard, a cron job — can observe and drive it without screen-scraping. Contract: [`docs/status-contract.md`](docs/status-contract.md).
+**Orchestrator-agnostic.** DevFlow runs as skills inside the interactive host rather than replacing it. Native subagents are the default. Cross-provider work is opt-in via `--provider claude|codex` or a saved project default, and uses `claude -p` or `codex exec` only for that bounded peer role. What DevFlow adds is *legibility*: every skill ends in a machine-checkable `FLOW:` line, all state lives in files, and `flow-status --all` boards every DevFlow project without screen-scraping. Contract: [`docs/status-contract.md`](docs/status-contract.md).
 
 ## Install
+
+### Claude Code
 
 ```
 /plugin marketplace add jbrianfrancis-ir/devflow
 /plugin install devflow@devflow
 ```
 
-DevFlow projects are **self-bootstrapping**: `/flow-new` and `/flow-migrate` write a `.claude/settings.json` declaring this marketplace + plugin, so any session opening the repo — including Claude Code on the web, where fresh containers don't carry your locally installed plugins — installs DevFlow at session start (desktop shows a one-time trust prompt).
+### Codex CLI, app, or IDE
+
+```text
+codex plugin marketplace add jbrianfrancis-ir/devflow
+codex plugin add devflow@devflow
+```
+
+Start a new Codex thread after installation and invoke skills with `$flow-new`,
+`$flow-plan`, `$flow-execute`, and the other `$flow-*` names. Codex cloud is not
+part of the initial support contract.
+
+### Provider selection
+
+Native workers are used unless a delegating skill receives
+`--provider claude|codex`. A project can save the same choice as
+`"agents": {"provider": "native|claude|codex"}` in `.planning/config.json`;
+the command flag wins. Cross-provider use requires both CLIs installed and
+authenticated, authorizes the bounded repository context to be sent to that
+provider, and preserves all Flow checkpoints, branch rules, and secret scans.
+
+Claude projects remain **self-bootstrapping**: `/flow-new` and `/flow-migrate` merge a `.claude/settings.json` declaration so fresh Claude sessions install DevFlow. Codex v1 uses the user-installed marketplace above and does not mutate user configuration from a project skill.
 
 **Context repos (BlitzOS-style)**: DevFlow projects slot into [BlitzOS](https://github.com/blitzdotdev/blitzos)-style context repos — thin private repos that let cloud agents boot already knowing your repos and their state. Detection, company-brain rendering, `FLOW:` status parsing, session-record mapping, and the bootstrap contract are specified in [`docs/blitzos.md`](docs/blitzos.md).
 
@@ -49,13 +71,13 @@ DevFlow projects are **self-bootstrapping**: `/flow-new` and `/flow-migrate` wri
          ──► /flow-harden ──► /flow-pr ──► /flow-ci ──► (merge) ──► /flow-uat ──► human sign-off ──► /flow-release
 ```
 
-**Graph execution** (`references/plan-format.md`): a phase's plans form a dependency graph — plans are nodes, `depends_on` edges exist only where one plan consumes another's output (the *fake-edge test*), and waves are the graph's parallel layers. Same-wave plans share no files and no mutable resources (a shared migration chain or lockfile is a *hidden edge*). `/flow-execute` fans out one fresh-context executor per plan per wave; a *fan-in guard* counts results against spawns so a dead executor can't slip silently into a "complete" phase; and a fresh-context verifier — never the executors that did the work — proves the phase's `must_haves` against *anchors*: commands actually run, tests actually passed, code traced. must_haves freeze at execution start; gaps close by changing code, never by weakening a truth.
+**Graph execution** (`plugins/devflow/references/plan-format.md`): a phase's plans form a dependency graph — plans are nodes, `depends_on` edges exist only where one plan consumes another's output (the *fake-edge test*), and waves are the graph's parallel layers. Same-wave plans share no files and no mutable resources (a shared migration chain or lockfile is a *hidden edge*). `/flow-execute` fans out one fresh-context executor per plan per wave; a *fan-in guard* counts results against spawns so a dead executor can't slip silently into a "complete" phase; and a fresh-context verifier — never the executors that did the work — proves the phase's `must_haves` against *anchors*: commands actually run, tests actually passed, code traced. must_haves freeze at execution start; gaps close by changing code, never by weakening a truth.
 
-State lives in `.planning/` (hard size caps, sections overwritten not appended — see `templates/`). Every skill reads `STATE.md` first, so any session resumes cold. `JOURNAL.md` keeps a capped, newest-first one-line history of skill runs — warm starts, audit trail, and the lines context repos index.
+State lives in `.planning/` (hard size caps, sections overwritten not appended — see `plugins/devflow/templates/`). Every skill reads `STATE.md` first, so any session resumes cold. `JOURNAL.md` keeps a capped, newest-first one-line history of skill runs — warm starts, audit trail, and the lines context repos index.
 
-**Conventions** (`references/conventions.md`): code lives under `src/` and tests under `tests/` off the repo root, and every change flows through git the same way — a feature branch off `dev` (or `main`), commits pushed to `origin`, integrated by pull request against `upstream` (or the base branch when there's no separate upstream). Deploy runs from merged base code. A **fail-closed secret scan** guards every commit and push (a hit is a human gate — the value is never echoed), and `ARCHITECTURE.md` carries a names-only **Environment manifest** (env vars/parameters + provisioning source; `.env` files are never opened) that `/flow-harden` audits against the code. Aspire updates within the current major apply automatically; a major bump (e.g. 13→14) needs approval. `ARCHITECTURE.md` can override the layout; the git workflow always applies.
+**Conventions** (`plugins/devflow/references/conventions.md`): code lives under `src/` and tests under `tests/` off the repo root, and every change flows through git the same way — a feature branch off `dev` (or `main`), commits pushed to `origin`, integrated by pull request against `upstream` (or the base branch when there's no separate upstream). Deploy runs from merged base code. A **fail-closed secret scan** guards every commit and push (a hit is a human gate — the value is never echoed), and `ARCHITECTURE.md` carries a names-only **Environment manifest** (env vars/parameters + provisioning source; `.env` files are never opened) that `/flow-harden` audits against the code. Aspire updates within the current major apply automatically; a major bump (e.g. 13→14) needs approval. `ARCHITECTURE.md` can override the layout; the git workflow always applies.
 
-**Architecture constraints**: `.planning/ARCHITECTURE.md` (created by `/flow-new`, or write it yourself from `templates/architecture.md`) pins your exact stack — runtime, frameworks, and library versions, patterns, Azure/Aspire resources, forbidden items. Planner, plan-checker, executor, and researcher treat it as law: plans pin the listed versions, nothing gets substituted or upgraded silently, and anything outside it surfaces as a decision checkpoint. `/flow-harden` audits for drift between the pins and reality.
+**Architecture constraints**: `.planning/ARCHITECTURE.md` (created by `/flow-new`, or write it yourself from `plugins/devflow/templates/architecture.md`) pins your exact stack — runtime, frameworks, and library versions, patterns, Azure/Aspire resources, forbidden items. Planner, plan-checker, executor, and researcher treat it as law: plans pin the listed versions, nothing gets substituted or upgraded silently, and anything outside it surfaces as a decision checkpoint. `/flow-harden` audits for drift between the pins and reality.
 
 **Second opinions** (`/flow-oracle`): when you're stuck or facing a high-stakes decision, ask an external frontier model — concepts from [steipete/oracle](https://github.com/steipete/oracle). The skill packs the question + only the files that change the answer into a context bundle, runs it through the best available engine (the `oracle` CLI or MCP server when installed; otherwise a render-and-copy bundle you paste into any chat UI — no install required), and distills the reply into a ≤10-line advisory verdict. `--panel` cross-checks 2–3 models; `--followup` chains onto a prior consult's session. Consults persist in `.planning/consults/` (resumable, with lineage), and DevFlow's rules still apply: the fail-closed secret scan runs over every outbound bundle, every send is a human gate, and advice conflicting with ARCHITECTURE.md pins surfaces as a decision checkpoint — never adopted silently. `/flow-debug` (when hypotheses run dry), `/flow-plan` (checker escalation), and `/flow-harden` (ambiguous findings) offer it at their stuck points.
 
@@ -77,7 +99,7 @@ The bottleneck in agent-assisted work isn't decomposition — it's losing track 
 
 **Fleet board** — `/flow-status --all` runs `scripts/flow-fleet.py`, which walks your roots for `.planning/STATE.md` and prints one row per project: phase, status, last `FLOW:` state, age, dirty/stale/on-base flags, and the exact next command. It reads files, never screens, so it works under every multiplexer and survives their updates. Attention-first ordering, a "needs a human" footer with copy-pasteable `cd … && /flow-…` lines, `--json` for programmatic drivers, and exit status `1` when anything needs you. Configure roots once in `~/.devflow/fleet.json`: `{"roots": ["~/dev"], "stale_days": 3}`.
 
-**Workstreams** — `/flow-workstream new <slug>` cuts a git worktree on its own `flow/<slug>` branch so two phases run side by side without fighting over one checkout. It refuses streams that share a hidden edge (migration chain, lockfile, generated output, shared dev database), assigns a port offset so both apps can run, and names the untracked local files the new tree lacks. `.planning/` reconciliation at merge is specified in `references/conventions.md` → Parallel workstreams: `STATE.md`/`config.json` are branch-local, `JOURNAL.md`/`LEARNINGS.md` merge as unions, `ARCHITECTURE.md` and the other pins are single-writer.
+**Workstreams** — `/flow-workstream new <slug>` cuts a git worktree on its own `flow/<slug>` branch so two phases run side by side without fighting over one checkout. It refuses streams that share a hidden edge (migration chain, lockfile, generated output, shared dev database), assigns a port offset so both apps can run, and names the untracked local files the new tree lacks. `.planning/` reconciliation at merge is specified in `plugins/devflow/references/conventions.md` → Parallel workstreams: `STATE.md`/`config.json` are branch-local, `JOURNAL.md`/`LEARNINGS.md` merge as unions, `ARCHITECTURE.md` and the other pins are single-writer.
 
 **PR to green** — `/flow-ci` takes the PR from opened to mergeable: polls checks, pulls the real failure logs, classifies each failure as caused-by-this-branch / pre-existing-on-base / flake / needs-a-decision, fixes what's its own (with a regression test), and triages bot review threads into fix / refute / defer — replying and resolving each. It never disables a check to get green, never force-pushes, never merges, and never answers a human reviewer. Built for `/loop /flow-ci`.
 

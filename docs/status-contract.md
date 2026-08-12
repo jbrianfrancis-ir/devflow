@@ -19,7 +19,7 @@ FLOW: <state> | <position> | next: <command>
 | `BLOCKED` | An error needs investigation before anything proceeds. |
 | `DONE` | Roadmap fully verified (or released, after `/flow-release`). |
 
-Grammar: one line, three `|`-separated fields, `next:` prefix on the third. Parse it with `grep -oE '^FLOW: [A-Z]+ \| .* \| next: .*$'` against the last message — not with a model. The full state list and the permanent human gates live in `references/autonomy.md`.
+Grammar: one line, three `|`-separated fields, `next:` prefix on the third. Parse it with `grep -oE '^FLOW: [A-Z]+ \| .* \| next: .*$'` against the last message — not with a model. The full state list and the permanent human gates live in `plugins/devflow/references/autonomy.md`.
 
 ## 2. Files (read these; never screen-scrape)
 
@@ -30,11 +30,11 @@ All paths are relative to the project repo. A repo is DevFlow-managed **iff** `.
 | `.planning/STATE.md` | ≤1.5KB, rewritten in place, never appended. `## Position` holds `Phase: N of M (name) \| Plans: d/t \| Status: <token>`, then `Last:` and `Next:`. `## Blockers` is a bullet list or `- none`. `## Session` holds `Stopped:` / `Resume:`. Quote these lines verbatim — they are written to be quoted. |
 | `.planning/JOURNAL.md` | ≤2KB, **newest first**, one line per state-changing run: `- YYYY-MM-DD \| /flow-cmd \| outcome \| FLOW-STATE`. The top line is "last activity". Lines added during a session are that session's record. |
 | `.planning/ROADMAP.md` | Phase table with per-phase status. |
-| `.planning/config.json` | `git` block (`base`, `origin`, `upstream`, `branch`); `workstream` block when the checkout is a worktree. |
+| `.planning/config.json` | `git` block (`base`, `origin`, `upstream`, `branch`); `agents.provider` (`native`, `claude`, or `codex`); `workstream` block when applicable. |
 | `phases/NN-slug/*-SUMMARY.md` | Frontmatter: `commits`, `deviations`, `human_checks`, `deferred`. |
 | `phases/NN-slug/VERIFICATION.md` | Frontmatter: `status` (`pass`/`gaps`/`human_needed`), `gaps`, `unverified` (backstop truths the verifier abstained on — non-inferable behavior awaiting a held-out test; these are not defects and never become gaps). |
 
-`STATE.md` and `config.json` are **branch-local** — in a multi-worktree repo each workstream has its own. See `references/conventions.md` → Parallel workstreams.
+`STATE.md` and `config.json` are **branch-local** — in a multi-worktree repo each workstream has its own. See `plugins/devflow/references/conventions.md` → Parallel workstreams.
 
 A reader of this contract reads **only** the files above plus git metadata. Never source, never `.env*`, never key files.
 
@@ -71,12 +71,12 @@ cd <repo> && /flow-next            # advance exactly one step, then stop with FL
 
 `/flow-next` is the driver: one step per invocation, bounded turns, always terminating in a status line. Loop it (`/loop /flow-next`) or gate it (`/goal FLOW says DONE or GATE, or stop after 40 turns`). `/flow-ci` drives an open PR to green the same way. `/flow-status --all` boards every project; `/flow-workstream` adds a parallel worktree.
 
-**Gates a driver must surface and never answer itself** (authoritative list in `references/autonomy.md`): checkpoint decisions and human-actions; failed-package (typosquat) verification; a fail-closed secret-scan hit; sending an external consult bundle; opening a PR to upstream; replying to human PR reviewers; UAT acceptance and sign-off; production release confirmation; pushing tags; anything destructive in git. Hard rule, not a gate: never commit to the base branch.
+**Gates a driver must surface and never answer itself** (authoritative list in `plugins/devflow/references/autonomy.md`): checkpoint decisions and human-actions; failed-package (typosquat) verification; a fail-closed secret-scan hit; sending an external consult bundle; opening a PR to upstream; replying to human PR reviewers; UAT acceptance and sign-off; production release confirmation; pushing tags; anything destructive in git. Hard rule, not a gate: never commit to the base branch.
 
 ## 5. What not to build against
 
 - **Don't screen-scrape the TUI.** Terminal output is not an interface; the files above are. Anything you'd learn by scraping is in `STATE.md` or the status line.
 - **Don't parse skill prose.** Only the `FLOW:` line and the file formats in §2 are stable.
 - **Don't summarize `STATE.md` or `JOURNAL.md` with a model at scan time.** They are already capped and written to be quoted verbatim — a model pass adds cost, latency, and drift.
-- **Don't spawn `claude -p` per step.** DevFlow is skills inside a normal interactive session; its work runs in ordinary subagents. Keep sessions interactive and the usage stays on your subscription.
+- **Don't spawn a provider CLI per workflow step.** DevFlow stays in the interactive host and uses native subagents by default. `claude -p` or `codex exec` is reserved for an explicitly selected, bounded cross-provider role.
 - **Don't treat a `GATE` as a retry.** It means a human is required. Re-running the same command produces the same gate.
