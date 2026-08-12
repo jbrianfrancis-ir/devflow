@@ -13,7 +13,7 @@ source, `.env*`, or key files — same discipline as the BlitzOS scanner contrac
 Zero dependencies (stdlib only).
 
 Usage:
-    python3 scripts/flow-fleet.py [ROOT ...] [--json] [--stale-days N] [--depth N]
+    python3 {devflow_root}/scripts/flow-fleet.py [ROOT ...] [--json] [--stale-days N] [--depth N]
 
 Roots resolve in this order: positional args → `~/.devflow/fleet.json`
 (`{"roots": ["~/dev"], "stale_days": 3}`) → the parent of the current directory.

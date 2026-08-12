@@ -41,15 +41,23 @@ class FlowAgentTests(unittest.TestCase):
         path.write_text("#!/bin/sh\n" + body, encoding="utf-8")
         path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
-    def run_bridge(self, provider, role, extra_env=None):
+    def config(self, provider):
+        planning = self.repo / ".planning"
+        planning.mkdir(exist_ok=True)
+        (planning / "config.json").write_text(
+            json.dumps({"agents": {"provider": provider}}), encoding="utf-8")
+
+    def run_bridge(self, provider, role, extra_env=None, host=None, stdin=""):
         env = os.environ.copy()
         env["PATH"] = str(self.bin) + os.pathsep + env.get("PATH", "")
         env.update(extra_env or {})
-        run = subprocess.run(
-            [sys.executable, str(BRIDGE), "--provider", provider, "--role", role,
-             "--repo", str(self.repo), "--prompt-file", str(self.prompt)],
-            text=True, capture_output=True, env=env,
-        )
+        # Default the host to the other CLI so the bridge is genuinely cross-provider.
+        host = host or ("claude" if provider == "codex" else "codex")
+        command = [sys.executable, str(BRIDGE), "--host", host, "--role", role,
+                   "--repo", str(self.repo), "--prompt-file", str(self.prompt)]
+        if provider is not None:
+            command += ["--provider", provider]
+        run = subprocess.run(command, text=True, capture_output=True, env=env, input=stdin)
         return run, json.loads(run.stdout)
 
     def test_codex_read_only_and_structured_result(self):
@@ -101,6 +109,86 @@ class FlowAgentTests(unittest.TestCase):
         self.assertEqual("codex", MODULE.resolve_provider("codex", "claude", "claude"))
         with self.assertRaises(ValueError):
             MODULE.resolve_provider(None, "other", "codex")
+
+    def test_project_config_supplies_provider_when_flag_omitted(self):
+        self.config("codex")
+        self.fake("codex", f"printf '%s' '{json.dumps(GOOD)}'")
+        run, value = self.run_bridge(None, "reviewer", host="claude")
+        self.assertEqual(0, run.returncode)
+        self.assertEqual(GOOD, value)
+
+    def test_command_flag_overrides_project_config(self):
+        self.config("codex")
+        outer = json.dumps({"structured_output": GOOD})
+        self.fake("claude", f"printf '%s' '{outer}'")
+        run, value = self.run_bridge("claude", "reviewer", host="codex")
+        self.assertEqual(0, run.returncode)
+        self.assertEqual(GOOD, value)
+
+    def test_native_never_starts_a_second_cli(self):
+        # Both the explicit flag and the bare default resolve to the host.
+        for provider in (None, "native"):
+            run, value = self.run_bridge(provider, "reviewer", host="codex")
+            self.assertNotEqual(0, run.returncode)
+            self.assertIn("spawn an in-host agent", value["error"])
+
+    def test_malformed_project_config_is_ignored(self):
+        planning = self.repo / ".planning"
+        planning.mkdir(exist_ok=True)
+        (planning / "config.json").write_text("{not json", encoding="utf-8")
+        run, value = self.run_bridge(None, "reviewer", host="codex")
+        self.assertIn("spawn an in-host agent", value["error"])
+
+    def test_peer_stdin_is_closed(self):
+        # codex exec consumes a non-TTY stdin; a leaked pipe would block until timeout.
+        result = json.dumps(GOOD).replace("'", "'\\''")
+        self.fake("codex", f"if read leaked; then printf 'LEAKED'; "
+                           f"else printf '%s' '{result}'; fi")
+        run, value = self.run_bridge("codex", "reviewer", stdin="leaked data\n")
+        self.assertEqual(0, run.returncode)
+        self.assertEqual(GOOD, value)
+
+
+@unittest.skipUnless(os.environ.get("DEVFLOW_SMOKE") == "1",
+                     "set DEVFLOW_SMOKE=1 to run real-CLI smoke tests (costs tokens)")
+class BridgeSmokeTests(unittest.TestCase):
+    """Exercise the real CLIs.
+
+    The mocked tests above pin our own contract but cannot catch provider CLI
+    drift — flag renames, output-envelope changes, or stdin handling. Opt-in
+    because each case spends real tokens.
+    """
+
+    PROMPT = ("Report status COMPLETED with summary 'ok', empty artifacts and "
+              "completed arrays, and null checkpoint and error.")
+
+    def bridge(self, provider, host, timeout=300):
+        import shutil
+        if shutil.which(provider) is None:
+            self.skipTest(f"{provider} CLI is not installed")
+        with tempfile.TemporaryDirectory() as temp:
+            prompt = Path(temp) / "prompt.md"
+            prompt.write_text(self.PROMPT, encoding="utf-8")
+            return subprocess.run(
+                [sys.executable, str(BRIDGE), "--host", host, "--provider", provider,
+                 "--role", "reviewer", "--repo", str(ROOT),
+                 "--prompt-file", str(prompt), "--timeout", str(timeout)],
+                text=True, capture_output=True, timeout=timeout + 60,
+                # Deliberately an open pipe: a bridge that leaks stdin hangs here.
+                input="",
+            )
+
+    def assert_valid(self, run):
+        self.assertEqual(0, run.returncode, run.stdout + run.stderr)
+        value = MODULE.validate_result(json.loads(run.stdout))
+        self.assertIsNotNone(value, f"schema drift: {run.stdout}")
+        self.assertEqual("COMPLETED", value["status"])
+
+    def test_real_codex_peer(self):
+        self.assert_valid(self.bridge("codex", "claude"))
+
+    def test_real_claude_peer(self):
+        self.assert_valid(self.bridge("claude", "codex"))
 
 
 if __name__ == "__main__":

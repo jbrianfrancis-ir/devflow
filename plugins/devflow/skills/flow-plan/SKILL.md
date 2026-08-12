@@ -7,7 +7,7 @@ description: Plan one roadmap phase - discuss decisions, optional research, writ
 
 **Host setup**: resolve `devflow_root` and follow `{devflow_root}/references/hosts.md` before doing anything else.
 
-**Agent provider**: accept `--provider native|claude|codex`. Resolve and dispatch every role in this run exactly as `references/hosts.md` specifies. The selected provider applies to all delegated roles unless this skill explicitly calls an external consultation engine. A missing or failed peer is fail-closed; report `FLOW: BLOCKED` with remediation and never fall back silently.
+**Agent provider**: accept `--provider native|claude|codex`. Resolve and dispatch every role in this run exactly as `{devflow_root}/references/hosts.md` specifies. The selected provider applies to all delegated roles unless this skill explicitly calls an external consultation engine. A missing or failed peer is fail-closed; report `FLOW: BLOCKED` with remediation and never fall back silently.
 
 Context rules: read `.planning/STATE.md` first (missing but `.planning/` exists → offer reconstruction from ROADMAP + newest SUMMARY frontmatter; no `.planning/` → point to `/flow-new`). Pass subagents paths, never contents. Keep output terse.
 

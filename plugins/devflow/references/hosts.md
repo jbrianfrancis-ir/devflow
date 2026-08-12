@@ -34,9 +34,20 @@ current host and must not start a second CLI.
 - Codex native: spawn built-in `worker` for write roles or `explorer` for
   read-only roles. Pass the matching `{devflow_root}/agents/flow-*.md` path and
   require the child to read it fully before acting.
-- Non-native: use a bounded native wrapper subagent to invoke
-  `python3 {devflow_root}/scripts/flow-agent.py`. Independent wrappers may run
-  concurrently; the orchestrator waits for and counts every result.
+- Non-native: use a bounded native wrapper subagent to invoke the bridge:
+
+  ```
+  python3 {devflow_root}/scripts/flow-agent.py --host <claude|codex> \
+      [--provider native|claude|codex] --role <role> --repo <path> \
+      --prompt-file <path> [--timeout 1800]
+  ```
+
+  `--host` is the CLI you are calling from and is always required. Omit
+  `--provider` to let the bridge apply the precedence above itself — it reads
+  `agents.provider` from the repo's `.planning/config.json`. The bridge refuses
+  to run when the resolution lands on the host, so a native role can never
+  start a second CLI. Independent wrappers may run concurrently; the
+  orchestrator waits for and counts every result.
 
 Read-only roles: mapper, researcher, plan-checker, reviewer, verifier. Write
 roles: planner, executor, migrator, consultant.

@@ -7,7 +7,7 @@ description: Push the current feature branch to origin and open a pull request a
 
 **Host setup**: resolve `devflow_root` and follow `{devflow_root}/references/hosts.md` before doing anything else.
 
-**Agent provider**: accept `--provider native|claude|codex`. Resolve and dispatch every role in this run exactly as `references/hosts.md` specifies. The selected provider applies to all delegated roles unless this skill explicitly calls an external consultation engine. A missing or failed peer is fail-closed; report `FLOW: BLOCKED` with remediation and never fall back silently.
+**Agent provider**: accept `--provider native|claude|codex`. Resolve and dispatch every role in this run exactly as `{devflow_root}/references/hosts.md` specifies. The selected provider applies to all delegated roles unless this skill explicitly calls an external consultation engine. A missing or failed peer is fail-closed; report `FLOW: BLOCKED` with remediation and never fall back silently.
 
 Context rules: read `.planning/STATE.md` and `.planning/config.json` (`git` block) first; also read `{devflow_root}/references/conventions.md` (git workflow). Opening a PR is outward-facing — see the human gate below.
 

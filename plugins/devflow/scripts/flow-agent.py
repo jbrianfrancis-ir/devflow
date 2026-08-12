@@ -45,9 +45,23 @@ def resolve_provider(requested: str | None, configured: str | None, host: str) -
     return host if selected == "native" else selected
 
 
+def configured_provider(repo: Path) -> str | None:
+    """Read `agents.provider` from the project config; absent or unreadable is None."""
+    try:
+        config = json.loads((repo / ".planning" / "config.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    agents = config.get("agents") if isinstance(config, dict) else None
+    provider = agents.get("provider") if isinstance(agents, dict) else None
+    return provider if isinstance(provider, str) else None
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--provider", choices=("claude", "codex"), required=True)
+    parser.add_argument("--host", choices=("claude", "codex"), required=True,
+                        help="the CLI this bridge is being called from")
+    parser.add_argument("--provider", choices=("native", "claude", "codex"),
+                        help="omit to fall back to project config, then native")
     parser.add_argument("--role", choices=sorted(ALL_ROLES), required=True)
     parser.add_argument("--repo", required=True)
     parser.add_argument("--prompt-file", required=True)
@@ -108,28 +122,39 @@ def main() -> int:
         return emit(failure("repository is missing or is not a git checkout"), 2)
     if not prompt_path.is_file():
         return emit(failure("prompt file is missing"), 2)
-    if shutil.which(args.provider) is None:
-        return emit(failure(f"{args.provider} CLI is not installed or not on PATH"), 2)
+    try:
+        provider = resolve_provider(args.provider, configured_provider(repo), args.host)
+    except ValueError as exc:
+        return emit(failure(str(exc)), 2)
+    if provider == args.host:
+        # hosts.md: native means the current host and must never start a second CLI.
+        return emit(failure(f"native provider resolved to the {args.host} host; "
+                            "spawn an in-host agent instead of the bridge"), 2)
+    if shutil.which(provider) is None:
+        return emit(failure(f"{provider} CLI is not installed or not on PATH"), 2)
 
     with tempfile.TemporaryDirectory(prefix="devflow-agent-") as temporary:
         schema_path = Path(temporary) / "result.schema.json"
         schema_path.write_text(json.dumps(RESULT_SCHEMA), encoding="utf-8")
-        command = build_command(args.provider, args.role, repo,
+        command = build_command(provider, args.role, repo,
                                 prompt_path.read_text(encoding="utf-8"), schema_path)
         try:
+            # stdin must be closed: codex exec reads a non-TTY stdin and would
+            # otherwise block on an inherited pipe until --timeout expires.
             run = subprocess.run(command, cwd=repo, text=True, capture_output=True,
-                                 timeout=args.timeout, env=os.environ.copy())
+                                 stdin=subprocess.DEVNULL, timeout=args.timeout,
+                                 env=os.environ.copy())
         except subprocess.TimeoutExpired:
-            return emit(failure(f"{args.provider} peer timed out"), 124)
+            return emit(failure(f"{provider} peer timed out"), 124)
         except OSError as exc:
-            return emit(failure(f"could not start {args.provider} peer: {exc.strerror}"), 2)
+            return emit(failure(f"could not start {provider} peer: {exc.strerror}"), 2)
 
     if run.returncode != 0:
         # Provider stderr can contain repository context; expose only the status.
-        return emit(failure(f"{args.provider} peer exited with status {run.returncode}"), 2)
-    result = extract_result(args.provider, run.stdout)
+        return emit(failure(f"{provider} peer exited with status {run.returncode}"), 2)
+    result = extract_result(provider, run.stdout)
     if result is None:
-        return emit(failure(f"{args.provider} peer returned malformed structured output"), 2)
+        return emit(failure(f"{provider} peer returned malformed structured output"), 2)
     return emit(result, 0 if result["status"] != "FAILED" else 2)
 
 

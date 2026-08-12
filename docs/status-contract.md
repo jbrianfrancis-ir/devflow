@@ -41,8 +41,12 @@ A reader of this contract reads **only** the files above plus git metadata. Neve
 ## 3. The fleet scanner
 
 ```
-python3 scripts/flow-fleet.py [ROOT ...] [--json] [--stale-days N] [--depth N]
+python3 {devflow_root}/scripts/flow-fleet.py [ROOT ...] [--json] [--stale-days N] [--depth N]
 ```
+
+`{devflow_root}` is the installed plugin directory (the parent of `skills/`); in a
+clone of this repo it is `plugins/devflow/`. The scanner is stdlib-only, so a driver
+can also vendor it directly.
 
 Walks roots for DevFlow projects (including git worktrees of any repo it finds, even outside the roots) and returns one row per project. `--json` emits:
 

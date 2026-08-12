@@ -7,7 +7,7 @@ description: Ask an external frontier model for a second opinion via a curated c
 
 **Host setup**: resolve `devflow_root` and follow `{devflow_root}/references/hosts.md` before doing anything else.
 
-**Agent provider**: accept `--provider native|claude|codex`. Resolve and dispatch every role in this run exactly as `references/hosts.md` specifies. The selected provider applies to all delegated roles unless this skill explicitly calls an external consultation engine. A missing or failed peer is fail-closed; report `FLOW: BLOCKED` with remediation and never fall back silently.
+**Agent provider**: accept `--provider native|claude|codex`. Resolve and dispatch every role in this run exactly as `{devflow_root}/references/hosts.md` specifies. The selected provider applies to all delegated roles unless this skill explicitly calls an external consultation engine. A missing or failed peer is fail-closed; report `FLOW: BLOCKED` with remediation and never fall back silently.
 
 Context rules: read `.planning/STATE.md` first if present (no `.planning/` → still works: create `.planning/consults/`, skip journaling, warn once). Read `{devflow_root}/references/oracle.md` — it defines engines, the bundle format, the outbound secret scan, and the send gate. Keep output terse.
 
