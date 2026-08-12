@@ -35,7 +35,11 @@ the command flag wins. Cross-provider use requires both CLIs installed and
 authenticated, authorizes the bounded repository context to be sent to that
 provider, and preserves all Flow checkpoints, branch rules, and secret scans.
 
-Claude projects remain **self-bootstrapping**: `/flow-new` and `/flow-migrate` merge a `.claude/settings.json` declaration so fresh Claude sessions install DevFlow. Codex v1 uses the user-installed marketplace above and does not mutate user configuration from a project skill.
+### Model tiers
+
+Each role declares its own model, so cost is a property of the plugin rather than something you have to remember to ask for. Judgment roles — planner, plan-checker, verifier, reviewer, consultant, migrator — run on the top tier; bounded roles — mapper, researcher, and the high-volume **executor** — run a tier down. The executor is deliberately cheap: a DevFlow plan is a complete, unambiguous executor prompt by design, which is what makes that safe. Override per role with `"agents": {"models": {"executor": "opus"}}` in `.planning/config.json`.
+
+Claude projects remain **self-bootstrapping**: `/flow-new` and `/flow-migrate` merge a `.claude/settings.json` declaration so fresh Claude sessions install DevFlow. Codex v1 uses the user-installed marketplace above and does not mutate user configuration from a project skill. Both also write `CLAUDE.md` and `AGENTS.md` pointer files at the repo root — marker-merged, never overwriting your content — so a session that never runs a `flow-*` skill still finds `.planning/`. They point at the artifacts rather than restating them; a copy of your constraints in an auto-loaded file goes stale and does more damage than no file at all.
 
 **Context repos (BlitzOS-style)**: DevFlow projects slot into [BlitzOS](https://github.com/blitzdotdev/blitzos)-style context repos — thin private repos that let cloud agents boot already knowing your repos and their state. Detection, company-brain rendering, `FLOW:` status parsing, session-record mapping, and the bootstrap contract are specified in [`docs/blitzos.md`](docs/blitzos.md).
 
@@ -72,6 +76,8 @@ Claude projects remain **self-bootstrapping**: `/flow-new` and `/flow-migrate` m
 ```
 
 **Graph execution** (`plugins/devflow/references/plan-format.md`): a phase's plans form a dependency graph — plans are nodes, `depends_on` edges exist only where one plan consumes another's output (the *fake-edge test*), and waves are the graph's parallel layers. Same-wave plans share no files and no mutable resources (a shared migration chain or lockfile is a *hidden edge*). `/flow-execute` fans out one fresh-context executor per plan per wave; a *fan-in guard* counts results against spawns so a dead executor can't slip silently into a "complete" phase; and a fresh-context verifier — never the executors that did the work — proves the phase's `must_haves` against *anchors*: commands actually run, tests actually passed, code traced. must_haves freeze at execution start; gaps close by changing code, never by weakening a truth.
+
+**Smoke gate**: per-phase truths only prove *this* phase, which is exactly how phase 5 silently breaks phase 2. So every phase also has to clear one end-to-end check — the command declared in `ARCHITECTURE.md` → `## Smoke`, run verbatim and judged against its stated pass condition. A failure is a gap even when every phase truth verified, and it's flagged as pointing at earlier work when the evidence says so, so replanning targets the right phase. Undeclared, it becomes a standing human check — the verifier never invents a smoke command and never quietly skips the gate.
 
 State lives in `.planning/` (hard size caps, sections overwritten not appended — see `plugins/devflow/templates/`). Every skill reads `STATE.md` first, so any session resumes cold. `JOURNAL.md` keeps a capped, newest-first one-line history of skill runs — warm starts, audit trail, and the lines context repos index.
 

@@ -2,9 +2,15 @@
 ---
 phase: NN-slug
 status: pass                # pass | gaps | human_needed
+smoke: pass                 # pass | fail | undeclared — end-to-end gate, every phase
 gaps: []                    # one line each
 unverified: []              # backstop truths that abstained — non-inferable, need a held-out test
 ---
+
+## Smoke
+`{command run verbatim from ARCHITECTURE.md ## Smoke}` → {result vs the declared pass condition}
+<!-- fail → a gap, even if every truth below VERIFIED; note if the evidence points at an earlier phase.
+     undeclared → a human check asking for one; never an invented command. -->
 
 ## Truths
 | must_have truth | result | evidence |

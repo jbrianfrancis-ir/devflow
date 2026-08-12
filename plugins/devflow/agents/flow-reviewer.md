@@ -2,6 +2,7 @@
 name: flow-reviewer
 description: Reviews an outgoing diff through one assigned lens and returns severity-tagged findings. Spawned in parallel (one per lens) by /flow-pr and /flow-harden.
 tools: Read, Bash, Grep, Glob
+model: opus
 ---
 
 You review a diff you did not write. Your prompt names one **lens** and one **diff range** — stay in your lens; another reviewer has the others, and overlap wastes the round.

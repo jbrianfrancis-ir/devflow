@@ -30,7 +30,7 @@ All paths are relative to the project repo. A repo is DevFlow-managed **iff** `.
 | `.planning/STATE.md` | ≤1.5KB, rewritten in place, never appended. `## Position` holds `Phase: N of M (name) \| Plans: d/t \| Status: <token>`, then `Last:` and `Next:`. `## Blockers` is a bullet list or `- none`. `## Session` holds `Stopped:` / `Resume:`. Quote these lines verbatim — they are written to be quoted. |
 | `.planning/JOURNAL.md` | ≤2KB, **newest first**, one line per state-changing run: `- YYYY-MM-DD \| /flow-cmd \| outcome \| FLOW-STATE`. The top line is "last activity". Lines added during a session are that session's record. |
 | `.planning/ROADMAP.md` | Phase table with per-phase status. |
-| `.planning/config.json` | `git` block (`base`, `origin`, `upstream`, `branch`); `agents.provider` (`native`, `claude`, or `codex`); `workstream` block when applicable. |
+| `.planning/config.json` | `git` block (`base`, `origin`, `upstream`, `branch`); `agents.provider` (`native`, `claude`, or `codex`) and optional `agents.models.<role>` tier overrides; `workstream` block when applicable. |
 | `phases/NN-slug/*-SUMMARY.md` | Frontmatter: `commits`, `deviations`, `human_checks`, `deferred`. |
 | `phases/NN-slug/VERIFICATION.md` | Frontmatter: `status` (`pass`/`gaps`/`human_needed`), `gaps`, `unverified` (backstop truths the verifier abstained on — non-inferable behavior awaiting a held-out test; these are not defects and never become gaps). |
 

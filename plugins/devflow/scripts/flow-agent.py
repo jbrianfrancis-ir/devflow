@@ -63,6 +63,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--provider", choices=("native", "claude", "codex"),
                         help="omit to fall back to project config, then native")
     parser.add_argument("--role", choices=sorted(ALL_ROLES), required=True)
+    parser.add_argument("--model", help="model for the peer CLI; names are "
+                                        "provider-specific, so pass one valid for --provider")
     parser.add_argument("--repo", required=True)
     parser.add_argument("--prompt-file", required=True)
     parser.add_argument("--timeout", type=int, default=1800)
@@ -86,18 +88,22 @@ def validate_result(value: object) -> dict | None:
 
 
 def build_command(provider: str, role: str, repo: Path, prompt: str,
-                  schema_path: Path) -> list[str]:
+                  schema_path: Path, model: str | None = None) -> list[str]:
     access = "read-only" if role in READ_ONLY_ROLES else "workspace-write"
     instruction = (f"You are the DevFlow {role} peer. Work only in {repo}. "
                    f"Access class: {access}. Do not start another provider CLI. "
                    "Never bypass permissions. Return only the requested structured result.\n\n"
                    + prompt)
+    # Model names are provider-specific, so the caller passes one it knows is
+    # valid for `provider`; absent, the peer CLI picks its own default.
     if provider == "codex":
-        return ["codex", "exec", "--cd", str(repo), "--sandbox", access,
-                "--output-schema", str(schema_path), "--color", "never", instruction]
+        return (["codex", "exec", "--cd", str(repo), "--sandbox", access,
+                 "--output-schema", str(schema_path), "--color", "never"]
+                + (["--model", model] if model else []) + [instruction])
     permission = "plan" if access == "read-only" else "acceptEdits"
-    return ["claude", "-p", "--permission-mode", permission, "--output-format", "json",
-            "--json-schema", json.dumps(RESULT_SCHEMA), instruction]
+    return (["claude", "-p", "--permission-mode", permission, "--output-format", "json",
+             "--json-schema", json.dumps(RESULT_SCHEMA)]
+            + (["--model", model] if model else []) + [instruction])
 
 
 def extract_result(provider: str, stdout: str) -> dict | None:
@@ -137,7 +143,8 @@ def main() -> int:
         schema_path = Path(temporary) / "result.schema.json"
         schema_path.write_text(json.dumps(RESULT_SCHEMA), encoding="utf-8")
         command = build_command(provider, args.role, repo,
-                                prompt_path.read_text(encoding="utf-8"), schema_path)
+                                prompt_path.read_text(encoding="utf-8"), schema_path,
+                                args.model)
         try:
             # stdin must be closed: codex exec reads a non-TTY stdin and would
             # otherwise block on an inherited pipe until --timeout expires.

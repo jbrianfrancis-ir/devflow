@@ -31,6 +31,7 @@ Context rules (all flow skills): read `.planning/STATE.md` before acting when it
    - `config.json` — `{"mode":"interactive","commit_docs":true,"agents":{"provider":"native"},"deploy":{"tool":"aspire+azd"},"git":{"base":"<dev|main>","origin":"origin","upstream":"<upstream|null>","branch":"flow/<slug>"}}` (`--auto` → `"mode":"auto"`; an explicit `--provider` sets `agents.provider` to that value).
    - `JOURNAL.md` — from `{devflow_root}/templates/journal.md`, one init line.
    - `.claude/settings.json` (repo root) — the Claude plugin self-bootstrap block from conventions.md (Plugin self-bootstrap section), so Claude cloud/fresh sessions install DevFlow automatically. Merge into an existing file, never overwrite. Codex v1 is installed from its marketplace at user level; do not write user Codex configuration from a project skill.
+   - `CLAUDE.md` and `AGENTS.md` (repo root) — the same body from `{devflow_root}/templates/agent-pointer.md`, per conventions.md (Agent pointer files), so a session that never runs a `flow-*` skill still finds `.planning/`. Merge by markers, never overwrite.
 
 5. **Commit** (if commit_docs): `chore(flow): initialize project` on the feature branch, then `git push -u origin <branch>` (the push canary — an auth failure is a GATE per conventions.md Credential modes, not a retry loop). Print the roadmap table, then the autonomy recipes:
    - Drive to completion: `/goal FLOW says DONE or GATE, or stop after 40 turns` then `/flow-next`

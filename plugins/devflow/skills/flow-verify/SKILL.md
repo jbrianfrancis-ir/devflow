@@ -13,7 +13,7 @@ Context rules: read `.planning/STATE.md` first; paths not contents; frontmatter-
 
 **Pre-flight**: phase dir exists with at least one SUMMARY. Otherwise point to `/flow-execute N`.
 
-1. Spawn `flow-verifier` with: the phase dir, `{devflow_root}/references/verification.md`, `{devflow_root}/templates/verification.md`. It rewrites `VERIFICATION.md`.
+1. Spawn `flow-verifier` with: the phase dir, `{devflow_root}/references/verification.md`, `{devflow_root}/templates/verification.md`, and `.planning/ARCHITECTURE.md` when present (it carries the `## Smoke` command the verifier must run as the end-to-end gate). It rewrites `VERIFICATION.md`.
 
 2. Present results: status, truths table summary, gaps.
 

@@ -30,6 +30,7 @@ Recent GSD (≥1.8) writes considerably more machine state than early versions: 
 
 ## New files GSD lacks (created during migration)
 - **`.claude/settings.json`** — the plugin self-bootstrap block (see conventions.md), so every future session — cloud included — installs DevFlow at start. Merged, never overwritten.
+- **`CLAUDE.md` + `AGENTS.md`** — the agent pointer body (see conventions.md, Agent pointer files), marker-merged. Strip GSD-specific sections from an existing `CLAUDE.md`; keep everything project-specific.
 - **`ARCHITECTURE.md`** — the human's constraints file. Draft from manifests + GSD PROJECT/config, but the human confirms/edits before it becomes binding (versions especially).
 - **`DESIGN.md`** — only via `/flow-design` if the project has a UI and a Claude Design system.
 - **`deploy/PIPELINE.md`** — not created at migration; `/flow-harden` initializes it.

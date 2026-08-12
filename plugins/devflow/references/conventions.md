@@ -65,6 +65,13 @@ This applies to the whole guard family: the secret scan, `/flow-execute`'s fan-i
 ## Session journal (`.planning/JOURNAL.md`)
 One line per completed state-changing skill run, **newest first** — format in `templates/journal.md`. Cap 2KB (~25 lines): when over, rewrite dropping the oldest lines. Create the file on first write; its absence is always fine (pre-existing projects keep working). Read by `/flow-status` (top line = last activity) and indexable by BlitzOS-style context repos as session entries (see `docs/blitzos.md`).
 
+## Agent pointer files (CLAUDE.md / AGENTS.md)
+A DevFlow repo carries its whole context in `.planning/`, but a session that never runs a `flow-*` skill has no reason to look there. `/flow-new` and `/flow-migrate` write **both** `CLAUDE.md` (Claude Code) and `AGENTS.md` (Codex and most other agents) at the repo root, with the identical body from `templates/agent-pointer.md`.
+
+They are **pointers, not copies**. Never restate requirements, versions, principles, or roadmap content in them: the duplicate goes stale on the next change, and a stale copy in a file every session auto-loads does more damage than no file. Point at the artifact and let the reader open it.
+
+Merge semantics: the body is wrapped in `<!-- BEGIN DEVFLOW -->` / `<!-- END DEVFLOW -->`. If the file exists, replace only what is between the markers and leave everything else untouched; if the markers are absent, append the block rather than overwriting the user's file. Never delete content you did not write. Keep the two files byte-identical — when one changes, rewrite the other in the same commit.
+
 ## Plugin self-bootstrap (cloud-ready projects)
 Every DevFlow project carries its Claude plugin declaration so Claude Code on the web, a fresh container, or a teammate's machine gets DevFlow at session start. `/flow-new` and `/flow-migrate` write `.claude/settings.json` at the repo root with exactly:
 ```json
