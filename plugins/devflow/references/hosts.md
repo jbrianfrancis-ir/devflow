@@ -52,6 +52,11 @@ current host and must not start a second CLI.
 Read-only roles: mapper, researcher, plan-checker, reviewer, verifier. Write
 roles: planner, executor, migrator, consultant.
 
+Always tell a spawned write role its **resolved provider and model** — it needs
+both to write the commit attribution trailers in `conventions.md`, and it cannot
+observe them for itself. Pass the concrete provider (`claude`/`codex`), never
+`native`.
+
 ## Model tiers
 
 Each `flow-*` agent declares its own `model:`. Judgment roles — planner,

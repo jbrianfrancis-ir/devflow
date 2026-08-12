@@ -22,6 +22,10 @@ Example: `FLOW: CONTINUE | phase 2/4 executed, verification pass | next: /flow-p
 ## Human gates — never auto-proceed, even in auto mode or under /goal//loop
 Checkpoint `decision` and `human-action` tasks; failed-package verification; a fail-closed secret-scan hit (credential material in an outgoing diff — see `conventions.md`); sending a consult bundle to an external model (`/flow-oracle` — outward-facing, see `oracle.md`); UAT acceptance results and SIGNOFF.md; production release confirmation; opening a pull request to upstream; replying to or resolving a **human** reviewer's PR thread, and merging a PR (`/flow-ci` — driving checks to green is autonomous, review and merge are not); refuting a `blocking` review finding rather than fixing it (`/flow-pr`); removing a worktree with unmerged or unpushed commits (`/flow-workstream drop`); pushing tags; anything destructive in git. Also a hard rule (not a gate): never commit to the base branch (`dev`/`main`) — always a feature branch (see `conventions.md`).
 
+**Every gate in that list writes a `.planning/DECISIONS.md` entry when it is answered** — append-only, format in `templates/decisions.md`, created on first write. Record what was asked, what the human actually answered, the git identity that answered it, and the SHA at the time. Log the answer you were given, including a refusal or a modified approval: a log that only contains approvals is not a record, it is a highlight reel. Write the entry as part of the same commit as the work it authorized, so the approval and the change are one atomic fact in history.
+
+Stopping at a gate and leaving no trace proves nothing later — the decision lived in a conversation that no longer exists, which is exactly the hole an auditor finds. A secret-scan hit is the one exception to verbatim detail: record file, line, and pattern class, never the matched value (`conventions.md`).
+
 ## Under /loop (dynamic mode)
 After emitting the status line: `CONTINUE` → reschedule soon and keep going next iteration. `GATE`/`BLOCKED`/`DONE` → stop the loop (ScheduleWakeup `stop: true`) and state plainly why it stopped and what the human should do.
 

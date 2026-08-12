@@ -28,13 +28,25 @@ All paths are relative to the project repo. A repo is DevFlow-managed **iff** `.
 | File | Contract |
 |---|---|
 | `.planning/STATE.md` | ≤1.5KB, rewritten in place, never appended. `## Position` holds `Phase: N of M (name) \| Plans: d/t \| Status: <token>`, then `Last:` and `Next:`. `## Blockers` is a bullet list or `- none`. `## Session` holds `Stopped:` / `Resume:`. Quote these lines verbatim — they are written to be quoted. |
-| `.planning/JOURNAL.md` | ≤2KB, **newest first**, one line per state-changing run: `- YYYY-MM-DD \| /flow-cmd \| outcome \| FLOW-STATE`. The top line is "last activity". Lines added during a session are that session's record. |
+| `.planning/JOURNAL.md` | ≤2KB, **newest first**, one line per state-changing run: `- YYYY-MM-DD \| /flow-cmd \| outcome \| FLOW-STATE`. The top line is "last activity". Lines added during a session are that session's record. Overflow past the cap moves to `.planning/history/JOURNAL-<YYYY>.md` — same line format, chronological, uncapped — so the full run history is `history/*` followed by `JOURNAL.md` reversed. |
+| `.planning/DECISIONS.md` | Append-only, **uncapped**, oldest first. One `## YYYY-MM-DD HH:MM · <gate>` section per answered human gate, with `asked` / `answered` / `by` / `at` bullets. The record of who authorized what; never rewritten, so a driver may cache by byte offset. Absent until the first gate. |
 | `.planning/ROADMAP.md` | Phase table with per-phase status. |
 | `.planning/config.json` | `git` block (`base`, `origin`, `upstream`, `branch`); `agents.provider` (`native`, `claude`, or `codex`) and optional `agents.models.<role>` tier overrides; `workstream` block when applicable. |
-| `phases/NN-slug/*-SUMMARY.md` | Frontmatter: `commits`, `deviations`, `human_checks`, `deferred`. |
+| `phases/NN-slug/*-SUMMARY.md` | Frontmatter: `agent` (`role/provider/model` that executed the plan), `commits`, `deviations`, `human_checks`, `deferred`. |
 | `phases/NN-slug/VERIFICATION.md` | Frontmatter: `status` (`pass`/`gaps`/`human_needed`), `gaps`, `unverified` (backstop truths the verifier abstained on — non-inferable behavior awaiting a held-out test; these are not defects and never become gaps). |
 
 `STATE.md` and `config.json` are **branch-local** — in a multi-worktree repo each workstream has its own. See `plugins/devflow/references/conventions.md` → Parallel workstreams.
+
+### Commit attribution
+
+Every commit DevFlow produces carries git trailers naming what produced it:
+
+```
+DevFlow-Agent: <role-or-skill>/<provider>/<model>
+DevFlow-Plan: NN-MM
+```
+
+`provider` is always concretely `claude` or `codex` (never `native`); `model` is `-` when the host does not expose it; `DevFlow-Plan` appears on plan-scoped commits only. Standard trailer syntax, so git's own tooling reads it — `git log --grep='^DevFlow-Agent:'` to list agent-produced commits in a range, or `git log --format='%h %s | %(trailers:key=DevFlow-Agent,valueonly)'` to extract the value per commit (empty for commits without it). Absence of the trailer means the commit did not come from DevFlow — it does **not** mean no agent touched it, since nothing outside DevFlow is required to attribute itself. The committer identity remains the human whose credentials made the commit; the trailer records what assisted, not who is accountable.
 
 A reader of this contract reads **only** the files above plus git metadata. Never source, never `.env*`, never key files.
 
