@@ -103,6 +103,17 @@ class FlowAgentTests(unittest.TestCase):
         self.assertIn("workspace-write", codex)
         self.assertIn("plan", claude)
 
+    def test_model_is_passed_through_and_optional(self):
+        schema = self.base / "schema.json"
+        for provider in ("codex", "claude"):
+            plain = MODULE.build_command(provider, "executor", self.repo, "task", schema)
+            self.assertNotIn("--model", plain)
+            tiered = MODULE.build_command(provider, "executor", self.repo, "task",
+                                          schema, "some-model")
+            self.assertEqual("some-model", tiered[tiered.index("--model") + 1])
+            # The prompt must stay last: codex exec takes it positionally.
+            self.assertEqual(plain[-1], tiered[-1])
+
     def test_provider_precedence_and_native_resolution(self):
         self.assertEqual("codex", MODULE.resolve_provider(None, None, "codex"))
         self.assertEqual("claude", MODULE.resolve_provider(None, "claude", "codex"))
@@ -159,8 +170,13 @@ class BridgeSmokeTests(unittest.TestCase):
     because each case spends real tokens.
     """
 
-    PROMPT = ("Report status COMPLETED with summary 'ok', empty artifacts and "
-              "completed arrays, and null checkpoint and error.")
+    # Must be real, verifiable work. An earlier version asked the peer to report a
+    # canned success; a capable model correctly refused to fabricate one, so the
+    # test measured compliance rather than the bridge.
+    PROMPT = ("Check whether a README.md file exists at the root of this repository. "
+              "Return status COMPLETED, summary stating what you found, artifacts "
+              "listing README.md if it is present, an empty completed array, and "
+              "null checkpoint and error.")
 
     def bridge(self, provider, host, timeout=300):
         import shutil

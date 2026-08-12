@@ -89,12 +89,30 @@ for path in skills:
     rel = os.path.relpath(path, ROOT)
     if not fm or fm.get("name") != name or not fm.get("description"):
         err(f"{rel}: invalid name/description frontmatter")
+MODELS = {"opus", "sonnet", "haiku", "inherit"}
 for path in agents:
     name = os.path.splitext(os.path.basename(path))[0]
     fm = frontmatter(path)
     rel = os.path.relpath(path, ROOT)
     if not fm or fm.get("name") != name or not fm.get("description") or not fm.get("tools"):
         err(f"{rel}: invalid agent frontmatter")
+    elif fm.get("model") not in MODELS:
+        err(f"{rel}: model must be one of {'/'.join(sorted(MODELS))}, got {fm.get('model')!r}")
+
+# The bridge dispatches the same nine roles the agent files define; a rename on
+# either side silently breaks cross-provider dispatch, so pin them together.
+bridge = os.path.join(PLUGIN, "scripts", "flow-agent.py")
+if os.path.isfile(bridge):
+    with open(bridge, encoding="utf-8") as stream:
+        source = stream.read()
+    roles = set()
+    for line in source.splitlines():
+        if line.startswith(("READ_ONLY_ROLES", "WRITE_ROLES")):
+            roles |= {chunk.strip().strip('"\'') for chunk in
+                      line.partition("{")[2].partition("}")[0].split(",") if chunk.strip()}
+    expected = {os.path.splitext(os.path.basename(p))[0].removeprefix("flow-") for p in agents}
+    if roles != expected:
+        err(f"bridge roles {sorted(roles)} do not match agent files {sorted(expected)}")
 
 for path in glob.glob(os.path.join(PLUGIN, "**", "*"), recursive=True):
     if not os.path.isfile(path):

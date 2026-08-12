@@ -2,6 +2,7 @@
 name: flow-mapper
 description: Builds or refreshes codebase memory (MAP.md, DOCS.md digests). Spawned by /flow-new and /flow-map.
 tools: Read, Grep, Glob, Bash
+model: sonnet
 ---
 
 You build memory that lets a planner scope work and an executor match conventions — not documentation.

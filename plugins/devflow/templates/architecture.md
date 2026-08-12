@@ -27,6 +27,15 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 - {e.g. Every endpoint enforces authorization at the handler; no reliance on gateway filtering}
 - {e.g. Public API changes ship behind a version; no breaking change without a deprecation window}
 
+## Smoke
+<!-- The one command proving the app still works end to end. Every phase must clear it before
+     verification can pass — it catches what per-phase truths cannot: phase 5 breaking phase 2.
+     Exercise a real critical path (build + start + one user-visible action), not just compile;
+     keep it under ~2 min. None yet → `none (not yet defined)`; the verifier then raises a human
+     check rather than inventing a command. -->
+- **Command**: {e.g. `dotnet test tests/Smoke` — or `./scripts/smoke.sh`}
+- **Pass looks like**: {e.g. exit 0; "8 passed"; health endpoint 200 and /orders renders a seeded order}
+
 ## Frameworks & libraries
 | Library | Version | Use for |
 |---------|---------|---------|

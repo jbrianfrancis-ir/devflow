@@ -19,6 +19,21 @@ When a change supersedes an old code path, **delete the old path in the same cha
 - **Deploy runs from merged base code**, not feature branches: `/flow-harden` may commit to the feature branch, but `/flow-uat` and `/flow-release` operate after the PR is merged to base.
 - Opening a PR to `upstream` is outward-facing — always a human gate (see `autonomy.md`).
 
+## Commit attribution
+Every commit DevFlow produces carries a trailer naming what produced it. Without it an agent's commit is indistinguishable from a hand-written one, and "which of this was written by a tool" becomes unanswerable the moment anyone asks:
+
+```
+DevFlow-Agent: <role-or-skill>/<provider>/<model>
+DevFlow-Plan: NN-MM
+```
+
+- `role-or-skill` — the agent role (`executor`, `migrator`) or, for a skill's own bookkeeping commit, the skill (`flow-execute`).
+- `provider` — the **resolved** provider, always concretely `claude` or `codex`, never `native`: what ran is the auditable fact, not what was requested.
+- `model` — the model the role actually ran on; `-` when the host does not expose it. Never guess a name to fill the field.
+- `DevFlow-Plan` — plan-scoped commits only; omit it for project-level ones.
+
+Blank line before the trailers, standard git trailer syntax, so `git interpret-trailers --parse` and `git log --grep='^DevFlow-Agent:'` both work. Attribution is **additive, not a substitute**: the committer stays the human whose credentials made the commit — the trailer says what assisted, and claiming otherwise would misstate who is accountable.
+
 ## config.json `git` block
 ```json
 "git": { "base": "dev", "origin": "origin", "upstream": "upstream", "branch": "flow/<slug>" }
@@ -63,7 +78,19 @@ This applies to the whole guard family: the secret scan, `/flow-execute`'s fan-i
 - **Token mode** (pushing beyond the session's grant, e.g. a context repo): the token arrives as an environment variable only — never echoed, never written to any file, never committed, never placed in git config that gets committed.
 
 ## Session journal (`.planning/JOURNAL.md`)
-One line per completed state-changing skill run, **newest first** — format in `templates/journal.md`. Cap 2KB (~25 lines): when over, rewrite dropping the oldest lines. Create the file on first write; its absence is always fine (pre-existing projects keep working). Read by `/flow-status` (top line = last activity) and indexable by BlitzOS-style context repos as session entries (see `docs/blitzos.md`).
+One line per completed state-changing skill run, **newest first** — format in `templates/journal.md`. Cap 2KB (~25 lines): when over, **move** the overflow — oldest lines first — to `.planning/history/JOURNAL-<YYYY>.md`, appending in chronological order. Never drop them. The cap exists to bound what gets read into context on every run, which is a reason to move old lines out of the hot file, not a reason to destroy them; a record that forgets its own oldest entries can't answer a question asked a year later. History files are append-only and uncapped — nothing reads them for warm-start. Create either file on first write; its absence is always fine (pre-existing projects keep working). Read by `/flow-status` (top line = last activity) and indexable by BlitzOS-style context repos as session entries (see `docs/blitzos.md`).
+
+## Decision log (`.planning/DECISIONS.md`)
+Append-only record of every human gate, written when the gate is answered — the authoritative gate list and the recording rule are in `autonomy.md`; the entry format is `templates/decisions.md`. **The only uncapped state file**: it is never read for warm-start, so it costs no context and the usual size discipline does not apply. Never rewrite, compact, or reorder it — an append-only log whose history can be edited is not evidence. Entries are chronological, oldest first, opposite to JOURNAL.md.
+
+Together with the commit trailers above it answers the two questions a `.planning/` directory otherwise can't: which changes an agent produced, and who authorized them.
+
+## Agent pointer files (CLAUDE.md / AGENTS.md)
+A DevFlow repo carries its whole context in `.planning/`, but a session that never runs a `flow-*` skill has no reason to look there. `/flow-new` and `/flow-migrate` write **both** `CLAUDE.md` (Claude Code) and `AGENTS.md` (Codex and most other agents) at the repo root, with the identical body from `templates/agent-pointer.md`.
+
+They are **pointers, not copies**. Never restate requirements, versions, principles, or roadmap content in them: the duplicate goes stale on the next change, and a stale copy in a file every session auto-loads does more damage than no file. Point at the artifact and let the reader open it.
+
+Merge semantics: the body is wrapped in `<!-- BEGIN DEVFLOW -->` / `<!-- END DEVFLOW -->`. If the file exists, replace only what is between the markers and leave everything else untouched; if the markers are absent, append the block rather than overwriting the user's file. Never delete content you did not write. Keep the two files byte-identical — when one changes, rewrite the other in the same commit.
 
 ## Plugin self-bootstrap (cloud-ready projects)
 Every DevFlow project carries its Claude plugin declaration so Claude Code on the web, a fresh container, or a teammate's machine gets DevFlow at session start. `/flow-new` and `/flow-migrate` write `.claude/settings.json` at the repo root with exactly:

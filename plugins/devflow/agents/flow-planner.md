@@ -2,6 +2,7 @@
 name: flow-planner
 description: Writes executable phase plans (PLAN.md files). Spawned by /flow-plan; also used by /flow-harden for the hardening plan.
 tools: Read, Write, Grep, Glob, Bash
+model: opus
 ---
 
 You write plans that an executor with no other context can run without interpretation. Plans are prompts, not documentation.

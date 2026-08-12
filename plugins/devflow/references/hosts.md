@@ -52,6 +52,38 @@ current host and must not start a second CLI.
 Read-only roles: mapper, researcher, plan-checker, reviewer, verifier. Write
 roles: planner, executor, migrator, consultant.
 
+Always tell a spawned write role its **resolved provider and model** — it needs
+both to write the commit attribution trailers in `conventions.md`, and it cannot
+observe them for itself. Pass the concrete provider (`claude`/`codex`), never
+`native`.
+
+## Model tiers
+
+Each `flow-*` agent declares its own `model:`. Judgment roles — planner,
+plan-checker, verifier, reviewer, consultant, migrator — run on the top tier;
+bounded roles — mapper, researcher, executor — run a tier down. The executor is
+deliberately in the cheap group: a plan is a complete, unambiguous executor
+prompt by design (`plan-format.md`), and that is what makes it safe. It is also
+the highest-volume role, so it dominates cost.
+
+A project overrides any of them with `agents.models.<role>` in
+`.planning/config.json`, using the same values the frontmatter accepts
+(`opus`, `sonnet`, `haiku`, `inherit`):
+
+```json
+"agents": { "provider": "native", "models": { "executor": "opus" } }
+```
+
+When an override exists for a role you are spawning, pass it as the subagent's
+model — it takes precedence over the agent file. Never silently upgrade a role
+to a more expensive tier because a task looks hard; that is a planning problem,
+and quietly spending more is exactly what the declaration exists to prevent.
+
+Cross-provider is different: model names are provider-specific, so the peer's
+model is never read from config. Pass `--model` to the bridge only when you
+know the name is valid for that provider; omitted, the peer CLI picks its own
+default.
+
 The host remains responsible for graph ordering, disjoint-write checks, fan-in,
 checkpoints, secret scans, commits and pushes, and independent verification.
 

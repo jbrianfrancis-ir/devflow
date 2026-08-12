@@ -2,6 +2,7 @@
 ---
 plan: NN-MM
 status: complete            # complete | partial | blocked
+agent: executor/claude/-    # role/provider/model that executed this plan — matches the commit trailers
 commits: []                 # short SHAs, one per task
 deviations: []              # "[Rule N] description" per entry
 human_checks: []            # items for end-of-phase human verification
