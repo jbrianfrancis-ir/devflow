@@ -11,7 +11,9 @@ description: Build or refresh codebase memory (MAP.md), distill docs (--docs pat
 
 Context rules: read `.planning/STATE.md` first if present; the mapper works in its own context — don't re-explore here.
 
-**Default** (also with `--refresh` of the map): spawn `flow-mapper` with: template path `{devflow_root}/templates/codebase-map.md`, output `.planning/codebase/MAP.md` (cap 6KB, overwrite whole file; includes Env vars and Related repos sections — names only, omitted when empty). Print its ≤10-line digest. Note the map date in STATE.md's Last line.
+**Default** (also with `--refresh` of the map): spawn `flow-mapper` with: template path `{devflow_root}/templates/codebase-map.md`, output `.planning/codebase/MAP.md` (cap 6KB, overwrite whole file; includes Env vars and Related repos sections — names only, omitted when empty). The mapper sets both `mapped` and `mapped_sha` (full `HEAD` SHA) — `mapped_sha` is what makes later staleness computable rather than guessed, so a map written without it will simply be fully re-mapped next time. Print its ≤10-line digest. Note the map date in STATE.md's Last line.
+
+A full run here is always safe. The scoped drift refresh at the end of a phase (`/flow-execute` step 4b) is the cheap incremental path; this is the one that rebuilds from scratch when the map has drifted too far to patch, or when you want it re-derived from nothing.
 
 **--docs `<path>`**: spawn `flow-mapper` in docs mode with the doc path(s); output `.planning/codebase/DOCS.md` (cap 3KB digest with pointers — never wholesale copies).
 

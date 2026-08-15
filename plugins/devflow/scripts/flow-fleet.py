@@ -5,10 +5,10 @@ Answers "what is every session actually doing" without visiting a single termina
 tab. Works under any substrate (tmux, herdr, cmux, Orca, Superset, plain windows)
 because it reads files, never screens.
 
-Reads ONLY: `.planning/STATE.md` (≤1.5KB), the `ROADMAP.md` table, the top lines
-of `.planning/JOURNAL.md`, `.planning/config.json`, and git metadata. Never opens
-source, `.env*`, or key files — same discipline as the BlitzOS scanner contract
-(`docs/blitzos.md` §1).
+Reads ONLY: `.planning/STATE.md` (≤1.5KB, including its `## Gate` and `## Run`
+blocks), the `ROADMAP.md` table, the top lines of `.planning/JOURNAL.md`,
+`.planning/config.json`, and git metadata. Never opens source, `.env*`, or key
+files — same discipline as the BlitzOS scanner contract (`docs/blitzos.md` §1).
 
 Zero dependencies (stdlib only).
 
@@ -80,7 +80,16 @@ def parse_date(text):
 
 
 def section(text, heading):
-    """Body lines of a `## heading` section, up to the next `##`."""
+    """Body lines of a `## heading` section, up to the next `##`.
+
+    HTML comments are stripped first. The templates carry their format spec as a
+    commented-out example inside the very section it describes, so a line-prefix
+    filter is not enough — an unfiltered inner line reads exactly like real content
+    and would surface a template placeholder as a live gate. Only closed comments are
+    removed: an unterminated one leaves its text visible, which errs toward flagging
+    attention rather than hiding it.
+    """
+    text = re.sub(r"<!--.*?-->", "", text or "", flags=re.S)
     m = re.search(r"^##\s+%s\s*$" % re.escape(heading), text, re.M | re.I)
     if not m:
         return []
@@ -93,6 +102,67 @@ def section(text, heading):
 def trunc(s, n):
     s = s or ""
     return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def parse_gate(state):
+    """The `## Gate` block — the one structured exception to "never parse skill prose".
+
+    Returns None when absent or `none`. Everything inside is optional except `asked`:
+    a gate that does not say what it is asking is not a gate record, so we return None
+    rather than an object whose fields a driver would render as blanks.
+    """
+    lines = [ln for ln in section(state, "Gate") if not ln.startswith("<!--")]
+    if not lines or lines[0].strip().lower() == "none":
+        return None
+    g = {"type": "", "asked": "", "options": [], "default": "", "plan": "", "task": ""}
+    in_options = False
+    for ln in lines:
+        m = re.match(r"^(type|asked|default)\s*:\s*(.*)$", ln, re.I)
+        if m:
+            in_options = False
+            g[m.group(1).lower()] = m.group(2).strip()
+            continue
+        if re.match(r"^options\s*:", ln, re.I):
+            in_options = True
+            continue
+        m = re.match(r"^plan\s*:\s*([^|]+?)\s*(?:\|\s*task\s*:\s*(.*))?$", ln, re.I)
+        if m:
+            in_options = False
+            g["plan"] = m.group(1).strip()
+            g["task"] = (m.group(2) or "").strip()
+            continue
+        if in_options:
+            opt = re.sub(r"^[-*]?\s*\d+[.)]\s*", "", ln).strip()
+            if opt:
+                g["options"].append(opt)
+    return g if g["asked"] else None
+
+
+def parse_run(state):
+    """The `## Run` block — the autonomous loop's cross-iteration memory.
+
+    Three outcomes, not two (conventions.md → Fail-closed guards): absent is a
+    legitimate cold start (None), well-formed is the counters, and malformed is
+    `{"malformed": True}` — never a zeroed counter, which would read as "fresh run"
+    and silently disarm the stuck rail.
+    """
+    lines = [ln for ln in section(state, "Run") if not ln.startswith("<!--")]
+    if not lines:
+        return None
+    it = re.search(r"Iteration:\s*(\d+)", "\n".join(lines))
+    if not it:
+        return {"malformed": True}
+    started = re.search(r"Started:\s*([^|\s]+)", "\n".join(lines))
+    repeats = re.search(r"Repeats:\s*(\d+)", "\n".join(lines))
+    sig = re.search(r"^Signature:\s*(.+)$", "\n".join(lines), re.M)
+    if repeats is None:
+        return {"malformed": True}
+    return {
+        "iteration": int(it.group(1)),
+        "started": started.group(1).strip() if started else None,
+        "repeats": int(repeats.group(1)),
+        "signature": sig.group(1).strip() if sig else None,
+    }
 
 
 def tilde(path):
@@ -166,6 +236,10 @@ def scan(path, today, stale_days):
     resume = re.search(r"^Resume:\s*(.+)$", state, re.M)
     p["resume"] = resume.group(1).strip() if resume else ""
 
+    # --- the structured halves: what is being asked, and whether the loop is moving
+    p["gate"] = parse_gate(state)
+    p["run"] = parse_run(state)
+
     # --- JOURNAL.md newest-first top line: date | /flow-cmd | outcome | FLOW state
     p["journal"] = ""
     p["flow"] = "unknown"
@@ -219,6 +293,12 @@ def scan(path, today, stale_days):
         # Unanswerable is a finding in its own right: this project's branch, dirty
         # state, and worktree status are all unknown, not clean.
         p["flags"].append("GIT-UNKNOWN")
+    if p["flow"] == "unknown":
+        # Same shape as GIT-UNKNOWN: no parseable FLOW state means the check did not
+        # run, which is not the same as "nothing needs attention".
+        p["flags"].append("FLOW-UNKNOWN")
+    if p["run"] and p["run"].get("malformed"):
+        p["flags"].append("RUN-UNKNOWN")
     if branch is not None and branch == base:
         p["flags"].append("ON-BASE")  # conventions.md: code never lands on the base branch
     if p["dirty"]:
@@ -236,6 +316,10 @@ def scan(path, today, stale_days):
         p["flow"] in ATTENTION or p["blockers"]
         or any(f.startswith("STALE") for f in p["flags"])
         or not p["git_readable"]
+        # A check that could not run never reports clean (conventions.md → Fail-closed
+        # guards): an unreadable FLOW state or run counter is attention, not silence.
+        or p["flow"] == "unknown"
+        or (p["run"] or {}).get("malformed")
     )
     return p
 
@@ -246,6 +330,8 @@ def rank(p):
     """Attention first: unreadable, blocked, gated, stale, then in-flight, then done."""
     if not p.get("git_readable", True):
         return 0  # a check that could not run outranks one that ran and found a problem
+    if p["flow"] == "unknown" or (p.get("run") or {}).get("malformed"):
+        return 0  # same reason: unknown is not clean
     if p["flow"] == "BLOCKED" or p["blockers"]:
         return 0
     if p["flow"] == "GATE":
@@ -284,8 +370,16 @@ def render(projects, stale_days):
         out.append("Needs a human (%d):" % len(attention))
         for p in attention:
             stale = next((f for f in p["flags"] if f.startswith("STALE")), "")
+            gate = p.get("gate")
+            run = p.get("run") or {}
             if not p["git_readable"]:
                 why = "git could not be read here — branch, dirty state and worktree status are UNKNOWN, not clean"
+            elif run.get("malformed"):
+                why = "STATE ## Run block is unreadable — the stuck rail is disarmed until it is fixed"
+            elif p["flow"] == "unknown":
+                why = "no parseable FLOW state in JOURNAL.md — this project's state is UNKNOWN, not clean"
+            elif gate:
+                why = "%s: %s" % (gate["type"] or "gate", gate["asked"])
             elif p["blockers"]:
                 why = p["blockers"][0]
             elif stale:
@@ -296,6 +390,13 @@ def render(projects, stale_days):
             # Two worktrees of one repo share `repo` — the branch is what tells them apart.
             label = trunc("%s [%s]" % (p["repo"], p["branch"]), 38)
             out.append("  %-38s %s" % (label, trunc(why, 76)))
+            # The whole point of the structured gate: the choices reach the human here,
+            # instead of only in the transcript of a session that has since scrolled away.
+            for i, opt in enumerate((gate or {}).get("options", []), 1):
+                out.append("  %-38s   %d. %s" % ("", i, trunc(opt, 72)))
+            if run.get("repeats"):
+                out.append("  %-38s   ↻ no progress for %d iteration(s) at %s"
+                           % ("", run["repeats"], run.get("signature") or "?"))
             if p["next"]:
                 out.append("  %-38s → cd %s && %s" % ("", tilde(p["path"]), p["next"]))
 
@@ -307,7 +408,8 @@ def render(projects, stale_days):
 
     out.append("")
     out.append("%d project(s) — stale threshold %dd. Flags: ON-BASE=committing to the base "
-               "branch, WT=git worktree, NO-DECL=missing plugin self-bootstrap."
+               "branch, WT=git worktree, NO-DECL=missing plugin self-bootstrap, "
+               "GIT-UNKNOWN/FLOW-UNKNOWN/RUN-UNKNOWN=check could not run (not clean)."
                % (len(projects), stale_days))
     return "\n".join(out)
 

@@ -43,4 +43,22 @@ concept from:
 No source files from oracle are included; DevFlow optionally drives the oracle
 CLI/MCP server as an external tool when the user has it installed.
 
+Four autonomy and review behaviors — first-class safety rails on an open-ended
+agent loop (iteration, wall-clock, and no-progress detection), a human interrupt
+channel that carries a question together with its enumerated choices as
+machine-readable data, a multi-lens review panel run against a plan before any
+code exists, and a librarian pass that refreshes codebase memory from what the
+work actually changed — were prompted in concept by a publicly posted AgentOS
+blueprint:
+
+  AgentOS — Product Spec & Implementation Blueprint
+  https://gist.github.com/iannuttall/8152098b5ce8e6c1a7499ee561ed93f4
+
+That document is itself a reconstruction of a talk by Danny Postma rather than a
+primary source, and it specifies a hosted control plane (ephemeral containers, an
+object-store MCP, a task board, a push inbox) that DevFlow is deliberately not.
+No source files or prompt text from it are included; only the policies above were
+taken, and each was rebuilt against DevFlow's own file-and-prompt artifacts with
+thresholds chosen for DevFlow's own unit of work.
+
 This notice is provided as attribution under the spirit of the MIT License.

@@ -11,9 +11,20 @@ Read `{devflow_root}/references/autonomy.md` first — it defines the status lin
 
 **One step per invocation.** Do the single next step below, then stop with the `FLOW:` status line. Never chain a second step — bounded turns keep /goal evaluation and /loop iterations predictable.
 
+## Rails first (before any work)
+Determine which routing rule below would fire, then apply the rails from `autonomy.md` → Loop rails against `STATE.md`'s `## Run` block and `.planning/config.json` → `autonomy` (defaults `max_iterations: 40`, `max_repeats: 3`, `max_hours: null`).
+
+1. Build the `Signature` for the rule about to fire: `rule<N>:phase<NN>:plans<d/t>:verif<status>`.
+2. Same as the recorded one → `Repeats + 1`. Different → `Repeats: 0`.
+3. `Repeats >= max_repeats` → stop: `FLOW: BLOCKED | no progress across {K} iterations at rule {N} | next: /flow-debug {what is not moving}`. Do **not** run the step; running it again is what the rail exists to prevent.
+4. `Iteration >= max_iterations`, or `max_hours` elapsed since `Started` → stop: `FLOW: GATE | {cap} reached at {position} | next: raise the cap in config.json, or take it manually`.
+5. Otherwise increment `Iteration`, write the `## Run` block back, and continue to routing.
+
+Absent block → cold start: `Iteration: 1`, `Started: {now}`, `Repeats: 0`. Malformed block → `FLOW: BLOCKED | STATE ## Run block unreadable | next: fix or delete the block, then rerun` — never assume zero.
+
 Routing (first match wins):
 1. No `.planning/` → do nothing. `FLOW: GATE | no project — /flow-new is interactive | next: /flow-new`
-2. STATE shows an unresolved checkpoint or blocker → `FLOW: GATE | {what's needed} | next: {command}` (or `BLOCKED` if it's an error to investigate, suggesting `/flow-debug`).
+2. STATE shows an unresolved checkpoint or blocker → `FLOW: GATE | {what's needed} | next: {command}` (or `BLOCKED` if it's an error to investigate, suggesting `/flow-debug`). A populated `## Gate` block is itself an unresolved gate: surface its `asked` + `options` to the human verbatim and never answer it.
 3. Current phase has no plans → run the `/flow-plan N --auto` flow (invoke the flow-plan skill with `N --auto`).
 4. Plans exist without SUMMARYs → run `/flow-execute N --auto`.
 5. VERIFICATION has gaps → run `/flow-plan N --gaps`.
@@ -23,6 +34,8 @@ Routing (first match wins):
 9. PR open, not green (checks failing/pending, or unresolved bot review threads) → run `/flow-ci`. It is autonomous work: driving a PR to green needs no human.
 10. PR open and green / awaiting human review or merge → stop: review and merge are human, and UAT needs the merge plus azd auth. `FLOW: GATE | PR #N green, awaiting review/merge | next: after merge, /flow-uat`
 
-If the step itself ends at a gate (checkpoint, escalation, gaps needing a decision), report that state — the invoked skill's outcome decides CONTINUE vs GATE/BLOCKED. All phases verified and deploy pipeline released → `FLOW: DONE`.
+If the step itself ends at a gate (checkpoint, escalation, gaps needing a decision), report that state — the invoked skill's outcome decides CONTINUE vs GATE/BLOCKED — and make sure it left the `## Gate` block populated. All phases verified and deploy pipeline released → `FLOW: DONE`.
+
+When a gate is answered, clear `## Gate` to `none` and reset `## Run` (`Iteration: 1`, fresh `Started`, `Repeats: 0`): a human touching the run is the strongest possible evidence it is no longer stuck.
 
 Under `/loop`: apply the loop etiquette from autonomy.md (stop the loop on GATE/BLOCKED/DONE, explain why).

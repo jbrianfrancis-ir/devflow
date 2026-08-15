@@ -13,7 +13,12 @@ CHECKPOINT
 plan: NN-MM | task: N | type: decision|human-action
 done: [task numbers + commit SHAs completed so far]
 need: {what the user must decide or do — specific}
+options:                          # REQUIRED for type: decision. Max 4, one line each.
+  1. {option} — {consequence}
+  2. {option} — {consequence}
 resume: {what to tell the executor to continue}
 ```
 
-The orchestrator presents this to the user, then respawns the executor with: the plan path, "tasks 1..K committed (confirm via git log), continue from task K+1", and the user's answer. On continuation the executor verifies the claimed commits exist before resuming — never re-does committed work.
+`options` is the enumeration this file has always asked for in prose ("Present options + trade-offs") made structured, because prose options survive only as long as the session that printed them. Each line names the choice and what it costs — an option list whose entries are indistinguishable is a question, not a choice. `human-action` checkpoints usually have no options (there is one thing to do); include them only when the human genuinely picks between routes.
+
+The orchestrator presents this to the user, copies `type` / `need` / `options` into `STATE.md`'s `## Gate` block verbatim (`references/autonomy.md` → Gate record), then respawns the executor with: the plan path, "tasks 1..K committed (confirm via git log), continue from task K+1", and the user's answer. On continuation the executor verifies the claimed commits exist before resuming — never re-does committed work. Clear `## Gate` to `none` once answered, and log the answer to `DECISIONS.md` with `asked` matching the block.
