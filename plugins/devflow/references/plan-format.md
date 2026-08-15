@@ -38,6 +38,6 @@ Keep the list small. Everything in it costs a human check, so a phase where most
 
 ## Gates (used by every orchestrating skill)
 - **Pre-flight**: check preconditions before starting work; on failure block with a message, create nothing.
-- **Revision**: producer ↔ checker loop, max 3 iterations; escalate early if the issue count stops shrinking.
+- **Revision**: producer ↔ checker loop, max 3 iterations; escalate early if the issue count stops shrinking. `/flow-plan --panel` adds parallel judgment lenses (scope, feasibility, coherence) inside the same budget — a plan can be perfectly well-formed and still be the wrong plan, and that is the one defect no structural check can see.
 - **Escalation**: pause, present options with enough context to decide, wait for the user.
 - **Abort**: stop immediately, preserve state, report why.

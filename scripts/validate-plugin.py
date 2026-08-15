@@ -4,6 +4,7 @@
 import glob
 import json
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -81,8 +82,8 @@ skills = sorted(glob.glob(os.path.join(PLUGIN, "skills", "*", "SKILL.md")))
 agents = sorted(glob.glob(os.path.join(PLUGIN, "agents", "*.md")))
 if len(skills) != 20:
     err(f"expected 20 skills, found {len(skills)}")
-if len(agents) != 9:
-    err(f"expected 9 Claude role agents, found {len(agents)}")
+if len(agents) != 10:
+    err(f"expected 10 Claude role agents, found {len(agents)}")
 for path in skills:
     name = os.path.basename(os.path.dirname(path))
     fm = frontmatter(path)
@@ -99,20 +100,60 @@ for path in agents:
     elif fm.get("model") not in MODELS:
         err(f"{rel}: model must be one of {'/'.join(sorted(MODELS))}, got {fm.get('model')!r}")
 
-# The bridge dispatches the same nine roles the agent files define; a rename on
-# either side silently breaks cross-provider dispatch, so pin them together.
+# The bridge dispatches the same roles the agent files define; a rename on either
+# side silently breaks cross-provider dispatch, so pin them together. Parse the two
+# sets SEPARATELY: unioning them would let a role move from read-only to write
+# without tripping anything, which is exactly the change most worth catching.
 bridge = os.path.join(PLUGIN, "scripts", "flow-agent.py")
+role_sets = {}
 if os.path.isfile(bridge):
     with open(bridge, encoding="utf-8") as stream:
         source = stream.read()
-    roles = set()
     for line in source.splitlines():
-        if line.startswith(("READ_ONLY_ROLES", "WRITE_ROLES")):
-            roles |= {chunk.strip().strip('"\'') for chunk in
-                      line.partition("{")[2].partition("}")[0].split(",") if chunk.strip()}
+        for key in ("READ_ONLY_ROLES", "WRITE_ROLES"):
+            if line.startswith(key):
+                role_sets[key] = {chunk.strip().strip('"\'') for chunk in
+                                  line.partition("{")[2].partition("}")[0].split(",") if chunk.strip()}
+    roles = role_sets.get("READ_ONLY_ROLES", set()) | role_sets.get("WRITE_ROLES", set())
     expected = {os.path.splitext(os.path.basename(p))[0].removeprefix("flow-") for p in agents}
     if roles != expected:
         err(f"bridge roles {sorted(roles)} do not match agent files {sorted(expected)}")
+    overlap = role_sets.get("READ_ONLY_ROLES", set()) & role_sets.get("WRITE_ROLES", set())
+    if overlap:
+        err(f"roles in both READ_ONLY_ROLES and WRITE_ROLES: {sorted(overlap)}")
+
+    # A read-only role that can Write or Edit is read-only in name only. The bridge
+    # sandboxes it on the cross-provider path (`--sandbox read-only`), but a natively
+    # spawned agent gets exactly the tools its frontmatter lists — so the frontmatter
+    # is the only thing enforcing this, and nothing was checking the frontmatter.
+    WRITE_TOOLS = {"write", "edit", "notebookedit", "multiedit"}
+    for path in agents:
+        role = os.path.splitext(os.path.basename(path))[0].removeprefix("flow-")
+        if role not in role_sets.get("READ_ONLY_ROLES", set()):
+            continue
+        tools = {t.strip().lower() for t in (frontmatter(path).get("tools") or "").split(",")}
+        offenders = sorted(tools & WRITE_TOOLS)
+        if offenders:
+            err(f"{os.path.relpath(path, ROOT)}: read-only role declares write tools {offenders}")
+
+    # references/hosts.md restates both lists in prose — a third copy that drifts silently.
+    hosts = os.path.join(PLUGIN, "references", "hosts.md")
+    if os.path.isfile(hosts) and role_sets:
+        with open(hosts, encoding="utf-8") as stream:
+            hosts_text = stream.read()
+        # The prose wraps, so "Write\nroles:" is one phrase across two lines.
+        for key, label, pattern in (
+            ("READ_ONLY_ROLES", "Read-only roles", r"Read-only\s+roles"),
+            ("WRITE_ROLES", "Write roles", r"Write\s+roles"),
+        ):
+            m = re.search(rf"{pattern}:\s*([^.]+)", hosts_text)
+            if not m:
+                err(f"references/hosts.md: missing the '{label}' list")
+            else:
+                listed = {c.strip().strip("`") for c in m.group(1).split(",") if c.strip()}
+                if listed != role_sets.get(key, set()):
+                    err(f"references/hosts.md '{label}' {sorted(listed)} "
+                        f"does not match {key} {sorted(role_sets.get(key, set()))}")
 
 for path in glob.glob(os.path.join(PLUGIN, "**", "*"), recursive=True):
     if not os.path.isfile(path):

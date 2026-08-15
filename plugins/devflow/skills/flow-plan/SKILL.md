@@ -1,6 +1,6 @@
 ---
 name: flow-plan
-description: Plan one roadmap phase - discuss decisions, optional research, write plans, check them. Args - phase number, plus optional --auto (no questions), --gaps (replan from verification gaps), --research, --review (publish the plan graph as a review page). Use before executing a phase. Supports --provider native|claude|codex.
+description: Plan one roadmap phase - discuss decisions, optional research, write plans, check them. Args - phase number, plus optional --auto (no questions), --gaps (replan from verification gaps), --research, --panel (parallel scope/feasibility/coherence review of the plans), --review (publish the plan graph as a review page). Use before executing a phase. Supports --provider native|claude|codex.
 ---
 
 # flow-plan
@@ -20,6 +20,14 @@ Context rules: read `.planning/STATE.md` first (missing but `.planning/` exists 
 3. **Plan**: spawn `flow-planner` with paths only: `{devflow_root}/references/plan-format.md`, `{devflow_root}/references/conventions.md`, `{devflow_root}/templates/plan.md`, `.planning/{STATE,ROADMAP,REQUIREMENTS,PROJECT}.md`, plus ARCHITECTURE.md / DESIGN.md / CONTEXT.md / RESEARCH.md / LEARNINGS.md / `codebase/MAP.md` when present, and the phase dir to write into. `--gaps`: state gap mode and pass the VERIFICATION.md path.
 
 4. **Check** (revision gate): spawn `flow-plan-checker` with the plan-format reference path + phase dir + `.planning/REQUIREMENTS.md` (it checks coverage both directions and that open markers carry backstop truths) (+ ARCHITECTURE.md / DESIGN.md / LEARNINGS.md paths when present). `PASS` → continue. Issues → respawn planner in revision mode with the numbered issues; re-check. Max 3 iterations; if capped, or the issue count stops shrinking between rounds, escalate: show the user the unresolved issues and ask proceed / fix manually / second opinion (`/flow-oracle` seeded with the plan + issues) / abort. In `--auto`: don't ask — stop with a GATE status line carrying the unresolved issues.
+
+4b. **Panel** (only with `--panel`): the checker answers *is this plan executable*; the panel answers *is this the right plan*. Run it after step 4 reaches `PASS` — reviewing a malformed plan wastes the round. Spawn `flow-plan-reviewer` **one per lens, in parallel, all in one message** — `scope`, `feasibility`, `coherence` — each with the phase dir plus `.planning/REQUIREMENTS.md`, `ARCHITECTURE.md`, `ROADMAP.md`, and `CONTEXT.md` / `codebase/MAP.md` / `TODOS.md` when present.
+
+   Merge exactly as `/flow-pr` does: dedupe across lenses (same plan+task and same claim is one finding, keeping the highest severity — two lenses agreeing independently is signal, so report it once and note the agreement), then resolve most severe first. `blocking` → respawn the planner in revision mode with the finding, or **refute** it in writing; refuting a blocking finding is a human gate, never yours to wave through. `should-fix` → fix or refute with a reason, recorded either way. `nit` → fix if trivial, else drop silently.
+
+   Findings feed the same revision budget as step 4 (max 3 rounds total, stop early when a round returns no new blocking findings) — the panel does not buy extra rounds. In `--auto`, unresolved blocking findings stop with a `GATE` status line carrying them, exactly like a capped checker loop.
+
+   Cost is real: three top-tier agents per round. That is the trade — the cheapest possible place to find out you are building the wrong thing is before anyone writes a line of it.
 
 5. **Review page** (only with `--review`, or when the user asks to see the plan): render the phase's plan graph so the human reviews *before* execution, where a wrong assumption is one replan instead of a phase of rework. When the host provides Artifact publishing, load its artifact-design skill, write to the scratchpad, and publish with a stable `file_path`. Otherwise write or replace `.planning/reviews/phase-NN-plan.md` and return that path. Reuse the destination on `--gaps` rounds.
 
