@@ -9,7 +9,7 @@
     {
       "name": "devflow",
       "description": "Spec-driven development through a lean phase loop with native or cross-provider agents. Claude commands are /flow-*; Codex skills are $flow-*.",
-      "version": "0.12.0",
+      "version": "0.13.0",
       "source": "./plugins/devflow",
       "author": {
         "name": "jbrianfrancis-ir",

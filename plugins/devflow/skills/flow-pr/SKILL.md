@@ -1,6 +1,6 @@
 ---
 name: flow-pr
-description: Push the current feature branch to origin and open a pull request against upstream (or the base branch) from verified work. Use when a phase or body of work is ready to integrate. Supports --provider native|claude|codex.
+description: Push the current feature branch to origin and open a pull request against upstream (or the base branch) from verified work. Use when a phase or body of work is ready to integrate. Args - optional --adversarial (review through the peer provider, then adjudicate findings into a durable ledger). Supports --provider native|claude|codex.
 ---
 
 # flow-pr
@@ -21,6 +21,18 @@ Context rules: read `.planning/STATE.md` and `.planning/config.json` (`git` bloc
    - `should-fix` → fix, or refute with a reason and carry it into the PR body's open-items trailer. Your call, recorded either way.
    - `nit` → fix if trivial, otherwise drop silently. Nits never block a PR and never enter the PR body.
    Fixes commit as `fix(review): <what>` (trivial ones may batch into `chore(flow): pre-PR review fixes`); a fixed bug gets a regression test in the same commit (conventions.md). Re-run only the lenses whose findings you changed code for. Max 3 rounds, or stop early when a round returns no new blocking findings. Anything still open — unfixed, unrefuted, or a refuted blocker — goes to the human gate in step 5, never silently shipped.
+
+2a. **Adversarial routing** (`--adversarial`): a fresh context of the same model is a weaker check than a different model — it shares the priors that produced the code, so the reasoning that looked convincing while writing still looks convincing while reviewing. With `--adversarial`, every `flow-reviewer` in step 2 is dispatched through the **peer provider** instead: Claude hosts route to `codex`, Codex hosts route to `claude`, per `{devflow_root}/references/hosts.md`. The bridge already runs read-only roles under an enforced sandbox (`--sandbox read-only` / `--permission-mode plan`), so the reviewer's envelope is a property of the dispatch rather than a request in a prompt.
+
+   An explicit `--provider` wins over the automatic peer choice. **Fail closed**: peer CLI missing, unauthenticated, or failing → `FLOW: BLOCKED` with remediation. Never fall back to native — silently degrading adversarial review to same-model review is precisely the failure this flag exists to prevent, and it would report as a clean review either way (`conventions.md` → Fail-closed guards).
+
+2b. **Adjudicate** (`--adversarial`): the session that received findings and is about to write the fixes does not also rule on which are real. Spawn `flow-adjudicator` — one fresh context, read-only — with the finding blocks, the diff range, `{devflow_root}/references/adjudication.md`, `{devflow_root}/templates/review-ledger.md`, `.planning/reviews/LEDGER.md` (create from the template on first round), and ARCHITECTURE.md / DECISIONS.md / TODOS.md paths when present.
+
+   It screens each finding against the ledger's settled ground, re-verifies what remains with commands whose output it records, and rules **both axes** — verdict (is it true) and disposition (what happens) — then appends the round. It never fixes and never decides whether to ship.
+
+   Work its returned `fix_now` queue exactly as the triage above: fix, regression-test, commit. Everything in `blocking_open` — a `CONFIRMED` finding dispositioned `ACCEPTED AS-IS`, or anything `PENDING OWNER` — is a **human gate** at step 5, named individually. Backfill each `FIX NOW` row with its commit before the round closes; a round with an unbackfilled queue is still open.
+
+   Without `--adversarial`, steps 2a/2b do not run and step 2's triage stands as written.
 3. **Push**: `git push -u origin <branch>`.
 4. **Build the PR** body as a narrative recap, not a checklist: 2–5 short paragraphs — the problem/goal, the approach and any root cause, what actually changed, and the proof (verification evidence, test results) — sourced from phase SUMMARY + VERIFICATION frontmatter since the last PR/base, keeping REQ-IDs covered, deviations, and open human checks as a short trailer. Concise title. Base = the base branch of `upstream` if set, else of `origin`; head = `<branch>` (`<origin-owner>:<branch>` for a cross-fork PR).
 
@@ -28,9 +40,9 @@ Context rules: read `.planning/STATE.md` and `.planning/config.json` (`git` bloc
    - **Read first** — 2–4 files ranked by risk, one clause each on what to check. Rank by blast radius, not diff size: security/auth boundaries, data or migration changes, public API and contract changes, then anything a `flow-reviewer` raised a finding on. Say plainly which parts are mechanical and safe to skim.
    - **Proof strength** — from VERIFICATION.md's truths table, split the `must_haves` into proven **by command or test** (name it) versus proven **by code trace** only. A trace is weaker evidence than a run; a reviewer deserves to know which truths rest on it.
    - **Thin spots** — where verification was weakest: VERIFICATION's `unverified` list (backstop truths that abstained — behavior the requirements never settled, still unpinned by a test), any `VERIFIED (coincidental-reliance)` row and what accident it rests on, other HUMAN verdicts, truths with no automated coverage, `deferred` items from SUMMARY, and any `[REPEAT]` gap. Understate nothing here; this section is the reason the guide is trustworthy.
-   - **Deviations and open items** — `[Rule N]` deviations from SUMMARY frontmatter, unresolved `should-fix` findings and their refutations, and any refuted `blocking` finding (flagged as needing the reviewer's agreement).
+   - **Deviations and open items** — `[Rule N]` deviations from SUMMARY frontmatter, unresolved `should-fix` findings and their refutations, and any refuted `blocking` finding (flagged as needing the reviewer's agreement). Under `--adversarial`: name the reviewing model, link `.planning/reviews/LEDGER.md`, and list every `ACCEPTED AS-IS` row with the reason it was accepted — a human reviewer inheriting a knowingly-shipped defect should meet it here, not discover it.
    Never let this section claim more confidence than VERIFICATION.md supports — if it disagrees with the truths table, the truths table wins.
-5. **Human gate**: show title, base ← head, the body, and every review finding still open — unfixed `should-fix` items with their refutations, and any refuted `blocking` finding called out first by name. Get explicit confirmation before creating — even in `--auto`. (Outward-facing to the canonical repo.)
+5. **Human gate**: show title, base ← head, the body, and every review finding still open — unfixed `should-fix` items with their refutations, and any refuted `blocking` finding called out first by name. Under `--adversarial`, that list is the adjudicator's `blocking_open`: each `CONFIRMED` finding you are shipping `ACCEPTED AS-IS` named with what it costs, and each `PENDING OWNER` question with its options. Accepting a confirmed defect is the decision the ledger exists to make legible — never fold it into a summary line. Get explicit confirmation before creating — even in `--auto`. (Outward-facing to the canonical repo.)
 6. **Open**: `gh pr create --repo <upstream-or-origin> --base <base> --head <head> --title ... --body ...`, or the GitHub MCP (`create_pull_request`). If a PR from this branch already exists, the push updated it — just report its URL. No `upstream` → PR within `origin` (base = base branch).
 7. **Record**: write the PR URL into STATE.md (Session/Position); note it in `.planning/deploy/PIPELINE.md` if present; prepend a `.planning/JOURNAL.md` line with the PR URL (format `{devflow_root}/templates/journal.md`; create if missing).
 
