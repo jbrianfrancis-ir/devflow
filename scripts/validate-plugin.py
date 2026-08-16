@@ -82,8 +82,8 @@ skills = sorted(glob.glob(os.path.join(PLUGIN, "skills", "*", "SKILL.md")))
 agents = sorted(glob.glob(os.path.join(PLUGIN, "agents", "*.md")))
 if len(skills) != 20:
     err(f"expected 20 skills, found {len(skills)}")
-if len(agents) != 10:
-    err(f"expected 10 Claude role agents, found {len(agents)}")
+if len(agents) != 11:
+    err(f"expected 11 Claude role agents, found {len(agents)}")
 for path in skills:
     name = os.path.basename(os.path.dirname(path))
     fm = frontmatter(path)
@@ -109,11 +109,13 @@ role_sets = {}
 if os.path.isfile(bridge):
     with open(bridge, encoding="utf-8") as stream:
         source = stream.read()
-    for line in source.splitlines():
-        for key in ("READ_ONLY_ROLES", "WRITE_ROLES"):
-            if line.startswith(key):
-                role_sets[key] = {chunk.strip().strip('"\'') for chunk in
-                                  line.partition("{")[2].partition("}")[0].split(",") if chunk.strip()}
+    # Match the whole brace literal, not the first line of it: these sets wrap as they
+    # grow, and a line-based read would silently see a truncated set.
+    for key in ("READ_ONLY_ROLES", "WRITE_ROLES"):
+        m = re.search(rf"^{key}\s*=\s*\{{([^}}]*)\}}", source, re.M | re.S)
+        if m:
+            role_sets[key] = {chunk.strip().strip('"\'') for chunk in m.group(1).split(",")
+                              if chunk.strip()}
     roles = role_sets.get("READ_ONLY_ROLES", set()) | role_sets.get("WRITE_ROLES", set())
     expected = {os.path.splitext(os.path.basename(p))[0].removeprefix("flow-") for p in agents}
     if roles != expected:
@@ -165,6 +167,15 @@ for path in glob.glob(os.path.join(PLUGIN, "**", "*"), recursive=True):
         continue
     if "${CLAUDE_PLUGIN_ROOT}" in text:
         err(f"{os.path.relpath(path, ROOT)}: contains Claude-only plugin root")
+    # Skills and agents load doctrine by {devflow_root}-relative path. A pointer to a
+    # file that does not exist fails at runtime inside a subagent, where it reads as
+    # the agent being unhelpful rather than as a broken link — so resolve them here.
+    # `*` and a bare directory are legitimate (glob placeholders, directory references).
+    for ref in re.findall(r"\{devflow_root\}/([A-Za-z0-9_./*-]+)", text):
+        if "*" in ref or ref.endswith("/"):
+            continue
+        if not os.path.exists(os.path.join(PLUGIN, ref)):
+            err(f"{os.path.relpath(path, ROOT)}: dangling reference {{devflow_root}}/{ref}")
 if not os.path.isfile(os.path.join(PLUGIN, "references", "hosts.md")):
     err("portable host contract is missing")
 if not os.path.isfile(os.path.join(PLUGIN, "scripts", "flow-agent.py")):

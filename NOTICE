@@ -43,6 +43,24 @@ concept from:
 No source files from oracle are included; DevFlow optionally drives the oracle
 CLI/MCP server as an external tool when the user has it installed.
 
+The adjudication discipline behind /flow-pr --adversarial — ruling each review
+finding on two independent axes (is it true, and what happens about it) rather
+than one; holding a refutation to the same evidence standard as the finding it
+answers; requiring a deferral to name a backlog artifact that already exists;
+screening each round against durable settled ground; and keeping closed rounds
+immutable so a later correction cites the ruling it supersedes rather than
+overwriting it — is derived in concept from:
+
+  adversarial-review-skills (Dzazaleo/adversarial-review-skills) — MIT License
+  Copyright (c) Dzazaleo
+  https://github.com/Dzazaleo/adversarial-review-skills
+
+No source files or prompt text from it are included. Its workflow is a manual
+relay across four sessions; DevFlow drives the equivalent through its existing
+cross-provider bridge, which dispatches a bounded read-only role to the peer
+provider's CLI under an enforced sandbox, so only the judgment discipline was
+taken and it was compressed into one reference and one template.
+
 Four autonomy and review behaviors — first-class safety rails on an open-ended
 agent loop (iteration, wall-clock, and no-progress detection), a human interrupt
 channel that carries a question together with its enumerated choices as

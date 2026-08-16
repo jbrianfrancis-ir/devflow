@@ -1,6 +1,6 @@
 {
   "name": "devflow",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Token-efficient, spec-driven development for Claude Code and Codex with native and cross-provider subagents.",
   "author": {
     "name": "jbrianfrancis-ir",

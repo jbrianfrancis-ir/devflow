@@ -34,6 +34,7 @@ All paths are relative to the project repo. A repo is DevFlow-managed **iff** `.
 | `.planning/config.json` | `git` block (`base`, `origin`, `upstream`, `branch`); `agents.provider` (`native`, `claude`, or `codex`) and optional `agents.models.<role>` tier overrides; optional `autonomy` block (`max_iterations` 40, `max_repeats` 3, `max_hours` null) tuning the loop rails; `workstream` block when applicable. Absent keys mean the defaults, not "off". |
 | `phases/NN-slug/*-SUMMARY.md` | Frontmatter: `agent` (`role/provider/model` that executed the plan), `commits`, `deviations`, `human_checks`, `deferred`. |
 | `phases/NN-slug/VERIFICATION.md` | Frontmatter: `status` (`pass`/`gaps`/`human_needed`), `gaps`, `unverified` (backstop truths the verifier abstained on — non-inferable behavior awaiting a held-out test; these are not defects and never become gaps). |
+| `.planning/reviews/LEDGER.md` | Append-only, **uncapped**, oldest first. One `## Round N` section per adjudicated review (`/flow-pr --adversarial`), each with a rulings table carrying **two axes** per finding: a verdict (`CONFIRMED` / `REFUTED` / `COULD NOT DETERMINE` / `SETTLED ALREADY` / `OWNER RULING REQUIRED`) and a disposition (`FIX NOW` / `FIX LATER` / `ACCEPTED AS-IS` / `NO ACTION` / `VERIFY` / `PENDING OWNER`). Closed rounds are immutable — a superseded ruling gets a new row citing the old one — so a driver may cache by byte offset. Absent until the first adversarial review. |
 
 `STATE.md` and `config.json` are **branch-local** — in a multi-worktree repo each workstream has its own. See `plugins/devflow/references/conventions.md` → Parallel workstreams.
 
@@ -126,7 +127,7 @@ cd <repo> && /flow-next            # advance exactly one step, then stop with FL
 
 `/flow-next` is the driver: one step per invocation, bounded turns, always terminating in a status line. Loop it (`/loop /flow-next`) or gate it (`/goal FLOW says DONE or GATE, or stop after 40 turns`). `/flow-ci` drives an open PR to green the same way. `/flow-status --all` boards every project; `/flow-workstream` adds a parallel worktree.
 
-**Gates a driver must surface and never answer itself** (authoritative list in `plugins/devflow/references/autonomy.md`): checkpoint decisions and human-actions; failed-package (typosquat) verification; a fail-closed secret-scan hit; sending an external consult bundle; opening a PR to upstream; replying to human PR reviewers; UAT acceptance and sign-off; production release confirmation; pushing tags; anything destructive in git. Hard rule, not a gate: never commit to the base branch.
+**Gates a driver must surface and never answer itself** (authoritative list in `plugins/devflow/references/autonomy.md`): checkpoint decisions and human-actions; failed-package (typosquat) verification; a fail-closed secret-scan hit; sending an external consult bundle; opening a PR to upstream; replying to human PR reviewers; shipping a confirmed review finding `ACCEPTED AS-IS`; UAT acceptance and sign-off; production release confirmation; pushing tags; anything destructive in git. Hard rule, not a gate: never commit to the base branch.
 
 ## 5. What not to build against
 

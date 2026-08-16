@@ -49,7 +49,7 @@ current host and must not start a second CLI.
   start a second CLI. Independent wrappers may run concurrently; the
   orchestrator waits for and counts every result.
 
-Read-only roles: mapper, researcher, plan-checker, plan-reviewer, reviewer, verifier. Write
+Read-only roles: adjudicator, mapper, researcher, plan-checker, plan-reviewer, reviewer, verifier. Write
 roles: planner, executor, migrator, consultant.
 
 Always tell a spawned write role its **resolved provider and model** — it needs
@@ -60,7 +60,7 @@ observe them for itself. Pass the concrete provider (`claude`/`codex`), never
 ## Model tiers
 
 Each `flow-*` agent declares its own `model:`. Judgment roles — planner,
-plan-checker, plan-reviewer, verifier, reviewer, consultant, migrator — run on the top tier;
+plan-checker, plan-reviewer, verifier, reviewer, adjudicator, consultant, migrator — run on the top tier;
 bounded roles — mapper, researcher, executor — run a tier down. The executor is
 deliberately in the cheap group: a plan is a complete, unambiguous executor
 prompt by design (`plan-format.md`), and that is what makes it safe. It is also
