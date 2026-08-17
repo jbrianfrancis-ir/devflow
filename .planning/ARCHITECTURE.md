@@ -1,4 +1,5 @@
-<!-- .planning/ARCHITECTURE.md — cap 3KB. HARD constraints, owned by the human. -->
+<!-- .planning/ARCHITECTURE.md — cap 3KB; this file is ~4.6KB, over deliberately (D-11).
+     HARD constraints, owned by the human. -->
 # Architecture constraints
 
 ## Stack

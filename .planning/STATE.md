@@ -14,10 +14,11 @@ none
 - init: docs/ stays flat topic files + docs/README.md index (D-02)
 - init: link checker is stdlib-only scripts/check-links.py, no third-party CI action (D-04)
 - init: no deployable surface — harden/uat/release N/A (D-06)
+- phase 2: docs/ summarizes + links to references/ as source of truth (D-10)
 
 ## Blockers
 - none
 
 ## Session
 Stopped: phase 1 planned and checked (PASS); nothing executed yet
-Resume: /flow-execute 1. Check report at .planning/phases/01-link-safety-net/CHECK.md. REQ-12's open marker belongs to phase 2 — /flow-plan 2 must ask about it
+Resume: /flow-execute 1. Check report at .planning/phases/01-link-safety-net/CHECK.md. REQ-12 resolved (D-10) — no open markers remain

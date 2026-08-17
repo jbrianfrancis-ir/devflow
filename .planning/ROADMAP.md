@@ -12,10 +12,10 @@
      Once REQ-11 lands, the link check is part of the smoke command, so every later
      phase re-proves link integrity as a condition of its own verification.
 
-     Phase 02 carries the open marker REQ-12 (how docs/ pages relate to
-     plugins/devflow/references/*.md). /flow-plan 2 asks about it; if it is still
-     open at planning time it becomes a backstop truth and the verifier abstains
-     rather than certifying whichever shape got built.
+     REQ-12 is RESOLVED (D-10, 2026-08-17): docs/ pages summarize and link to
+     plugins/devflow/references/*.md as source of truth; normative detail is never
+     restated. No marker remains open on this roadmap, so no phase carries a
+     backstop truth for it.
 
      Phase 04 is last because a content-loss audit is only meaningful once both the
      destination pages and the trimmed README are final. -->
