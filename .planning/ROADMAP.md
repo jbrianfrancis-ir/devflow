@@ -3,7 +3,7 @@
 
 | NN | Phase | Goal (one line) | Requirements | Status |
 |----|-------|-----------------|--------------|--------|
-| 01 | Link safety net | Build the stdlib link checker and wire it into CI and smoke, before any documentation moves | REQ-09, REQ-10, REQ-11, SC-02, SC-05 | pending |
+| 01 | Link safety net | Build the stdlib link checker and wire it into CI and smoke, before any documentation moves | REQ-09, REQ-10, REQ-11, SC-02, SC-05 | planned |
 | 02 | Carve out docs/ | Move the deep-dive topics out of README into focused `docs/` pages, one topic per file | REQ-05, REQ-07, REQ-12, SC-03 | pending |
 | 03 | Rebuild README | Rewrite README as install + quickstart + command table + config + docs index, and write the index | REQ-01, REQ-02, REQ-03, REQ-04, SC-01, SC-04 | pending |
 | 04 | Repoint and audit | Repoint every inbound reference including prose mentions, and prove no substantive content was lost | REQ-06, REQ-08 | pending |

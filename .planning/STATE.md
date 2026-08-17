@@ -2,9 +2,9 @@
 # State
 
 ## Position
-Phase: 1 of 4 (Link safety net) | Plans: 0/0 | Status: planning
-Last: 2026-08-17 — /flow-new initialized DevFlow docs restructure; codebase mapped, architecture confirmed
-Next: /flow-plan 1
+Phase: 1 of 4 (Link safety net) | Plans: 0/3 | Status: ready
+Last: 2026-08-17 — phase 1 planned: 3 plans, waves 1→3; plan-check PASS after 3 rounds
+Next: /flow-execute 1
 
 ## Gate
 none
@@ -19,5 +19,5 @@ none
 - none
 
 ## Session
-Stopped: after project initialization; nothing planned or executed yet
-Resume: run /flow-plan 1 — it will ask about REQ-12 (how docs/ pages relate to plugins/devflow/references/*.md) when it reaches phase 2, not phase 1
+Stopped: phase 1 planned and checked (PASS); nothing executed yet
+Resume: /flow-execute 1. Check report at .planning/phases/01-link-safety-net/CHECK.md. REQ-12's open marker belongs to phase 2 — /flow-plan 2 must ask about it
