@@ -21,12 +21,8 @@ build step, no runtime dependency, no deployable artifact. Nothing may introduce
 - **Manifests are the version source of truth.** `plugins/devflow/.claude-plugin/plugin.json` `version` drives releases; the Codex manifest must match. Documentation work never touches either.
 
 ## Smoke
-- **Command**: `python3 scripts/validate-plugin.py && python3 -m unittest discover -s tests -v`
-- **Pass looks like**: exit 0 from both; validator prints no error lines; unittest reports `OK`, 0 failures, 0 errors.
-
-<!-- The phase landing scripts/check-links.py extends this to `… && python3 scripts/check-links.py`
-     in the same change that adds the script, not before — a smoke command naming a file that does
-     not exist yet fails every earlier phase for the wrong reason. -->
+- **Command**: `python3 scripts/validate-plugin.py && python3 -m unittest discover -s tests -v && python3 scripts/check-links.py`
+- **Pass looks like**: exit 0 from all three; validator prints no error lines; unittest reports `OK`, 0 failures, 0 errors; checker prints no failure lines.
 
 ## Link checking
 `scripts/check-links.py` — **stdlib only, no network**. Validates `[text](target)` links and
