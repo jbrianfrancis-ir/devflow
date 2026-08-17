@@ -17,3 +17,5 @@ jobs:
         run: python3 scripts/validate-plugin.py
       - name: Run bridge and packaging tests
         run: python3 -m unittest discover -s tests -v
+      - name: Check internal links
+        run: python3 scripts/check-links.py
