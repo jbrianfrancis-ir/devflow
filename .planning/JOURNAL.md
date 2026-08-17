@@ -1,0 +1,6 @@
+<!-- .planning/JOURNAL.md — cap 2KB (~25 lines). Newest first; when over cap, MOVE the oldest lines
+to .planning/history/JOURNAL-<YYYY>.md (append, chronological, uncapped) — never drop them.
+The cap bounds what loads into context each run; it is not permission to forget.
+One line per completed state-changing skill run. Warm-start + audit trail; context repos (docs/blitzos.md) index these lines verbatim. -->
+# Journal
+- 2026-08-17 | /flow-new | initialized docs-restructure project — 4 phases, 12 REQs, 1 open marker (REQ-12); codebase mapped | CONTINUE

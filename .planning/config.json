@@ -1,0 +1,16 @@
+{
+  "mode": "interactive",
+  "commit_docs": true,
+  "agents": {
+    "provider": "native"
+  },
+  "deploy": {
+    "tool": null
+  },
+  "git": {
+    "base": "main",
+    "origin": "origin",
+    "upstream": null,
+    "branch": "flow/docs-restructure"
+  }
+}
