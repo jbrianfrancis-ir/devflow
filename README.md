@@ -60,6 +60,15 @@ What happens inside a phase — the wave graph, the smoke gate, state files: [do
 | deploy | `/flow-uat` | Deploy to UAT (provision on first deploy), generate acceptance test plan |
 | deploy | `/flow-release` | Production deploy, gated on per-SHA UAT sign-off |
 
+## Configuration
+
+- `--provider native|claude|codex` on the delegating skills, and the project default `agents.provider` in
+  `.planning/config.json` (`"agents": {"provider": "native"}`) — the flag wins over the file.
+- Other keys `.planning/config.json` carries, named not explained: `mode`, `commit_docs`,
+  `agents.models.<role>`, `autonomy.max_iterations`, `autonomy.max_repeats`, `autonomy.max_hours`,
+  `git.base`, `git.origin`, `git.upstream`, `git.branch`, `deploy.tool`.
+- Provider dispatch and model tiers: [docs/providers.md](docs/providers.md). Loop rails: [docs/autonomy.md](docs/autonomy.md).
+
 ## Acknowledgements
 
 Concept lineage and upstream credit: [docs/acknowledgements.md](docs/acknowledgements.md). Required attributions are in `NOTICE`.
