@@ -54,14 +54,6 @@ codex plugin add devflow@devflow
          ──► /flow-harden ──► /flow-pr ──► /flow-ci ──► (merge) ──► /flow-uat ──► human sign-off ──► /flow-release
 ```
 
-## Many streams at once
-
-The bottleneck in agent-assisted work isn't decomposition — it's losing track of what each session is doing, and reading its output cold at the end. Four pieces address that:
-
-**Fleet board** — `/flow-status --all` runs `plugins/devflow/scripts/flow-fleet.py`, which walks your roots for `.planning/STATE.md` and prints one row per project: phase, status, last `FLOW:` state, age, dirty/stale/on-base flags, and the exact next command. It reads files, never screens, so it works under every multiplexer and survives their updates. Attention-first ordering, a "needs a human" footer with copy-pasteable `cd … && /flow-…` lines, `--json` for programmatic drivers, and exit status `1` when anything needs you. Configure roots once in `~/.devflow/fleet.json`: `{"roots": ["~/dev"], "stale_days": 3}`.
-
-**Workstreams** — `/flow-workstream new <slug>` cuts a git worktree on its own `flow/<slug>` branch so two phases run side by side without fighting over one checkout. It refuses streams that share a hidden edge (migration chain, lockfile, generated output, shared dev database), assigns a port offset so both apps can run, and names the untracked local files the new tree lacks. `.planning/` reconciliation at merge is specified in `plugins/devflow/references/conventions.md` → Parallel workstreams: `STATE.md`/`config.json` are branch-local, `JOURNAL.md`/`LEARNINGS.md` merge as unions, `ARCHITECTURE.md` and the other pins are single-writer.
-
 ## Autonomous operation
 
 Every skill ends with a machine-checkable status line — `FLOW: CONTINUE|GATE|BLOCKED|DONE | position | next: command` — which Claude Code's `/goal` evaluator can verify from the transcript. Recipes:
