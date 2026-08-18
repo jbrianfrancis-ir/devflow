@@ -33,5 +33,6 @@ exactly one authoritative page per topic.
 | D-08 | `{devflow_root}/…` resolves to `plugins/devflow/…` and is validated | ~80 real refs no other check covers | 2026-08-17 |
 | D-09 | Skip rules evaluated per resolution base, never root alone; no allowlist file | Root-only skipping silently unchecked 10 real refs (measured); an allowlist drifts | 2026-08-17 |
 | D-10 | `docs/` summarizes and links to `references/*.md` as source of truth; normative detail never restated | Resolves REQ-12; honors "docs are pointers, never copies" and keeps prompt contracts out of scope | 2026-08-17 |
+| D-13 | `ARCHITECTURE.md` `## Link checking` reconciled to describe the implementation exactly | Three review rounds showed every omitted clause was a place the guard could fail while reporting green; a constraint doc that omits rules is untrue, not shorter | 2026-08-18 |
 | D-12 | Anchor-slug backstop abstention accepted; rule left unproven rather than asserted | Repo contains no duplicate/inline-code/setext headings, so nothing grades it; resolving it by reading the slugger would be circular | 2026-08-18 |
 | D-11 | REQUIREMENTS/PROJECT/ARCHITECTURE and the phase-01 plans exceed their size caps, accepted | Compressed twice; the remainder is normative and detail already caught a real defect. Cutting to hit a byte count trades correctness for a number | 2026-08-17 |

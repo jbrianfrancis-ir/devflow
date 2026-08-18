@@ -1,5 +1,8 @@
-<!-- .planning/ARCHITECTURE.md — cap 3KB; this file is ~4.6KB, over deliberately (D-11).
-     HARD constraints, owned by the human. -->
+<!-- .planning/ARCHITECTURE.md — cap 3KB; this file is ~7.5KB, over deliberately (D-11).
+     HARD constraints, owned by the human. The `## Link checking` section carries most of the
+     excess: it is the contract for this repo's only real guard, and three review rounds showed
+     that every clause it was missing was a place the guard could go wrong while reporting green.
+     A constraint document that omits the rules is not shorter, it is untrue. -->
 # Architecture constraints
 
 ## Stack
@@ -25,12 +28,54 @@ build step, no runtime dependency, no deployable artifact. Nothing may introduce
 - **Pass looks like**: exit 0 from all three; validator prints no error lines; unittest reports `OK`, 0 failures, 0 errors; checker prints no failure lines.
 
 ## Link checking
-`scripts/check-links.py` — **stdlib only, no network**. Validates `[text](target)` links and
-`#anchor` fragments, backticked repo-relative paths, and `{devflow_root}/…` refs resolved to
-`plugins/devflow/…`. Scope: tracked `.md` except `plugins/devflow/templates/**` and `.planning/**`.
-Non-repo refs (bare filenames, consuming-project artifacts, external URLs) are skipped **by rule,
-never an allowlist file**. External URLs are out of scope: checking them makes CI depend on
-third-party uptime.
+`scripts/check-links.py` — **stdlib only, no network, no allowlist file**. It is the standing CI gate
+(`lint.yml` → `Check internal links`) and the third step of `## Smoke`.
+
+**Scope.** Tracked `.md`, enumerated with `git ls-files -z` (NUL-split: plain `ls-files` C-quotes odd
+filenames, which silently drops them from the scan), except `plugins/devflow/templates/**` and
+`.planning/**` — both describe a *consuming* project, not this repo.
+
+**Reference kinds.** `[text](target)` links and `#anchor` fragments; backticked repo-relative paths
+(a token containing `/` and ending `.md`/`.py`/`.json`/`.yml`); `{devflow_root}/…` rewritten to
+`plugins/devflow/…`.
+
+**Resolution differs by kind, deliberately.** A markdown link resolves against the **referring file's
+own directory only** — github.com's rule; any other base green-lights links that 404 for a reader.
+Backticked and `{devflow_root}` tokens are base-ambiguous prose and keep the multi-base walk (repo
+root, the referring file's directory, and `plugins/devflow/` for files under it). A `{devflow_root}/…`
+token is root-anchored whichever syntax carries it. Directories are valid targets, not missing ones.
+
+**Containment — two independent guards, neither subsuming the other.** A reference whose normalized
+path walks above the root is rejected *before* any filesystem access, so a verdict can never depend on
+what the checkout directory happens to be named; and a resolved candidate whose `realpath` escapes the
+root is rejected, closing symlink escapes. A reference GitHub cannot follow is truthfully unresolved.
+
+**Skip rules R1–R5**, by rule and never by allowlist: R1 whitespace (a command, not a path); R2
+glob/family punctuation `[*<>{},|]`; R3 an `NN`/`NNN`/`MM`/`YYYY` placeholder segment; R4 a
+`.planning/` or `~/` prefix; R5 a first segment naming nothing under any resolution base. **R5 does not
+apply to markdown links** — a link's base is unambiguous, so an unmatched first segment means broken,
+not "not a reference"; R1–R4 still apply to both. A link target carrying any URI scheme, or a `//host`
+or `www.` prefix, is external and never reaches the resolver.
+
+**Masking.** Fenced code blocks are skipped. Genuine YAML frontmatter is skipped — and a leading `---`
+counts as frontmatter *only* when a closing `---` appears later, because otherwise it is an ordinary
+CommonMark thematic break and the document must still be checked in full. The fence scanner does not
+look at frontmatter lines, since a YAML literal block may legitimately contain a fence opener. An
+**unterminated code fence is a failure**, not a silent mask: a file masked to EOF is a file that quietly
+stopped being checked.
+
+**Coverage is reported, not assumed.** Output is `N failures, M references checked`, and a test asserts
+a floor of 140 against this repo (currently 162). `0 failures` from a checker that examined nothing is
+precisely the failure this guard exists to prevent, so a collapse turns CI red instead of printing a
+smaller number.
+
+**Anchors** follow github-slugger: lowercase, strip punctuation, then replace each space
+**individually** — a per-character replacement, not a whitespace-run collapse, or every heading with
+punctuation between spaces yields a slug one hyphen short of its real anchor. **Deliberately abstained
+and unproven (D-12):** duplicate headings (`-1` suffixes), headings holding inline code or links, and
+setext headings — this repo contains none of those cases, so nothing grades them.
+
+External `http(s)://` URLs are out of scope: checking them makes CI depend on third-party uptime.
 
 ## Frameworks & libraries
 | Library | Version | Use for |
