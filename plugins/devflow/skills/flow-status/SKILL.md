@@ -23,9 +23,9 @@ A populated `## Gate` block outranks the routing: print `asked` and the numbered
 
 If the routing disagrees with what's on disk (ROADMAP status vs SUMMARYs vs VERIFICATION), say so and point at `/flow-audit` rather than guessing which artifact is right.
 
-Mention: `/flow-next` advances one step automatically; see the README's Autonomous operation recipes (`/goal` + `/flow-next`, `/loop /flow-next`).
+Mention: `/flow-next` advances one step automatically; the autonomy recipes are in `docs/autonomy.md` (`/goal` + `/flow-next`, `/loop /flow-next`).
 
-Session hygiene: `/clear` is safe anytime — state persists in `.planning/`. Clear at phase boundaries or when context is heavy; never mid-`/goal`/`/loop` (it ends the run). See README → Session hygiene.
+Session hygiene: `/clear` is safe anytime — state persists in `.planning/`. Clear at phase boundaries or when context is heavy; never mid-`/goal`/`/loop` (it ends the run). See `docs/autonomy.md` → Session hygiene.
 
 **--all** (fleet board — every DevFlow project on this machine, not just this repo): run `python3 {devflow_root}/scripts/flow-fleet.py` (append roots as args to override; `--json` when a caller wants to parse it). Print its output verbatim — it is already a table; do not re-summarize or re-sort it. Then add at most three lines of your own: the one project you'd touch first and why, and any `NO-DECL` repos (offer `/flow-migrate`-style self-bootstrap, never add it silently). The scanner reads only STATE/ROADMAP/JOURNAL/config + git metadata — no source, no `.env*`.
 

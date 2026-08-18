@@ -2,9 +2,9 @@
 # State
 
 ## Position
-Phase: 3 of 4 (Rebuild README) | Plans: 0/4 | Status: ready
-Last: 2026-08-18 — phase 3 planned: 4 plans, serial; 9 check issues fixed incl. 3 fail-open guards. PR #21 open for phase 2 (held)
-Next: /flow-execute 3
+Phase: 4 of 4 (complete) | Plans: 4/4 | Status: verified
+Last: 2026-08-18 — phases 3 AND 4 done; phase 4 run as ad-hoc work, not a planned phase
+Next: PR this branch, then merge
 
 ## Gate
 none
@@ -23,5 +23,5 @@ none
 - none
 
 ## Session
-Stopped: phase 3 planned and checked; PR #21 open for phase 2, marked do-not-merge-yet
-Resume: /flow-execute 3. OPENING-MAP.md holds the opening-paragraph disposition; G1-G7 in it are the per-commit gates. 03-01 builds scripts/check-fenced-paths.py FIRST (D-19) before any fence lands under docs/
+Stopped: all four phases complete; README rebuilt, docs indexed, references repointed
+Resume: SC-04 human check open — read README top-to-bottom as a newcomer, follow no docs/ link, confirm /flow-new through /flow-execute 1 works from README alone
