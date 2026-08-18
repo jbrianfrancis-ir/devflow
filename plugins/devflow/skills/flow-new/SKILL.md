@@ -19,6 +19,12 @@ Context rules (all flow skills): read `.planning/STATE.md` before acting when it
 
 2. **Understand**: if the user gave an idea file or description (or `--auto`), work from that. Otherwise read `{devflow_root}/references/questioning.md` and run the bounded Q&A (≤5 questions, one round, using the host question mechanism).
 
+2a. **Right-size before you commit to a roadmap.** `/flow-new` writes a 3–6 phase project; that weight is only worth paying when the work genuinely has phases. Before step 4, judge honestly what you have. **One coherent task with a single obvious end state — a refactor, a doc pass, a dependency bump, one feature behind one decision — is not a project.** Say so and offer `/flow-quick`, which carries the same guarantees (atomic commits, deviation rules, secret scan, feature branch) without plans, plan-check rounds, or a verifier. Offer it; never decide for the user, and if they still want the full loop, initialize it without argument.
+
+   The signal is not size in hours, it is **whether the work contains real decisions that a later phase depends on**. A task where every choice can be made once, up front, has nothing for planning to discover. Sequencing that is already obvious to you does not become a roadmap by being written down.
+
+   This costs one question. Getting it wrong costs the whole ceremony, repeatedly, on every phase — and it compounds silently, because once a roadmap exists every skill correctly follows it and nothing later asks whether it should exist.
+
 3. **Research** (only if `--research`, the user asks, or the domain has real unknowns — offer, don't assume): spawn `flow-researcher` with the 2–4 questions that block roadmap decisions; output `.planning/research/RESEARCH.md`.
 
 4. **Write** from templates at `{devflow_root}/templates/` (architecture.md, project.md, requirements.md, roadmap.md, state.md):
