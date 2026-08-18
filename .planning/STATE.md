@@ -2,9 +2,9 @@
 # State
 
 ## Position
-Phase: 2 of 4 (Carve out docs/) | Plans: 0/5 | Status: ready
-Last: 2026-08-18 — phase 2 planned: 5 plans, waves 1→5 serial; 10 plan-check issues fixed
-Next: /flow-execute 2
+Phase: 2 of 4 (Carve out docs/) | Plans: 5/5 | Status: verified
+Last: 2026-08-18 — phase 2 VERIFIED: README 167→61 lines, 9 docs/ pages, coverage 162→179 refs
+Next: /flow-plan 3
 
 ## Gate
 none
@@ -23,5 +23,5 @@ none
 - none
 
 ## Session
-Stopped: phase 2 planned and checked; nothing carved yet
+Stopped: phase 2 executed and verified (pass); not yet PR'd
 Resume: user runs /flow-pr. CARRY INTO THE PR: confirm lint ran `Check internal links` and passed, then push a deliberately broken internal reference and confirm lint turns red on that step, and revert. Evidence in phases/01-link-safety-net/VERIFICATION.md
