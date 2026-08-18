@@ -213,9 +213,17 @@ class ScanTests(unittest.TestCase):
         self.assertIn("2. SQLite", out)
 
     def test_exit_status_is_one_when_any_project_needs_a_human(self):
-        self.project("gated", POSITION + GATE_BLOCK + BLOCKERS_NONE)
+        # T1: journal must itself carry a live GATE, not just be recent — a
+        # journal that only says CONTINUE would still pass this assertion via
+        # staleness (age_days >= stale_days also sets needs_human), which
+        # never actually exercises the GATE path the test is named for.
+        self.project("gated", POSITION + GATE_BLOCK + BLOCKERS_NONE,
+                     journal="- %s | /flow-execute | phase 3 | GATE" % TODAY)
         with redirect_stdout(io.StringIO()):
-            code = MODULE.main([str(self.base), "--json", "--depth", "2"])
+            # T2: --stale-days pinned explicitly so this doesn't depend on
+            # the developer's ~/.devflow/fleet.json (main() falls back to it
+            # when the flag is absent).
+            code = MODULE.main([str(self.base), "--json", "--depth", "2", "--stale-days", "3"])
         self.assertEqual(code, 1)
 
     def test_exit_status_is_zero_when_everything_is_fine(self):
@@ -223,7 +231,9 @@ class ScanTests(unittest.TestCase):
         self.project("clean", state, journal="- %s | /flow-execute | phase 3 | CONTINUE" % TODAY)
         buf = io.StringIO()
         with redirect_stdout(buf):
-            code = MODULE.main([str(self.base), "--json", "--depth", "2"])
+            # T2: see above — pinned so a host config of e.g. stale_days: 0
+            # can't turn a "clean" fixture stale and flip this to non-zero.
+            code = MODULE.main([str(self.base), "--json", "--depth", "2", "--stale-days", "3"])
         self.assertEqual(code, 0, buf.getvalue())
 
 
