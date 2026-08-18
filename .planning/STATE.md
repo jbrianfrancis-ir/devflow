@@ -3,8 +3,8 @@
 
 ## Position
 Phase: 1 of 4 (Link safety net) | Plans: 3/3 | Status: verified
-Last: 2026-08-18 — phase 1 verified; anchor backstop abstention accepted (D-12); 1 human check carried to PR
-Next: /flow-pr (user-run), then /flow-plan 2
+Last: 2026-08-18 — PR #20 opened after 3 review rounds (9 blocking found and fixed); checks running
+Next: /flow-ci (drive PR #20 to green), then /flow-plan 2
 
 ## Gate
 none
@@ -21,5 +21,5 @@ none
 - none
 
 ## Session
-Stopped: phase 1 verified and closed; 6 task commits; smoke pass; branch pushed
+Stopped: PR #20 open — https://github.com/jbrianfrancis-ir/devflow/pull/20 — 20 commits, 92 tests green
 Resume: user runs /flow-pr. CARRY INTO THE PR: confirm lint ran `Check internal links` and passed, then push a deliberately broken internal reference and confirm lint turns red on that step, and revert. Evidence in phases/01-link-safety-net/VERIFICATION.md
