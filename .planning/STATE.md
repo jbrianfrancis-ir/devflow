@@ -3,11 +3,18 @@
 
 ## Position
 Phase: 1 of 4 (Link safety net) | Plans: 3/3 | Status: verified
-Last: 2026-08-18 — PR #20 opened after 3 review rounds (9 blocking found and fixed); checks running
-Next: /flow-ci (drive PR #20 to green), then /flow-plan 2
+Last: 2026-08-18 — PR #20 green on first run; link-check step proven to run in CI
+Next: human — red-path check + ARCHITECTURE.md reconcile + merge; then /flow-plan 2
 
 ## Gate
-none
+type: human-action
+asked: Phase 01 is green on PR #20. Three items need a human before merge.
+options:
+  1. Red-path check — push a deliberately broken internal reference, confirm lint turns red on the Check internal links step, revert — completes REQ-10's acceptance; only observable on a live PR
+  2. Reconcile ARCHITECTURE.md `## Link checking` with the implementation — it omits fence/frontmatter skipping, containment, the coverage counter, external-scheme skip; human-owned, agents were blocked from editing it
+  3. Merge PR #20 — integration to main is always a human gate
+default: none
+plan: 01-03
 
 ## Decisions
 - init: README trimmed to install/quickstart/commands/index, ≤110 lines (D-01)

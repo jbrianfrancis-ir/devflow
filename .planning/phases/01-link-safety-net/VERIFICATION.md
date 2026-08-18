@@ -52,7 +52,7 @@ Key links: loads the hyphenated script via `importlib.util.spec_from_file_locati
 
 ## Human checks
 - [x] **Backstop, anchor slugging** — ANSWERED 2026-08-18 (D-12): abstention **accepted**. The rule stays unproven and unasserted; revisit only if `docs/` introduces duplicate, inline-code, or setext headings. Deliberately NOT resolved by reading the slugger. Logged in DECISIONS.md at d1dfd04.
-- [ ] **CARRIED TO /flow-pr** — On this phase's PR: confirm `lint` ran the `Check internal links` step and passed; then push a commit with a deliberately broken internal reference, confirm `lint` turns red on that step, and revert. Carried from 01-03's SUMMARY — only observable on a real PR, not a gap.
+- [~] **CARRIED TO /flow-pr — GREEN HALF PROVEN 2026-08-18 on PR #20.** CI log (run 32169132542): step `Check internal links` executed and printed `0 failures, 162 references checked`; `validate` = pass; `Ran 92 tests`. REMAINING for a human: confirm `lint` ran the `Check internal links` step and passed; then push a commit with a deliberately broken internal reference, confirm `lint` turns red on that step, and revert. Carried from 01-03's SUMMARY — only observable on a real PR, not a gap.
 
 Phase verdict after the gate: **pass**, with one check carried forward. The carried check is
 not a gap — it is unobservable before a PR exists.
