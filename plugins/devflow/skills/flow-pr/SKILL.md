@@ -33,6 +33,14 @@ Context rules: read `.planning/STATE.md` and `.planning/config.json` (`git` bloc
    Work its returned `fix_now` queue exactly as the triage above: fix, regression-test, commit. Everything in `blocking_open` — a `CONFIRMED` finding dispositioned `ACCEPTED AS-IS`, or anything `PENDING OWNER` — is a **human gate** at step 5, named individually. Backfill each `FIX NOW` row with its commit before the round closes; a round with an unbackfilled queue is still open.
 
    Without `--adversarial`, steps 2a/2b do not run and step 2's triage stands as written.
+2c. **Version check** (before the push, so the bump rides in the same PR): if the project declares a version anywhere — a plugin/package manifest, `pyproject.toml`, `Cargo.toml`, `*.csproj`, a `VERSION` file, a chart, a tagged release series — decide whether this diff should advance it, and **ask the user**; the bump is theirs, not yours.
+
+   Judge from the outgoing diff, not from the commit count: does it change anything a consumer installs or runs? A behavior change or new capability in shipped content is a minor bump; a fix to shipped content is a patch; work that touches only repo-internal material a consumer never receives — CI, tests, planning artifacts, contributor docs — is neither, and saying so is a real answer. Name which files drove the call.
+
+   Fail-closed both ways. Version files that must agree (a plugin manifest and its marketplace entry, a lockfile) are bumped **together** in the one commit, and the project's own validator is re-run — a half-applied bump is worse than none. If you cannot determine the scheme, say `version: could not determine` in the PR body rather than guessing or staying silent.
+
+   Skipping is a legitimate outcome; skipping *silently* is not. The failure this exists to prevent is a release pipeline keyed on a version field that nobody advanced, so shipped work never reaches users and nothing reports an error — the diff merged, CI was green, and no release was cut.
+
 3. **Push**: `git push -u origin <branch>`.
 4. **Build the PR** body as a narrative recap, not a checklist: 2–5 short paragraphs — the problem/goal, the approach and any root cause, what actually changed, and the proof (verification evidence, test results) — sourced from phase SUMMARY + VERIFICATION frontmatter since the last PR/base, keeping REQ-IDs covered, deviations, and open human checks as a short trailer. Concise title. Base = the base branch of `upstream` if set, else of `origin`; head = `<branch>` (`<origin-owner>:<branch>` for a cross-fork PR).
 
