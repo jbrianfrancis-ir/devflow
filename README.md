@@ -4,8 +4,6 @@ Token-efficient spec-driven development for Claude Code and local Codex clients.
 
 Claude invokes skills as `/flow-*`; Codex invokes the same skills as `$flow-*`.
 
-**Orchestrator-agnostic.** DevFlow runs as skills inside the interactive host rather than replacing it. Native subagents are the default. Cross-provider work is opt-in via `--provider claude|codex` or a saved project default, and uses `claude -p` or `codex exec` only for that bounded peer role. What DevFlow adds is *legibility*: every skill ends in a machine-checkable `FLOW:` line, all state lives in files, and `flow-status --all` boards every DevFlow project without screen-scraping. Contract: [`docs/status-contract.md`](docs/status-contract.md).
-
 ## Install
 
 ### Claude Code

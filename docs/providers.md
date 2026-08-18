@@ -1,5 +1,8 @@
 # Providers and model tiers
 
+## Orchestrator-agnostic
+DevFlow runs as skills inside the interactive host rather than replacing it.
+
 ## Provider selection
 
 Native workers are used unless a delegating skill receives
