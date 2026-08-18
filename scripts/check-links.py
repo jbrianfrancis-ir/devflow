@@ -23,6 +23,9 @@ BACKTICK_RE = re.compile(r"`([^`]+)`")
 BACKTICK_EXT_RE = re.compile(r"\.(md|py|json|yml)$")
 PLACEHOLDER_SEGMENT_RE = re.compile(r"^(NNN|NN|MM|YYYY)(?![A-Za-z0-9])")
 FAMILY_CHARS_RE = re.compile(r"[*<>{},|]")
+# Any URI scheme (RFC 3986), case-insensitive by construction since the
+# character class already spans both cases — round 3, N3.
+URI_SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 
 
 class Failure(NamedTuple):
@@ -112,8 +115,12 @@ def _check_file(root, relfile, all_files, heading_cache):
     except OSError as exc:
         return [Failure(relfile, 0, relfile, f"could not read file: {exc}")], 0
 
-    fence_mask, fence_unterminated_at = _code_fence_mask(lines)
-    front_mask, front_unterminated_at = _frontmatter_mask(lines)
+    # Frontmatter must be computed first: a fence-opener line living inside a
+    # genuine frontmatter block (e.g. a YAML literal block like `usage: |`
+    # followed by an indented ```bash example) is not markdown and must never
+    # reach the fence scanner in the first place (round 3, N2).
+    front_mask = _frontmatter_mask(lines)
+    fence_mask, fence_unterminated_at = _code_fence_mask(lines, front_mask)
     failures = []
     checked = 0
     if fence_unterminated_at is not None:
@@ -122,14 +129,6 @@ def _check_file(root, relfile, all_files, heading_cache):
         failures.append(Failure(
             relfile, fence_unterminated_at, lines[fence_unterminated_at - 1].strip(),
             "unterminated code fence — rest of file unchecked",
-        ))
-    if front_unterminated_at is not None:
-        # Same failure mode, through the frontmatter door: an unclosed leading
-        # `---` masks every line to EOF exactly like an unclosed fence, and
-        # must be reported the same way, not silently (round 2, N1).
-        failures.append(Failure(
-            relfile, front_unterminated_at, lines[front_unterminated_at - 1].strip(),
-            "unterminated frontmatter block — rest of file unchecked",
         ))
     for lineno, line in enumerate(lines, start=1):
         if fence_mask[lineno - 1] or front_mask[lineno - 1]:
@@ -170,12 +169,33 @@ def _parse_link_target(raw):
     return parts[0] if parts else raw
 
 
+def _is_external_link_target(target):
+    """True when a `[text](target)` target is not a repo-relative path at
+    all, so it must never reach the filesystem resolver (round 3, N3).
+
+    Round 2 exempted exactly `http://`, `https://`, `mailto:` — the only
+    remaining guard once R5 stopped rescuing links — which left every other
+    URI scheme (`ftp:`, `tel:`, `slack:`, an uppercase `HTTPS:`, …) and
+    protocol-relative targets (`//host/...`) mis-graded as "target does not
+    exist". Any RFC 3986 scheme prefix is external, not just the three
+    named ones; a colon that shows up after the first path segment (e.g.
+    `sub/re:port.md`) does not match, because the scheme grammar requires
+    the whole prefix up to the colon to be scheme characters, so an
+    ordinary relative path is unaffected.
+
+    A bare `www.example.com` (no scheme) is also treated as external: it is
+    plainly a hostname, not a repo path, and browsers/GitHub linkify it as
+    absolute despite the missing scheme.
+    """
+    return bool(URI_SCHEME_RE.match(target)) or target.startswith(("//", "www."))
+
+
 def _check_reference(root, relfile, lineno, target, all_files, heading_cache, is_link):
     """Returns (failure_or_none, counted): `counted` is True whenever the
     reference was actually graded — passed or failed — as opposed to skipped
     by rule, so callers can report real check coverage, not just failures.
     """
-    if is_link and target.startswith(("http://", "https://", "mailto:")):
+    if is_link and _is_external_link_target(target):
         return None, False
 
     # {devflow_root}/... is a root-anchored placeholder (D-08/D-09): it always
@@ -336,9 +356,17 @@ def _check_anchor(root, relfile, lineno, display_target, target_relpath, frag,
     return None
 
 
-def _code_fence_mask(lines):
+def _code_fence_mask(lines, skip_mask=None):
     """Returns (mask, unterminated_at): `unterminated_at` is the 1-indexed
     line of a fence opener still open at EOF, or None if every fence closed.
+
+    `skip_mask`, when given, marks lines the fence scanner must not look at
+    — namely frontmatter. A YAML literal block (`usage: |` followed by an
+    indented ```bash example, exactly how this repo's SKILL.md frontmatter
+    is written) is routine, non-markdown content; without this, its fence
+    line opens a fence that nothing inside the frontmatter closes, masking
+    the rest of the file to EOF (round 3, N2). Lines are skipped rather than
+    pre-zeroed so `in_fence` state carries through them unchanged.
     """
     mask = [False] * len(lines)
     fence_char = None
@@ -346,6 +374,8 @@ def _code_fence_mask(lines):
     in_fence = False
     fence_start = None
     for i, line in enumerate(lines):
+        if skip_mask is not None and skip_mask[i]:
+            continue
         stripped = line.strip()
         if in_fence:
             mask[i] = True
@@ -363,26 +393,35 @@ def _code_fence_mask(lines):
 
 
 def _frontmatter_mask(lines):
-    """Returns (mask, unterminated_at): `unterminated_at` is the 1-indexed
-    line of a frontmatter opener still open at EOF, or None if it closed.
-    Mirrors _code_fence_mask's contract exactly — an unclosed block must be
-    reportable as a failure, not a silent mask to EOF (round 2, N1).
+    """Returns the line mask for a genuine YAML frontmatter block.
+
+    A leading `---` opens frontmatter only if a closing `---` exists later
+    in the file. `---` alone on line 1 is also an ordinary CommonMark
+    thematic break (GitHub renders it as `<hr>` with the rest of the
+    document intact), and the checker cannot tell the two apart from the
+    opener alone — so with no closer, nothing is masked and nothing is
+    reported (round 3, N1). This also closes the fail-open half of round 2's
+    N1: there is no more "opened but never closed" span that silently drops
+    the references inside it, because an unterminated block is never
+    treated as frontmatter to begin with.
     """
     mask = [False] * len(lines)
     if not lines or lines[0].strip() != "---":
-        return mask, None
-    mask[0] = True
+        return mask
     for i in range(1, len(lines)):
-        mask[i] = True
         if lines[i].strip() == "---":
-            return mask, None
-    return mask, 1
+            for j in range(i + 1):
+                mask[j] = True
+            return mask
+    return mask  # no closing `---` — thematic break, not frontmatter
 
 
 def _heading_slugs(text):
     lines = text.splitlines()
-    fence_mask, _ = _code_fence_mask(lines)
-    front_mask, _ = _frontmatter_mask(lines)
+    # Same ordering as _check_file: frontmatter first, so a fence-opener
+    # line inside it never reaches the fence scanner (round 3, N2).
+    front_mask = _frontmatter_mask(lines)
+    fence_mask, _ = _code_fence_mask(lines, front_mask)
     counts = {}
     slugs = set()
     i = 0
@@ -429,7 +468,13 @@ def _strip_inline_markdown(text):
 def _slugify(text):
     text = _strip_inline_markdown(text).strip().lower()
     text = re.sub(r"[^\w\s-]", "", text)
-    text = re.sub(r"\s+", "-", text)
+    # github-slugger's final step is a *per-character* `.replace(/ /g, '-')`,
+    # not a whitespace-run collapse. Stripping a punctuation character that
+    # sits between two spaces (e.g. "modes & push" -> "modes  push") leaves
+    # both spaces behind, and each becomes its own hyphen — two hyphens, not
+    # one. Collapsing the run to a single hyphen produces a slug that is one
+    # hyphen short of the real GitHub anchor (round 3, B5).
+    text = text.replace(" ", "-")
     return text
 
 

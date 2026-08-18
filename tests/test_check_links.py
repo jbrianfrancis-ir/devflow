@@ -438,11 +438,12 @@ class MainSignatureTests(unittest.TestCase):
 class FrontmatterMaskingTests(CheckLinksTestCase):
     """S5: `_check_file` must apply the same frontmatter mask `_heading_slugs`
     already uses, so a path-shaped token in YAML frontmatter — a data field,
-    not prose — is not checked as a reference. Round 2 (N1) pins the other
-    half of the pair, mirroring FenceMaskingTests: a reference *after* a
-    properly closed frontmatter block is still checked, and an unterminated
-    block is reported as a Failure rather than silently masking the whole
-    file to EOF (mirrors UnterminatedFenceTests for fences)."""
+    not prose — is not checked as a reference. Round 2 (N1) pinned the other
+    half of the pair: a reference *after* a properly closed frontmatter block
+    is still checked. Round 3 (N1) replaces round 2's "unterminated is a
+    Failure" pair below with the correct rule: a leading `---` with no
+    closing `---` is an ordinary CommonMark thematic break (`<hr>`), not
+    frontmatter, so it is fully checked and reports nothing."""
 
     def test_path_shaped_token_in_frontmatter_is_not_checked_as_a_reference(self):
         root = self.make_repo({
@@ -464,26 +465,91 @@ class FrontmatterMaskingTests(CheckLinksTestCase):
         self.assertEqual(5, failures[0].line)
         self.assertEqual("sub/missing.md", failures[0].target)
 
-    def test_unterminated_frontmatter_is_reported_as_a_failure(self):
+    def test_document_opening_with_a_thematic_break_is_fully_checked(self):
+        """`---` on line 1 with no later closing `---` is a thematic break,
+        not frontmatter — GitHub renders it as <hr> with the document intact.
+        The checker must not mask it or report an "unterminated frontmatter"
+        failure that names a construct the file does not contain."""
         root = self.make_repo({
-            "doc.md": "---\ntitle: Doc\n",
+            "doc.md": "---\n\n# Release Notes\n\nSee [g](docs/guide.md).\n",
+            "docs/guide.md": "# Guide\n",
         })
-        failures = MODULE.check(root)
-        self.assertEqual(1, len(failures))
-        self.assertEqual("doc.md", failures[0].file)
-        self.assertEqual(1, failures[0].line)
-        self.assertIn("unterminated", failures[0].reason)
+        result = MODULE.check(root)
+        self.assertEqual([], result)
+        self.assertEqual(1, result.checked)
 
-    def test_reference_after_an_unterminated_frontmatter_block_is_not_checked(self):
-        """Without this, a broken reference downstream of the unclosed block
-        could slip out as an unrelated extra finding instead of staying
-        masked behind the single unterminated-block Failure."""
+    def test_thematic_break_target_headings_remain_available_to_inbound_anchors(self):
+        """Contagion check: _heading_slugs must not erase a target file's
+        headings just because it happens to open with a thematic break."""
         root = self.make_repo({
-            "doc.md": "---\ntitle: Doc\n\nSee [x](sub/missing.md) here.\n",
+            "index.md": "# Index\n\nSee [g](docs/guide.md#usage) and [h](docs/guide.md#setup).\n",
+            "docs/guide.md": "---\n\n# Guide\n\n## Usage\n\n## Setup\n",
+        })
+        result = MODULE.check(root)
+        self.assertEqual([], result)
+        self.assertEqual(2, result.checked)
+
+    def test_reference_after_a_broken_thematic_break_reference_is_still_checked(self):
+        """The old "unterminated" fixture, re-purposed: a document opening
+        with a thematic break is scanned as ordinary prose, so a genuinely
+        broken reference lower in the file is still caught — not masked, and
+        not mistaken for a frontmatter defect."""
+        root = self.make_repo({
+            "doc.md": "---\n\nSee [x](sub/missing.md) here.\n",
         })
         failures = MODULE.check(root)
         self.assertEqual(1, len(failures))
-        self.assertIn("unterminated", failures[0].reason)
+        self.assertEqual("sub/missing.md", failures[0].target)
+        self.assertEqual("target does not exist", failures[0].reason)
+
+
+class FenceInsideFrontmatterTests(CheckLinksTestCase):
+    """Round 3, N2: `_code_fence_mask` and `_frontmatter_mask` used to be
+    computed independently over the same lines, so a fence-opener line
+    living inside a genuine frontmatter block — routine YAML, e.g.
+    `usage: |` followed by an indented ```bash example, exactly how this
+    repo's own SKILL.md frontmatter is written — opened a fence that
+    nothing inside the block closed, masking the rest of the file to EOF
+    and reporting an unterminated-fence Failure against a line that isn't
+    markdown at all. The fence scanner must skip frontmatter lines."""
+
+    def test_unbalanced_fence_inside_frontmatter_does_not_darken_the_file(self):
+        root = self.make_repo({
+            "doc.md": "---\nname: x\nusage: |\n  ```bash\n  cmd\n---\n\nSee [g](docs/g.md).\n",
+            "docs/g.md": "# G\n",
+        })
+        result = MODULE.check(root)
+        self.assertEqual([], result)
+        self.assertEqual(1, result.checked)
+
+    def test_unbalanced_fence_inside_frontmatter_does_not_erase_target_headings(self):
+        """Contagion check, mirroring the thematic-break case above: a target
+        file's own frontmatter-embedded stray fence must not erase its
+        headings for inbound-anchor grading."""
+        root = self.make_repo({
+            "index.md": "# Index\n\nSee [u](plugins/x/SKILL.md#usage).\n",
+            "plugins/x/SKILL.md": (
+                "---\nname: x\nusage: |\n  ```bash\n  cmd\n---\n\n# X\n\n## Usage\n"
+            ),
+        })
+        result = MODULE.check(root)
+        self.assertEqual([], result)
+        self.assertEqual(1, result.checked)
+
+    def test_balanced_fence_inside_frontmatter_still_masks_normally(self):
+        """Control: a properly closed fence inside frontmatter must keep
+        behaving exactly as before — this finding is about the unbalanced
+        case only, not fences-in-frontmatter generally."""
+        root = self.make_repo({
+            "doc.md": (
+                "---\nname: x\nusage: |\n  ```bash\n  cmd\n  ```\n---\n\n"
+                "See [g](docs/g.md).\n"
+            ),
+            "docs/g.md": "# G\n",
+        })
+        result = MODULE.check(root)
+        self.assertEqual([], result)
+        self.assertEqual(1, result.checked)
 
 
 class LinkR5ExemptionTests(CheckLinksTestCase):
@@ -586,6 +652,161 @@ class EscapeAndReturnContainmentTests(unittest.TestCase):
             "docs/guide.md": "# Guide\n",
         })
         self.assertEqual([], MODULE.check(root))
+
+
+class SlugifyPunctuationTests(unittest.TestCase):
+    """Round 3, B5: github-slugger's final step is a *per-character*
+    `.replace(/ /g, '-')`, not a whitespace-run collapse. Stripping a
+    punctuation character that sits between two spaces (` & `, ` / `,
+    ` — `, ...) leaves both spaces behind, and each becomes its own hyphen
+    — two hyphens, not one. `_slugify`'s old `re.sub(r"\\s+", "-", text)`
+    collapsed the run and was wrong in both directions: it rejected the
+    real GitHub anchor and accepted the one that 404s."""
+
+    def test_slugify_matches_github_slugger_for_punctuation_between_spaces(self):
+        self.assertEqual(
+            "credential-modes--push-canary",
+            MODULE._slugify("Credential modes & push canary"),
+        )
+        self.assertEqual(
+            "agent-pointer-files-claudemd--agentsmd",
+            MODULE._slugify("Agent pointer files (CLAUDE.md / AGENTS.md)"),
+        )
+
+    def test_two_hyphen_anchor_into_a_real_heading_resolves(self):
+        root_files = {
+            "docs/conv.md": "# Conv\n\n## Credential modes & push canary\n",
+            "doc.md": "# Doc\n\nSee [x](docs/conv.md#credential-modes--push-canary).\n",
+        }
+        root = tempfile.mkdtemp(prefix="check-links-slugify-")
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        for relpath, content in root_files.items():
+            full = os.path.join(root, relpath)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w", encoding="utf-8") as stream:
+                stream.write(content)
+        subprocess.run(["git", "init", "-q"], cwd=root, env=GIT_ENV,
+                        check=True, capture_output=True)
+        subprocess.run(["git", "add", "-A"], cwd=root, env=GIT_ENV,
+                        check=True, capture_output=True)
+        result = MODULE.check(root)
+        self.assertEqual([], result)
+        self.assertEqual(1, result.checked)
+
+    def test_single_hyphen_form_of_the_same_anchor_still_fails(self):
+        """Control: the anchor GitHub actually 404s must still be reported
+        broken — the fix must not become a blanket accept."""
+        root = tempfile.mkdtemp(prefix="check-links-slugify-")
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        files = {
+            "docs/conv.md": "# Conv\n\n## Credential modes & push canary\n",
+            "doc.md": "# Doc\n\nSee [x](docs/conv.md#credential-modes-push-canary).\n",
+        }
+        for relpath, content in files.items():
+            full = os.path.join(root, relpath)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w", encoding="utf-8") as stream:
+                stream.write(content)
+        subprocess.run(["git", "init", "-q"], cwd=root, env=GIT_ENV,
+                        check=True, capture_output=True)
+        subprocess.run(["git", "add", "-A"], cwd=root, env=GIT_ENV,
+                        check=True, capture_output=True)
+        failures = MODULE.check(root)
+        self.assertEqual(1, len(failures))
+        self.assertEqual("docs/conv.md#credential-modes-push-canary", failures[0].target)
+
+
+class ExternalLinkTargetSkipTests(CheckLinksTestCase):
+    """Round 3, N3: R5 stopped rescuing link targets that are not repo
+    paths, leaving `target.startswith(("http://", "https://", "mailto:"))`
+    as the sole guard. Any other URI scheme (`ftp:`, `tel:`, `slack:`, an
+    uppercase `HTTPS:`) and protocol-relative targets (`//host/...`) fell
+    through to the filesystem resolver and were reported "target does not
+    exist" even though they all render as ordinary working external links
+    on github.com."""
+
+    def test_non_http_schemes_and_protocol_relative_targets_are_skipped(self):
+        root = self.make_repo({
+            "doc.md": (
+                "# Doc\n\n"
+                "[a](ftp://example.com/f.md)\n"
+                "[b](tel:+15551234)\n"
+                "[c](//cdn.example.com/x.png)\n"
+                "[d](www.example.com)\n"
+                "[e](slack://channel?id=1)\n"
+            ),
+        })
+        result = MODULE.check(root)
+        self.assertEqual([], result)
+        self.assertEqual(0, result.checked)
+
+    def test_uppercase_scheme_is_still_skipped(self):
+        root = self.make_repo({
+            "doc.md": "# Doc\n\n[a](HTTPS://example.com/f.md)\n",
+        })
+        self.assertEqual([], MODULE.check(root))
+
+    def test_ordinary_relative_path_is_still_checked_not_swept_up_as_external(self):
+        root = self.make_repo({
+            "doc.md": "# Doc\n\nSee [g](docs/guide.md).\n",
+            "docs/guide.md": "# Guide\n",
+        })
+        result = MODULE.check(root)
+        self.assertEqual([], result)
+        self.assertEqual(1, result.checked)
+
+    def test_broken_relative_path_still_fails(self):
+        root = self.make_repo({
+            "doc.md": "# Doc\n\nSee [g](docs/missing.md).\n",
+        })
+        failures = MODULE.check(root)
+        self.assertEqual(1, len(failures))
+        self.assertEqual("docs/missing.md", failures[0].target)
+
+    def test_relative_path_with_a_colon_after_the_first_segment_is_still_checked(self):
+        """Guards against over-widening the scheme regex: the scheme grammar
+        requires the whole prefix up to the colon to be scheme characters
+        (no `/`), so a colon that shows up after the first path segment must
+        not be mistaken for a URI scheme."""
+        root = self.make_repo({
+            "doc.md": "# Doc\n\nSee [g](sub/re:port.md).\n",
+            "sub/re:port.md": "# Report\n",
+        })
+        result = MODULE.check(root)
+        self.assertEqual([], result)
+        self.assertEqual(1, result.checked)
+
+
+class ParseLinkTargetTests(unittest.TestCase):
+    """T3: `_parse_link_target` had no direct test. Covers the shapes it is
+    responsible for: a bare target, a target followed by a quoted title, an
+    angle-bracketed target, and a target containing parentheses (the
+    function itself must not mangle parens even though the separate,
+    already-catalogued `LINK_RE` truncation issue is out of scope here)."""
+
+    def test_bare_target(self):
+        self.assertEqual("docs/guide.md", MODULE._parse_link_target("docs/guide.md"))
+
+    def test_target_with_a_quoted_title(self):
+        self.assertEqual(
+            "docs/guide.md", MODULE._parse_link_target('docs/guide.md "Guide Title"')
+        )
+        self.assertEqual(
+            "docs/guide.md", MODULE._parse_link_target("docs/guide.md 'Guide Title'")
+        )
+
+    def test_angle_bracketed_target(self):
+        self.assertEqual("docs/guide.md", MODULE._parse_link_target("<docs/guide.md>"))
+
+    def test_angle_bracketed_target_with_a_quoted_title(self):
+        self.assertEqual(
+            "docs/guide.md", MODULE._parse_link_target('<docs/guide.md> "Guide Title"')
+        )
+
+    def test_target_containing_parentheses_is_preserved(self):
+        self.assertEqual(
+            "docs/note(1).md", MODULE._parse_link_target("docs/note(1).md")
+        )
 
 
 class RepoCoverageFloorTests(unittest.TestCase):
