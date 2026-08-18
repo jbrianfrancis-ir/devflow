@@ -18,6 +18,23 @@ codex plugin marketplace add jbrianfrancis-ir/devflow
 codex plugin add devflow@devflow
 ```
 
+## Quick start
+
+1. `/flow-new` — run it in the repo you want to work in (new or existing). It asks a bounded round of
+   questions, then writes `.planning/` (`REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`, `config.json`, …) on a
+   new `flow/<slug>` feature branch.
+2. `/flow-plan 1` — discusses the phase's open decisions, then writes and checks the phase's plans.
+3. `/flow-execute 1` — runs the plans in dependency waves via executor subagents, then verifies the phase.
+4. Repeat 2–3 for each phase. `/flow-status` at any point prints where you are and the exact next command.
+5. `/flow-pr` once a phase is verified — pushes the branch and opens a pull request.
+
+```
+/flow-new ──► /flow-plan 1 ──► /flow-execute 1 ──► … all phases verified …
+         ──► /flow-harden ──► /flow-pr ──► /flow-ci ──► (merge) ──► /flow-uat ──► human sign-off ──► /flow-release
+```
+
+What happens inside a phase — the wave graph, the smoke gate, state files: [docs/execution-model.md](docs/execution-model.md).
+
 ## Commands
 
 | Loop | Command | Does |
@@ -42,13 +59,6 @@ codex plugin add devflow@devflow
 | deploy | `/flow-harden` | Production audit vs Aspire checklist; fix findings |
 | deploy | `/flow-uat` | Deploy to UAT (provision on first deploy), generate acceptance test plan |
 | deploy | `/flow-release` | Production deploy, gated on per-SHA UAT sign-off |
-
-## Flow
-
-```
-/flow-new ──► /flow-plan 1 ──► /flow-execute 1 ──► … all phases verified …
-         ──► /flow-harden ──► /flow-pr ──► /flow-ci ──► (merge) ──► /flow-uat ──► human sign-off ──► /flow-release
-```
 
 ## Acknowledgements
 
