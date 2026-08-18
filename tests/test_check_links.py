@@ -268,6 +268,27 @@ class ReferenceCountTests(CheckLinksTestCase):
         self.assertEqual([], result)
         self.assertEqual(2, result.checked)
 
+    def test_checked_count_excludes_rule_skipped_references_not_just_failures(self):
+        """N5: the two tests above both happen to produce checked == 2, so a
+        counter hardcoded to 2 (M-N4b) or one that counts rule-skipped
+        references as checked (M-N4c) passes both. This fixture has three
+        gradeable-or-not references — a resolving link, a broken link, and a
+        resolving backticked path — plus one R2-skipped glob, and its correct
+        checked count (3) differs from every other fixture in this file, so a
+        hardcoded 2 fails here, and counting the skipped glob would produce 4
+        instead of 3."""
+        root = self.make_repo({
+            "doc.md": (
+                "# Doc\n\n"
+                "See [ok](sub/other.md), [bad](sub/missing.md), "
+                "`sub/other.md` again, and `sub/*.md` for the pattern.\n"
+            ),
+            "sub/other.md": "# Other\n",
+        })
+        result = MODULE.check(root)
+        self.assertEqual(1, len(result))
+        self.assertEqual(3, result.checked)
+
 
 class UnterminatedFenceTests(CheckLinksTestCase):
     """B2b: an unterminated fence must surface as a Failure, not silently
@@ -417,7 +438,11 @@ class MainSignatureTests(unittest.TestCase):
 class FrontmatterMaskingTests(CheckLinksTestCase):
     """S5: `_check_file` must apply the same frontmatter mask `_heading_slugs`
     already uses, so a path-shaped token in YAML frontmatter — a data field,
-    not prose — is not checked as a reference."""
+    not prose — is not checked as a reference. Round 2 (N1) pins the other
+    half of the pair, mirroring FenceMaskingTests: a reference *after* a
+    properly closed frontmatter block is still checked, and an unterminated
+    block is reported as a Failure rather than silently masking the whole
+    file to EOF (mirrors UnterminatedFenceTests for fences)."""
 
     def test_path_shaped_token_in_frontmatter_is_not_checked_as_a_reference(self):
         root = self.make_repo({
@@ -427,6 +452,173 @@ class FrontmatterMaskingTests(CheckLinksTestCase):
             "sub/existing.md": "# Existing\n",
         })
         self.assertEqual([], MODULE.check(root))
+
+    def test_reference_after_a_closed_frontmatter_block_is_still_checked(self):
+        root = self.make_repo({
+            "doc.md": "---\ntitle: Doc\n---\n\nSee [x](sub/missing.md) here.\n",
+            "sub/existing.md": "# Existing\n",
+        })
+        failures = MODULE.check(root)
+        self.assertEqual(1, len(failures))
+        self.assertEqual("doc.md", failures[0].file)
+        self.assertEqual(5, failures[0].line)
+        self.assertEqual("sub/missing.md", failures[0].target)
+
+    def test_unterminated_frontmatter_is_reported_as_a_failure(self):
+        root = self.make_repo({
+            "doc.md": "---\ntitle: Doc\n",
+        })
+        failures = MODULE.check(root)
+        self.assertEqual(1, len(failures))
+        self.assertEqual("doc.md", failures[0].file)
+        self.assertEqual(1, failures[0].line)
+        self.assertIn("unterminated", failures[0].reason)
+
+    def test_reference_after_an_unterminated_frontmatter_block_is_not_checked(self):
+        """Without this, a broken reference downstream of the unclosed block
+        could slip out as an unrelated extra finding instead of staying
+        masked behind the single unterminated-block Failure."""
+        root = self.make_repo({
+            "doc.md": "---\ntitle: Doc\n\nSee [x](sub/missing.md) here.\n",
+        })
+        failures = MODULE.check(root)
+        self.assertEqual(1, len(failures))
+        self.assertIn("unterminated", failures[0].reason)
+
+
+class LinkR5ExemptionTests(CheckLinksTestCase):
+    """N2: R5 ("first segment matches no known base") is a heuristic for
+    base-ambiguous *prose* tokens (backticked / {devflow_root}) — it asks
+    whether a token is a repo path at all. A markdown link's base is never
+    ambiguous (own directory, per B1), so an unmatched first segment means
+    broken, not "not a reference." R5 must not skip links; R1-R4 are
+    unaffected (see the reasoning at scripts/check-links.py's `_skip`)."""
+
+    def test_markdown_link_with_unmatched_first_segment_is_reported_broken_not_skipped(self):
+        """Before the fix, a typo'd sibling link like this — the commonest
+        broken-link shape after a doc split — was silently R5-skipped."""
+        root = self.make_repo({
+            "doc.md": "# Doc\n\nSee [x](nonexistent.md) here.\n",
+        })
+        failures = MODULE.check(root)
+        self.assertEqual(1, len(failures))
+        self.assertEqual("nonexistent.md", failures[0].target)
+
+    def test_backticked_token_with_unmatched_first_segment_still_skipped(self):
+        """The same shape of miss, as a backticked prose token, stays
+        skipped — R5 still governs prose, unchanged."""
+        root = self.make_repo({
+            "doc.md": "# Doc\n\nSee `nosuchdir/file.md` here.\n",
+        })
+        self.assertEqual([], MODULE.check(root))
+
+
+class DevflowRootLinkAnchoringTests(CheckLinksTestCase):
+    """N3: {devflow_root}/... is a root-anchored placeholder (D-08/D-09) — it
+    must resolve against the repo root even when written as a markdown link
+    from a non-root file, not against the link's own directory. Before the
+    fix, is_link's own-directory-only rule silently overrode the anchor."""
+
+    def test_devflow_root_link_from_a_nested_file_resolves_against_repo_root(self):
+        root = self.make_repo({
+            "docs/autonomy.md": "# A\n\nSee [conv]({devflow_root}/references/conventions.md).\n",
+            "plugins/devflow/references/conventions.md": "# C\n",
+        })
+        self.assertEqual([], MODULE.check(root))
+
+    def test_devflow_root_link_to_a_missing_target_from_a_nested_file_still_fails(self):
+        root = self.make_repo({
+            "docs/autonomy.md": "# A\n\nSee [conv]({devflow_root}/references/missing.md).\n",
+            # Establishes "plugins" as a real top-level entry.
+            "plugins/devflow/dummy.txt": "placeholder\n",
+        })
+        failures = MODULE.check(root)
+        self.assertEqual(1, len(failures))
+        self.assertEqual("docs/autonomy.md", failures[0].file)
+        self.assertEqual("plugins/devflow/references/missing.md", failures[0].target)
+
+
+class EscapeAndReturnContainmentTests(unittest.TestCase):
+    """S-1: containment was enforced on the resolved realpath, not on the
+    reference itself, so a `../` escape that happened to land back inside
+    the repo was accepted — and the verdict depended on what the checkout
+    directory was named (identical content: 0 failures under one directory
+    name, 2 under another, reproduced against the real checker before this
+    fix). github.com 404s these; the checker must reject the reference at
+    the point it walks above the root, before it ever gets a chance to land
+    back inside — independent of directory naming."""
+
+    def make_repo_named(self, dirname, files):
+        parent = tempfile.mkdtemp(prefix="check-links-escape-")
+        self.addCleanup(shutil.rmtree, parent, ignore_errors=True)
+        root = os.path.join(parent, dirname)
+        os.makedirs(root)
+        for relpath, content in files.items():
+            full = os.path.join(root, relpath)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w", encoding="utf-8") as stream:
+                stream.write(content)
+        subprocess.run(["git", "init", "-q"], cwd=root, env=GIT_ENV,
+                        check=True, capture_output=True)
+        subprocess.run(["git", "add", "-A"], cwd=root, env=GIT_ENV,
+                        check=True, capture_output=True)
+        return root
+
+    def test_escape_and_return_is_rejected_regardless_of_checkout_directory_name(self):
+        for dirname in ("devflow", "devflow-fork"):
+            with self.subTest(dirname=dirname):
+                content = "# Top\n\nSee [x](../%s/docs/index.md) here.\n" % dirname
+                root = self.make_repo_named(dirname, {
+                    "top.md": content,
+                    "docs/index.md": "# Index\n",
+                })
+                failures = MODULE.check(root)
+                self.assertEqual(1, len(failures))
+                self.assertEqual("top.md", failures[0].file)
+                self.assertEqual("../%s/docs/index.md" % dirname, failures[0].target)
+
+    def test_legitimate_parent_reference_from_a_subdirectory_still_resolves(self):
+        """Control: an ordinary `../` that never walks above the root — the
+        common, correct shape used throughout this repo — must not be
+        rejected by the reference-level escape check."""
+        root = self.make_repo_named("repo", {
+            "sub/doc.md": "# Doc\n\nSee [x](../docs/guide.md) here.\n",
+            "docs/guide.md": "# Guide\n",
+        })
+        self.assertEqual([], MODULE.check(root))
+
+
+class RepoCoverageFloorTests(unittest.TestCase):
+    """N4: `.checked` has no value as a coverage tripwire unless something
+    asserts a floor against the corpus it actually protects — a small
+    fixture can't demonstrate a collapse the way the real tree can (round 2
+    findings: an unterminated frontmatter mutation alone dropped this repo's
+    real count from 162 to 45, all with `0 failures` and CI green).
+
+    This is the one test in this suite that deliberately runs against the
+    real repo tree rather than a disposable fixture — every other test here
+    isolates itself precisely so an incidental doc edit can't break a
+    *behavioral* assertion, but this test's entire job is to notice that
+    same kind of change when it is a *coverage* regression: a skip rule
+    quietly widened, or a mask quietly grown, silently narrowing the corpus
+    while `0 failures` keeps printing.
+
+    Measured at the time this was written: check(repo root) reports 162
+    references checked. The floor below leaves headroom for ordinary content
+    changes (docs added or removed) while still catching the shape of
+    collapse the reviews demonstrated, which drops the count by dozens at a
+    time, not a handful.
+    """
+
+    def test_real_repo_checked_count_does_not_collapse(self):
+        repo_root = str(Path(__file__).resolve().parents[1])
+        result = MODULE.check(repo_root)
+        self.assertGreaterEqual(
+            result.checked, 140,
+            "references checked dropped below the floor — a skip rule or "
+            "mask may have widened; see plugins/devflow/references/conventions.md "
+            "(fail-closed guards)",
+        )
 
 
 if __name__ == "__main__":

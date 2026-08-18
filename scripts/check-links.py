@@ -112,16 +112,24 @@ def _check_file(root, relfile, all_files, heading_cache):
     except OSError as exc:
         return [Failure(relfile, 0, relfile, f"could not read file: {exc}")], 0
 
-    fence_mask, unterminated_at = _code_fence_mask(lines)
-    front_mask = _frontmatter_mask(lines)
+    fence_mask, fence_unterminated_at = _code_fence_mask(lines)
+    front_mask, front_unterminated_at = _frontmatter_mask(lines)
     failures = []
     checked = 0
-    if unterminated_at is not None:
+    if fence_unterminated_at is not None:
         # An unclosed fence masks every line to EOF — that must be visible as
         # a failure, not a silent drop in coverage (conventions.md → fail-closed).
         failures.append(Failure(
-            relfile, unterminated_at, lines[unterminated_at - 1].strip(),
+            relfile, fence_unterminated_at, lines[fence_unterminated_at - 1].strip(),
             "unterminated code fence — rest of file unchecked",
+        ))
+    if front_unterminated_at is not None:
+        # Same failure mode, through the frontmatter door: an unclosed leading
+        # `---` masks every line to EOF exactly like an unclosed fence, and
+        # must be reported the same way, not silently (round 2, N1).
+        failures.append(Failure(
+            relfile, front_unterminated_at, lines[front_unterminated_at - 1].strip(),
+            "unterminated frontmatter block — rest of file unchecked",
         ))
     for lineno, line in enumerate(lines, start=1):
         if fence_mask[lineno - 1] or front_mask[lineno - 1]:
@@ -170,7 +178,13 @@ def _check_reference(root, relfile, lineno, target, all_files, heading_cache, is
     if is_link and target.startswith(("http://", "https://", "mailto:")):
         return None, False
 
-    if target.startswith(DEVFLOW_ROOT_PREFIX):
+    # {devflow_root}/... is a root-anchored placeholder (D-08/D-09): it always
+    # means plugins/devflow/... from the repo root, whether written backticked
+    # or as a markdown link. Remember that it fired so _resolve anchors to the
+    # root base only — is_link's own-directory-only rule must not silently
+    # override that anchor for a reference written from a nested file (N3).
+    root_anchored = target.startswith(DEVFLOW_ROOT_PREFIX)
+    if root_anchored:
         target = DEVFLOW_ROOT_TARGET + target[len(DEVFLOW_ROOT_PREFIX):]
 
     if "#" in target:
@@ -182,10 +196,10 @@ def _check_reference(root, relfile, lineno, target, all_files, heading_cache, is
         # Bare #frag — check the current file's own headings.
         return _check_anchor(root, relfile, lineno, target, relfile, frag, heading_cache), True
 
-    if _skip(path_part, relfile, root, all_files):
+    if _skip(path_part, relfile, root, all_files, is_link):
         return None, False
 
-    resolved = _resolve(root, relfile, path_part, is_link)
+    resolved = _resolve(root, relfile, path_part, is_link, root_anchored)
     if resolved is None:
         return Failure(relfile, lineno, target, "target does not exist"), True
 
@@ -201,7 +215,7 @@ def _check_reference(root, relfile, lineno, target, all_files, heading_cache, is
 
 # --- skip rules (R1-R5) -------------------------------------------------------
 
-def _skip(token, relfile, root, all_files):
+def _skip(token, relfile, root, all_files, is_link):
     if re.search(r"\s", token):
         return True  # R1: contains whitespace — a command, not a path
     if FAMILY_CHARS_RE.search(token):
@@ -211,6 +225,19 @@ def _skip(token, relfile, root, all_files):
             return True  # R3: NN/NNN/MM/YYYY placeholder segment
     if token.startswith(".planning/") or token.startswith("~/"):
         return True  # R4: out-of-scope tree or home-relative
+    if is_link:
+        # R5 asks whether the token's first segment names nothing under any
+        # resolution base — a heuristic for whether a base-ambiguous prose
+        # token (backticked / {devflow_root}) is a repo path at all. A
+        # [text](target) link's base is never ambiguous — it's the referring
+        # file's own directory, per B1 — so an unmatched first segment means
+        # broken, not "not a reference." Applying R5 here would silently hide
+        # exactly the typo a hand-written doc index produces (N2). R1-R4 do
+        # not depend on base-ambiguity (whitespace, glob punctuation,
+        # placeholder segments, and explicit .planning/~ scope-exclusion all
+        # hold regardless of which syntax carries the token), so only R5 is
+        # exempted for links.
+        return False
     if _r5_skip(token, relfile, all_files):
         return True  # R5: first segment names nothing under any resolution base
     return False
@@ -256,14 +283,29 @@ def _r5_skip(token, relfile, all_files):
     return True
 
 
-def _resolve(root, relfile, path_part, is_link):
+def _resolve(root, relfile, path_part, is_link, root_anchored=False):
     # [text](target) resolves on github.com against the referring file's own
     # directory only — one base. Backticked/{devflow_root} tokens are
-    # base-ambiguous by design (D-08/D-09) and keep the multi-base walk.
-    bases = [os.path.dirname(relfile)] if is_link else _bases_for(relfile)
+    # base-ambiguous by design (D-08/D-09) and keep the multi-base walk. A
+    # {devflow_root}/... token is root-anchored regardless of syntax, so it
+    # resolves against the repo root only — is_link must not override that
+    # anchor for a reference written from a nested file (N3).
+    if root_anchored:
+        bases = [""]
+    else:
+        bases = [os.path.dirname(relfile)] if is_link else _bases_for(relfile)
     root_real = os.path.realpath(root)
     for base in bases:
-        candidate = os.path.normpath(os.path.join(root, base, path_part))
+        # Reject an escape at the *reference* level — before touching the
+        # filesystem — so the verdict does not depend on whether the escape
+        # happens to land back inside the repo, which otherwise depends on
+        # what the checkout directory is named (round 2, S-1). The realpath
+        # check below is the complementary symlink-escape guard; neither
+        # subsumes the other.
+        joined = os.path.normpath(os.path.join(base, path_part))
+        if joined == os.pardir or joined.startswith(os.pardir + os.sep):
+            continue
+        candidate = os.path.normpath(os.path.join(root, joined))
         if not (os.path.isfile(candidate) or os.path.isdir(candidate)):
             continue
         # `../` (and symlinks, via realpath) must not resolve outside the
@@ -321,20 +363,26 @@ def _code_fence_mask(lines):
 
 
 def _frontmatter_mask(lines):
+    """Returns (mask, unterminated_at): `unterminated_at` is the 1-indexed
+    line of a frontmatter opener still open at EOF, or None if it closed.
+    Mirrors _code_fence_mask's contract exactly — an unclosed block must be
+    reportable as a failure, not a silent mask to EOF (round 2, N1).
+    """
     mask = [False] * len(lines)
-    if lines and lines[0].strip() == "---":
-        mask[0] = True
-        for i in range(1, len(lines)):
-            mask[i] = True
-            if lines[i].strip() == "---":
-                break
-    return mask
+    if not lines or lines[0].strip() != "---":
+        return mask, None
+    mask[0] = True
+    for i in range(1, len(lines)):
+        mask[i] = True
+        if lines[i].strip() == "---":
+            return mask, None
+    return mask, 1
 
 
 def _heading_slugs(text):
     lines = text.splitlines()
     fence_mask, _ = _code_fence_mask(lines)
-    front_mask = _frontmatter_mask(lines)
+    front_mask, _ = _frontmatter_mask(lines)
     counts = {}
     slugs = set()
     i = 0
