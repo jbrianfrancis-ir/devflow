@@ -35,6 +35,26 @@ codex plugin add devflow@devflow
 
 What happens inside a phase — the wave graph, the smoke gate, state files: [docs/execution-model.md](docs/execution-model.md).
 
+### Running it hands-off
+
+Steps 2–4 are the loop, and you don't have to type each one. Every skill ends in a
+machine-checkable `FLOW:` line, so Claude Code's `/goal` can drive the loop and stop on its own:
+
+```
+/goal FLOW says DONE or GATE, or stop after 40 turns
+/flow-next
+```
+
+`/flow-next` advances exactly one step — plan, execute, replan gaps, or harden — and reports
+`CONTINUE`, `GATE`, `BLOCKED`, or `DONE`. The goal keeps re-invoking it while the answer is
+`CONTINUE`, and stops when the roadmap is finished or a decision needs you. `/loop /flow-next` does
+the same at a background cadence.
+
+It stops for you rather than guessing: opening a pull request, clearing a secret-scan hit, accepting
+a knowingly-shipped defect, and every other human gate never auto-proceed. Set the turn cap to
+something you're willing to spend. Full recipes, the loop rails that stop a run going nowhere, and
+the complete gate list: [docs/autonomy.md](docs/autonomy.md).
+
 ## Commands
 
 | Loop | Command | Does |
