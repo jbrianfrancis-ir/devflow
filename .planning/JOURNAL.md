@@ -3,7 +3,6 @@ to .planning/history/JOURNAL-<YYYY>.md (append, chronological, uncapped) — nev
 The cap bounds what loads into context each run; it is not permission to forget.
 One line per completed state-changing skill run. Warm-start + audit trail; context repos (docs/blitzos.md) index these lines verbatim. -->
 # Journal
-- 2026-08-18 | /flow-plan 3 | phase 3 planned — 4 plans, serial; 9 check issues fixed across 2 rounds, incl. a blob-unreachable fail-open | CONTINUE
 - 2026-08-18 | /flow-execute 2 | phase 2 VERIFIED — 5 plans, 11 commits, 0 deviations; README 167→61 lines, 9 docs pages, coverage 162→179 | CONTINUE
 - 2026-08-18 | /flow-plan 2 | phase 2 planned — 5 plans, serial waves; 10 check issues fixed incl. 2 fail-open guards; REQ-12b corrected (D-17) | CONTINUE
 - 2026-08-18 | merge | phase 1 MERGED via PR #20 — link safety net live in CI; branch cut for phase 2 | CONTINUE
