@@ -2,9 +2,9 @@
 # State
 
 ## Position
-Phase: 2 of 4 (Carve out docs/) | Plans: 5/5 | Status: verified
-Last: 2026-08-18 — phase 2 VERIFIED: README 167→61 lines, 9 docs/ pages, coverage 162→179 refs
-Next: /flow-plan 3
+Phase: 3 of 4 (Rebuild README) | Plans: 0/4 | Status: ready
+Last: 2026-08-18 — phase 3 planned: 4 plans, serial; 9 check issues fixed incl. 3 fail-open guards. PR #21 open for phase 2 (held)
+Next: /flow-execute 3
 
 ## Gate
 none
@@ -23,5 +23,5 @@ none
 - none
 
 ## Session
-Stopped: phase 2 executed and verified (pass); not yet PR'd
-Resume: user runs /flow-pr. CARRY INTO THE PR: confirm lint ran `Check internal links` and passed, then push a deliberately broken internal reference and confirm lint turns red on that step, and revert. Evidence in phases/01-link-safety-net/VERIFICATION.md
+Stopped: phase 3 planned and checked; PR #21 open for phase 2, marked do-not-merge-yet
+Resume: /flow-execute 3. OPENING-MAP.md holds the opening-paragraph disposition; G1-G7 in it are the per-commit gates. 03-01 builds scripts/check-fenced-paths.py FIRST (D-19) before any fence lands under docs/
