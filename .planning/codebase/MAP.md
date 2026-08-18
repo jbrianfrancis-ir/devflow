@@ -1,12 +1,12 @@
 <!-- .planning/codebase/MAP.md — cap 6KB. Memory for planners/executors, not documentation. Overwrite whole file on refresh. -->
 ---
 mapped: 2026-08-18
-mapped_sha: d1dfd048f53c3e25dadbe586c5c6eff6d543c468
+mapped_sha: 1da9692e636e590fa6a0e924d84356e0cf4f6bef
 ---
 # Codebase Map
 
 ## Stack
-This repo IS a Claude Code / Codex plugin (not an app that runs it): markdown prompt content (skills/agents/references/templates) + 3 stdlib-only Python 3 helper scripts. No language manifest (no package.json/pyproject.toml/go.mod/csproj) — nothing to install or build.
+This repo IS a Claude Code / Codex plugin (not an app that runs it): markdown prompt content (skills/agents/references/templates) + 3 stdlib-only Python 3 helper scripts. No language manifest — nothing to install or build.
 
 ## Layout
 ```
@@ -14,47 +14,49 @@ plugins/devflow/          portable payload, shared by both hosts
   .claude-plugin/, .codex-plugin/  per-host plugin.json manifests (version must match)
   agents/*.md                11 subagent role files (name/description/tools/model)
   skills/<flow-x>/SKILL.md   20 skill dirs — /flow-* (Claude) == $flow-* (Codex)
-  references/*.md            11 shared doctrine docs (conventions, autonomy, ...)
-  templates/*.md              17 output templates
+  references/*.md            11 shared doctrine docs — the authoritative layer
+  templates/*.md              18 output templates
   scripts/flow-agent.py      cross-provider dispatch bridge (role → claude -p / codex exec)
   scripts/flow-fleet.py      fleet scanner (walks .planning/ across repos)
 .claude-plugin/, .agents/plugins/  repo-root marketplace.json files → ./plugins/devflow
-scripts/validate-plugin.py  repo-level CI validator (not shipped as plugin content)
-scripts/check-links.py     repo-level internal-reference checker (not shipped)
-tests/*.py                  unittest suites: flow_agent, flow_fleet, check_links (49 tests)
-docs/blitzos.md, docs/status-contract.md   external-consumer contracts (no skill loads them)
-README.md                   167 lines / ~31.6KB — the only other user-facing doc (unsplit so far)
+scripts/validate-plugin.py, scripts/check-links.py   repo-level CI validators (not shipped as plugin content)
+tests/*.py                  unittest suites: flow_agent, flow_fleet, check_links (92 tests)
+docs/                       11 pages: blitzos.md, status-contract.md (pre-existing) + 9 new (phase 02) —
+                             acknowledgements, autonomy, execution-model, installation, parallel-work,
+                             provenance, providers, requirements-clarity, review — each summarizing +
+                             linking its references/*.md authority
+README.md                   61 lines (was 167) — Install, Commands, Flow, Acknowledgements
 CLAUDE.md, AGENTS.md, .claude/settings.json   repo root — plugin self-bootstrap pointers
 .planning/                  this repo is itself DevFlow-managed (docs-restructure project)
 ```
-Layout deliberately differs from DevFlow's own default convention (code under `src/`) — payload lives under `plugins/devflow/` because that's the plugin-source layout, not an app layout.
+Layout deliberately differs from DevFlow's default convention (code under `src/`) — payload lives under `plugins/devflow/` because that's the plugin-source layout, not an app layout.
 
 ## Architecture
-Not a running app — no runtime data flow. A user's project installs `plugins/devflow` via the marketplace; each skill is a markdown prompt loaded on invocation (`/flow-*`/`$flow-*`); heavy work spawns fresh-context subagents (`agents/*.md`); cross-provider roles route through `flow-agent.py` (`claude -p`/`codex exec`, sandboxed via `READ_ONLY_ROLES`/`WRITE_ROLES`); `flow-fleet.py` backs `/flow-status --all`. `validate-plugin.py` and `check-links.py` are the only things that "run" this repo's own code, both in CI (`lint.yml`).
+Not a running app — no runtime data flow. A user's project installs `plugins/devflow` via the marketplace; each skill is a markdown prompt loaded on invocation (`/flow-*`/`$flow-*`); heavy work spawns fresh-context subagents (`agents/*.md`); cross-provider roles route through `flow-agent.py` (`claude -p`/`codex exec`, sandboxed via `READ_ONLY_ROLES`/`WRITE_ROLES`); `flow-fleet.py` backs `/flow-status --all`. `validate-plugin.py`/`check-links.py` are the only code that runs in CI (`lint.yml`). `docs/*.md` are pure summaries — detail stays in `references/*.md`.
 
 ## Conventions
-- Skill dirs and agent files name-match 1:1 into `flow-agent.py`'s `READ_ONLY_ROLES`/`WRITE_ROLES` sets (agent filename minus `flow-`); `validate-plugin.py` enforces this plus frontmatter shape and that read-only-role agents declare no write tools.
-- Both plugin.json manifests must carry identical `version`; marketplace.json files point at `./plugins/devflow`. CI pins exactly 20 skills, 11 agents.
-- Prose style (README + references + skills): dense, terse, load-bearing — no filler. Match this register editing any `.md` here.
-- Tests import the hyphenated `flow-*.py`/`check-links.py` scripts via `importlib.util.spec_from_file_location` (hyphens aren't valid module names) — follow for new script tests.
+- Skill dirs and agent files name-match 1:1 into `flow-agent.py`'s `READ_ONLY_ROLES`/`WRITE_ROLES` sets (filename minus `flow-`); `validate-plugin.py` regex-parses those literals and enforces the match, plus frontmatter shape and read-only agents declaring no write tools.
+- Both plugin.json manifests must carry identical `version`; marketplace.json points at `./plugins/devflow`. CI pins exactly 20 skills, 11 agents.
+- Prose style (README + docs/ + references + skills): dense, terse, load-bearing — no filler.
+- `docs/*.md` (phase 02): one H1, topical H2s, each links its authority as `[`file.md`](../plugins/devflow/references/file.md)` — never a bare backticked path. Sibling links as `blitzos.md`, not `docs/blitzos.md` (markdown links resolve against the referring file's own dir only — github.com's rule).
+- Tests import hyphenated `flow-*.py`/`check-links.py` via `importlib.util.spec_from_file_location` (hyphens aren't valid module names).
 
 ## Commands
 Smoke (verified; `.planning/ARCHITECTURE.md ## Smoke`; same 3 steps as CI `lint.yml`):
 `python3 scripts/validate-plugin.py && python3 -m unittest discover -s tests -v && python3 scripts/check-links.py`
-build: none | test: unittest, 49 tests | lint: validate-plugin.py | links: check-links.py | run: N/A — install via `/plugin marketplace add jbrianfrancis-ir/devflow` (Claude) or `codex plugin marketplace add …/devflow` (Codex). `release.yml` tags/releases on push to main when `version` is untagged.
+build: none | test: unittest, 92 tests | lint: validate-plugin.py | links: check-links.py (`0 failures, 179 checked`; floor 140) | run: N/A — install via `/plugin marketplace add jbrianfrancis-ir/devflow` (Claude) or `codex plugin marketplace add …/devflow` (Codex).
 
 ## Env vars
 - `DEVFLOW_SMOKE` — gates one live-CLI test, `tests/test_flow_agent.py:163`; unset in normal CI.
-- `flow-agent.py:154` passes `os.environ.copy()` to the dispatched CLI subprocess; no specific names read here.
+- `flow-agent.py:154` passes `os.environ.copy()` to the dispatched CLI subprocess; no specific names read.
 
 ## Related repos
 - github.com/blitzdotdev/blitzos — DevFlow repos slot into BlitzOS-style context repos; contract in `docs/blitzos.md`.
 - github.com/open-gsd/gsd-core — phase-loop is an independent reimplementation (no shared source); `/flow-migrate` converts a GSD `.planning/`.
-- github.com/steipete/oracle, github.com/github/spec-kit, github.com/Dzazaleo/adversarial-review-skills — concept-only prior art, README § Acknowledgements.
+- github.com/steipete/oracle, github.com/github/spec-kit, github.com/Dzazaleo/adversarial-review-skills — concept-only prior art, `docs/acknowledgements.md`.
 
 ## Gotchas
-- **README split: phase 01/4 done, 02-04 pending.** Phase 01 only built the link-safety net (`check-links.py` + CI + smoke) — README untouched, still 167 lines. 02 carves topics into `docs/` pages; 03 rewrites README as install+quickstart+commands+docs-index; 04 repoints every inbound ref (incl. prose) and audits content loss. `docs/status-contract.md`/`docs/blitzos.md` already exist as sources README compresses; everything else (graph execution, conventions, autonomy, plan-format, oracle, adjudication) → `plugins/devflow/references/*.md`. REQ-12/D-10: a docs/ page summarizes + links its reference, never restates normative detail.
-- **`check-links.py` skips fenced code blocks** (`_code_fence_mask`, applied before the link/backtick regexes) — a path moved inside a ``` fence during the 02-04 moves loses CI coverage silently.
-- Inbound links needing redirect on the eventual split: `README.md`→`docs/status-contract.md` (L7), `docs/blitzos.md` (L44); `references/conventions.md`→`docs/blitzos.md` ×2; `templates/journal.md`/`flow-fleet.py` mention `docs/blitzos.md` in comments only; `.github/ISSUE_TEMPLATE/config.yml`→`…devflow#readme` (external). `references/autonomy.md`'s dangling link already fixed (phase 01). `skills/flow-status/SKILL.md` names README sections in prose only — goes stale silently if they move.
-- `validate-plugin.py` parses `READ_ONLY_ROLES`/`WRITE_ROLES` out of `flow-agent.py` by regex, not import — keep those literals regex-parseable.
-- MIT licensed; NOTICE carries required upstream attributions — keep in sync with README § Acknowledgements.
+- **README split: phases 01/02 done, 03/04 pending.** 02 carved `docs/` from 2 pages to 11, shrinking README 167→61 lines. Only `docs/acknowledgements.md` has an inbound link from README — the other 8 new pages have **no inbound link outside `.planning/`** until phase 03 (rebuild README + `docs/README.md` index) and phase 04 (repoint every inbound reference incl. prose, audit content loss).
+- **`check-links.py` masks fenced code blocks** — a path moved inside a ``` fence loses CI coverage silently. Phase 02's guard (MAPPING.md `G3`, an awk fence-toggle) is **not full parity**: no same-character-close rule, toggles on any fence-shaped line. Clean today only because the 9 new pages have zero fences (`blitzos.md`/`status-contract.md` do, and are excluded from G3). Port the same-char-close rule before the first fenced block lands under `docs/`.
+- `validate-plugin.py` parses roles out of `flow-agent.py` by regex, not import — keep literals regex-parseable.
+- MIT licensed; NOTICE carries required attributions — sync with `docs/acknowledgements.md`.
