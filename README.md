@@ -69,7 +69,12 @@ What happens inside a phase — the wave graph, the smoke gate, state files: [do
   `git.base`, `git.origin`, `git.upstream`, `git.branch`, `deploy.tool`.
 - Provider dispatch and model tiers: [docs/providers.md](docs/providers.md). Loop rails: [docs/autonomy.md](docs/autonomy.md).
 
-## Acknowledgements
+## Documentation
+
+Every topic page this README links out to — providers, execution model, autonomy, parallel work,
+provenance, and more — is indexed at [docs/README.md](docs/README.md).
+
+## License and acknowledgements
 
 Concept lineage and upstream credit: [docs/acknowledgements.md](docs/acknowledgements.md). Required attributions are in `NOTICE`.
 
