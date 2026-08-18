@@ -1,8 +1,6 @@
 # DevFlow
 
-Token-efficient spec-driven development for Claude Code and local Codex clients. Fresh-context subagents, wave-parallel execution, plan checking, independent diff review, goal-backward verification that abstains rather than guessing, and durable `.planning/` state.
-
-Claude invokes skills as `/flow-*`; Codex invokes the same skills as `$flow-*`.
+Token-efficient spec-driven development for Claude Code and local Codex clients. Fresh-context subagents, wave-parallel execution, plan checking, independent diff review, goal-backward verification that abstains rather than guessing, and durable `.planning/` state. Claude invokes skills as `/flow-*`; Codex invokes the same skills as `$flow-*`.
 
 ## Install
 
