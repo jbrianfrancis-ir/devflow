@@ -33,6 +33,10 @@ exactly one authoritative page per topic.
 | D-08 | `{devflow_root}/…` resolves to `plugins/devflow/…` and is validated | ~80 real refs no other check covers | 2026-08-17 |
 | D-09 | Skip rules evaluated per resolution base, never root alone; no allowlist file | Root-only skipping silently unchecked 10 real refs (measured); an allowlist drifts | 2026-08-17 |
 | D-10 | `docs/` summarizes and links to `references/*.md` as source of truth; normative detail never restated | Resolves REQ-12; honors "docs are pointers, never copies" and keeps prompt contracts out of scope | 2026-08-17 |
+| D-14 | Phase 02 is a true move — content leaves README in the same commit it lands in docs/ | No window where the same prose lives twice; matches "docs are pointers, never copies" | 2026-08-18 |
+| D-15 | No repo path reference may sit inside a fenced code block in docs/; verified by a truth | check-links.py masks fences, so a path moved into one loses CI coverage silently | 2026-08-18 |
+| D-17 | REQ-12b's enumeration corrected: providers/model tiers HAS a reference counterpart (hosts.md) | Factual error, not an open choice — hosts.md carries both sections, so D-10's summarize-and-link governs | 2026-08-18 |
+| D-16 | Topics REQ-05 does not name fold into the nearest named page; planner states the mapping | Keeps 8 files and the 250-line cap without widening the requirement | 2026-08-18 |
 | D-13 | `ARCHITECTURE.md` `## Link checking` reconciled to describe the implementation exactly | Three review rounds showed every omitted clause was a place the guard could fail while reporting green; a constraint doc that omits rules is untrue, not shorter | 2026-08-18 |
 | D-12 | Anchor-slug backstop abstention accepted; rule left unproven rather than asserted | Repo contains no duplicate/inline-code/setext headings, so nothing grades it; resolving it by reading the slugger would be circular | 2026-08-18 |
 | D-11 | REQUIREMENTS/PROJECT/ARCHITECTURE and the phase-01 plans exceed their size caps, accepted | Compressed twice; the remainder is normative and detail already caught a real defect. Cutting to hit a byte count trades correctness for a number | 2026-08-17 |

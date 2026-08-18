@@ -2,9 +2,9 @@
 # State
 
 ## Position
-Phase: 2 of 4 (Carve out docs/) | Plans: 0/0 | Status: planning
-Last: 2026-08-18 — phase 1 MERGED via PR #20; branch flow/phase-02-docs-carve cut off main
-Next: /flow-plan 2
+Phase: 2 of 4 (Carve out docs/) | Plans: 0/5 | Status: ready
+Last: 2026-08-18 — phase 2 planned: 5 plans, waves 1→5 serial; 10 plan-check issues fixed
+Next: /flow-execute 2
 
 ## Gate
 none
@@ -15,6 +15,7 @@ none
 - init: link checker is stdlib-only scripts/check-links.py, no third-party CI action (D-04)
 - init: no deployable surface — harden/uat/release N/A (D-06)
 - phase 2: docs/ summarizes + links to references/ as source of truth (D-10)
+- phase 2: true move, no fence-hidden paths, fold-ins mapped (D-14/15/16)
 - phase 1: anchor-slug backstop abstention accepted, left unproven (D-12)
 - phase 1: ARCHITECTURE.md link-checking contract reconciled to implementation (D-13)
 
@@ -22,5 +23,5 @@ none
 - none
 
 ## Session
-Stopped: phase 1 merged and integrated; phase 2 not yet planned
+Stopped: phase 2 planned and checked; nothing carved yet
 Resume: user runs /flow-pr. CARRY INTO THE PR: confirm lint ran `Check internal links` and passed, then push a deliberately broken internal reference and confirm lint turns red on that step, and revert. Evidence in phases/01-link-safety-net/VERIFICATION.md

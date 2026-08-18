@@ -23,7 +23,7 @@
 - REQ-11: `ARCHITECTURE.md` `## Smoke` gains the link check **no earlier than** the commit making `scripts/check-links.py` runnable — accept: smoke runs all three steps and exits 0 at every intermediate commit of the phase.
 - REQ-12: Where a topic has an authoritative contract in `plugins/devflow/references/*.md`, the `docs/` page **summarizes it and links to it as source of truth** (D-10) — accept: no behavior fact stated in full in both; every such page links to its reference.
   - REQ-12a: "Summarizes" = what it is, why it exists, enough shape to decide whether to read further. Normative detail (exact rules, formats, thresholds, field lists) stays in `references/` and is linked, never restated. A `docs/` page that contradicts its reference is a defect.
-  - REQ-12b: Topics with no reference counterpart (installation, providers/model tiers, fleet board, session hygiene, acknowledgements) are owned outright by their `docs/` page.
+  - REQ-12b: Topics with no reference counterpart (installation, fleet board, session hygiene, acknowledgements) are owned outright by their `docs/` page. **Correction (D-17):** providers/model tiers was listed here in error — `plugins/devflow/references/hosts.md` carries `## Provider selection and dispatch` and `## Model tiers`, so REQ-12's summarize-and-link condition governs it, consistent with D-10.
   - REQ-12c: `references/*.md` is not edited by this project, except phase 01's broken-path fix — a path change, not content.
 
 ## Success criteria
