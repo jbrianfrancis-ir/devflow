@@ -157,7 +157,6 @@ class ScanTests(unittest.TestCase):
         return d
 
     def scan(self, d):
-        import datetime
         return MODULE.scan(str(d), datetime.date(2026, 8, 15), 3)
 
     def test_gate_reaches_json_as_structured_data(self):
@@ -172,7 +171,7 @@ class ScanTests(unittest.TestCase):
     def test_no_gate_is_null(self):
         state = POSITION + "\n## Gate\nnone\n" + BLOCKERS_NONE
         p = self.scan(self.project("clean", state,
-                                   journal="- %s | /flow-execute | phase 3 | CONTINUE" % TODAY))
+                                   journal="- 2026-08-15 | /flow-execute | phase 3 | CONTINUE"))
         self.assertIsNone(p["gate"])
         self.assertFalse(p["needs_human"])
 
