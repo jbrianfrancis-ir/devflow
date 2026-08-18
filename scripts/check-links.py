@@ -32,6 +32,18 @@ class Failure(NamedTuple):
     reason: str
 
 
+class CheckResult(list):
+    """The failure list, plus how many references were actually resolved.
+
+    Subclasses list so every existing caller that compares/iterates/indexes
+    the return of check() keeps working unchanged; `.checked` is additive.
+    """
+
+    def __init__(self, failures, checked):
+        super().__init__(failures)
+        self.checked = checked
+
+
 def check(root):
     """Enumerate the markdown under `root` and return the list of failures.
 
@@ -43,11 +55,14 @@ def check(root):
     md_files = [f for f in all_files if f.endswith(".md") and not f.startswith(EXCLUDE_PREFIXES)]
 
     failures = []
+    checked = 0
     heading_cache = {}
     for relfile in md_files:
-        failures.extend(_check_file(root, relfile, all_files, heading_cache))
+        file_failures, file_checked = _check_file(root, relfile, all_files, heading_cache)
+        failures.extend(file_failures)
+        checked += file_checked
     failures.sort(key=lambda f: (f.file, f.line))
-    return failures
+    return CheckResult(failures, checked)
 
 
 def main(argv=None):
@@ -59,7 +74,8 @@ def main(argv=None):
         return 1
     for failure in failures:
         print(f"{failure.file}:{failure.line}: {failure.target} — {failure.reason}")
-    print(f"{len(failures)} failure(s)" if failures else "0 failures")
+    count_msg = f"{len(failures)} failure(s)" if failures else "0 failures"
+    print(f"{count_msg}, {failures.checked} references checked")
     return 1 if failures else 0
 
 
@@ -91,30 +107,42 @@ def _check_file(root, relfile, all_files, heading_cache):
         with open(path, encoding="utf-8") as stream:
             lines = stream.read().splitlines()
     except OSError as exc:
-        return [Failure(relfile, 0, relfile, f"could not read file: {exc}")]
+        return [Failure(relfile, 0, relfile, f"could not read file: {exc}")], 0
 
-    fence_mask = _code_fence_mask(lines)
+    fence_mask, unterminated_at = _code_fence_mask(lines)
     failures = []
+    checked = 0
+    if unterminated_at is not None:
+        # An unclosed fence masks every line to EOF — that must be visible as
+        # a failure, not a silent drop in coverage (conventions.md → fail-closed).
+        failures.append(Failure(
+            relfile, unterminated_at, lines[unterminated_at - 1].strip(),
+            "unterminated code fence — rest of file unchecked",
+        ))
     for lineno, line in enumerate(lines, start=1):
         if fence_mask[lineno - 1]:
             continue
         for match in LINK_RE.finditer(line):
             target = _parse_link_target(match.group(2))
-            failure = _check_reference(
+            failure, counted = _check_reference(
                 root, relfile, lineno, target, all_files, heading_cache, is_link=True
             )
+            if counted:
+                checked += 1
             if failure:
                 failures.append(failure)
         for match in BACKTICK_RE.finditer(line):
             token = match.group(1)
             if "/" not in token or not BACKTICK_EXT_RE.search(token):
                 continue
-            failure = _check_reference(
+            failure, counted = _check_reference(
                 root, relfile, lineno, token, all_files, heading_cache, is_link=False
             )
+            if counted:
+                checked += 1
             if failure:
                 failures.append(failure)
-    return failures
+    return failures, checked
 
 
 def _parse_link_target(raw):
@@ -131,8 +159,12 @@ def _parse_link_target(raw):
 
 
 def _check_reference(root, relfile, lineno, target, all_files, heading_cache, is_link):
+    """Returns (failure_or_none, counted): `counted` is True whenever the
+    reference was actually graded — passed or failed — as opposed to skipped
+    by rule, so callers can report real check coverage, not just failures.
+    """
     if is_link and target.startswith(("http://", "https://", "mailto:")):
-        return None
+        return None, False
 
     if target.startswith(DEVFLOW_ROOT_PREFIX):
         target = DEVFLOW_ROOT_TARGET + target[len(DEVFLOW_ROOT_PREFIX):]
@@ -144,20 +176,20 @@ def _check_reference(root, relfile, lineno, target, all_files, heading_cache, is
 
     if path_part == "":
         # Bare #frag — check the current file's own headings.
-        return _check_anchor(root, relfile, lineno, target, relfile, frag, heading_cache)
+        return _check_anchor(root, relfile, lineno, target, relfile, frag, heading_cache), True
 
     if _skip(path_part, relfile, root, all_files):
-        return None
+        return None, False
 
-    resolved = _resolve(root, relfile, path_part)
+    resolved = _resolve(root, relfile, path_part, is_link)
     if resolved is None:
-        return Failure(relfile, lineno, target, "target does not exist")
+        return Failure(relfile, lineno, target, "target does not exist"), True
 
     if frag is not None:
         return _check_anchor(
             root, relfile, lineno, target, path_part, frag, heading_cache, resolved
-        )
-    return None
+        ), True
+    return None, True
 
 
 # --- skip rules (R1-R5) -------------------------------------------------------
@@ -217,8 +249,12 @@ def _r5_skip(token, relfile, all_files):
     return True
 
 
-def _resolve(root, relfile, path_part):
-    for base in _bases_for(relfile):
+def _resolve(root, relfile, path_part, is_link):
+    # [text](target) resolves on github.com against the referring file's own
+    # directory only — one base. Backticked/{devflow_root} tokens are
+    # base-ambiguous by design (D-08/D-09) and keep the multi-base walk.
+    bases = [os.path.dirname(relfile)] if is_link else _bases_for(relfile)
+    for base in bases:
         candidate = os.path.normpath(os.path.join(root, base, path_part))
         if os.path.isfile(candidate):
             return candidate
@@ -245,10 +281,14 @@ def _check_anchor(root, relfile, lineno, display_target, target_relpath, frag,
 
 
 def _code_fence_mask(lines):
+    """Returns (mask, unterminated_at): `unterminated_at` is the 1-indexed
+    line of a fence opener still open at EOF, or None if every fence closed.
+    """
     mask = [False] * len(lines)
     fence_char = None
     fence_len = 0
     in_fence = False
+    fence_start = None
     for i, line in enumerate(lines):
         stripped = line.strip()
         if in_fence:
@@ -261,8 +301,9 @@ def _code_fence_mask(lines):
             fence_char = stripped[0]
             fence_len = len(match.group(1))
             in_fence = True
+            fence_start = i + 1
             mask[i] = True
-    return mask
+    return mask, (fence_start if in_fence else None)
 
 
 def _frontmatter_mask(lines):
@@ -278,7 +319,7 @@ def _frontmatter_mask(lines):
 
 def _heading_slugs(text):
     lines = text.splitlines()
-    fence_mask = _code_fence_mask(lines)
+    fence_mask, _ = _code_fence_mask(lines)
     front_mask = _frontmatter_mask(lines)
     counts = {}
     slugs = set()

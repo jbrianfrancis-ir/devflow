@@ -147,8 +147,16 @@ class SkipRuleTests(CheckLinksTestCase):
     """
 
     def test_r1_command_line_with_space_is_skipped(self):
+        """The whitespace must land after the first path separator *and* the
+        token must still end in a checked extension, so R5 ("docs" is a real
+        top-level entry) declines and the backtick extension filter still
+        lets the token through — leaving R1 as the only rule that can skip
+        it. (A token like `cat docs/readme.md` is pre-empted by R5 on its
+        first segment "cat docs"; a token like `docs/readme.md and more` is
+        filtered out before R1 even runs, because it no longer ends in
+        `.md` — both would make this test vacuous.)"""
         root = self.make_repo({
-            "doc.md": "# Doc\n\nRun `cat docs/readme.md` to view it.\n",
+            "doc.md": "# Doc\n\nSee `docs/read me.md` here.\n",
             "docs/existing.md": "# Existing\n",
         })
         self.assertEqual([], MODULE.check(root))
@@ -201,6 +209,113 @@ class SkipRuleTests(CheckLinksTestCase):
 
         # (b) skipped: "codebase" matches no base's top-level entries at all.
         self.assertFalse(any(f.target == "codebase/MAP.md" for f in failures))
+
+
+class LinkResolutionTests(CheckLinksTestCase):
+    """B1: `[text](target)` resolves against the referring file's own
+    directory only — GitHub's rule — never against the repo root or any
+    other base. (Backticked tokens and `{devflow_root}/...` keep the
+    multi-base walk; SkipRuleTests above already pins that.)"""
+
+    def test_markdown_link_resolves_only_against_own_directory(self):
+        """sub/a.md's link resolves on github.com to sub/docs/guide.md,
+        which has the Beta heading. A resolver that tries the repo root
+        first would grade it against docs/guide.md (heading Alpha) instead
+        and report a working link as broken."""
+        root = self.make_repo({
+            "sub/a.md": "# A\n\nSee [beta](docs/guide.md#beta).\n",
+            "docs/guide.md": "# Alpha\n",
+            "sub/docs/guide.md": "# Beta\n",
+        })
+        self.assertEqual([], MODULE.check(root))
+
+    def test_markdown_link_matching_only_the_root_base_is_reported_broken(self):
+        """sub/a.md's link points at sub/docs/guide.md on github.com, which
+        does not exist — only the root-level docs/guide.md does. A resolver
+        that falls back to the root base would silently pass this 404."""
+        root = self.make_repo({
+            "sub/a.md": "# A\n\nSee [guide](docs/guide.md).\n",
+            "docs/guide.md": "# Guide\n",
+        })
+        failures = MODULE.check(root)
+        self.assertEqual(1, len(failures))
+        self.assertEqual("sub/a.md", failures[0].file)
+        self.assertEqual("docs/guide.md", failures[0].target)
+
+
+class ReferenceCountTests(CheckLinksTestCase):
+    """B2a: check() reports how many references it actually resolved, so
+    '0 failures' and '0 references examined' are never indistinguishable."""
+
+    def test_checked_count_covers_every_graded_reference(self):
+        root = self.make_repo({
+            "doc.md": "# Doc\n\nSee [ok](sub/other.md) and [bad](sub/missing.md).\n",
+            "sub/other.md": "# Other\n",
+        })
+        result = MODULE.check(root)
+        self.assertEqual(1, len(result))
+        self.assertEqual(2, result.checked)
+
+    def test_zero_failures_still_reports_a_nonzero_checked_count(self):
+        """Without this, a checker that skipped everything would also print
+        '0 failures' — indistinguishable from a checker that checked
+        everything and found it clean."""
+        root = self.make_repo({
+            "doc.md": "# Doc\n\nSee [text](sub/other.md) and `sub/other.md`.\n",
+            "sub/other.md": "# Other\n",
+        })
+        result = MODULE.check(root)
+        self.assertEqual([], result)
+        self.assertEqual(2, result.checked)
+
+
+class UnterminatedFenceTests(CheckLinksTestCase):
+    """B2b: an unterminated fence must surface as a Failure, not silently
+    mask the rest of the file to EOF with no signal."""
+
+    def test_unterminated_fence_is_reported_as_a_failure(self):
+        root = self.make_repo({
+            "doc.md": "# Doc\n\n```\nexample\n",
+        })
+        failures = MODULE.check(root)
+        self.assertEqual(1, len(failures))
+        self.assertEqual("doc.md", failures[0].file)
+        self.assertEqual(3, failures[0].line)
+        self.assertIn("unterminated", failures[0].reason)
+
+    def test_a_closed_fence_elsewhere_in_the_file_reports_no_such_failure(self):
+        root = self.make_repo({
+            "doc.md": "# Doc\n\n```\nexample\n```\n",
+        })
+        self.assertEqual([], MODULE.check(root))
+
+
+class FenceMaskingTests(CheckLinksTestCase):
+    """B3: fence masking pinned in both directions — a reference inside a
+    fence is skipped, one after a properly closed fence is still checked.
+    (Mutation-proof: disabling the closing-fence branch, so `in_fence` never
+    clears, makes the second case here fail — see M19 in findings-tests.md.)
+    """
+
+    def test_reference_inside_a_fence_is_not_checked(self):
+        root = self.make_repo({
+            "doc.md": "# Doc\n\n```\nSee [x](sub/missing.md) here.\n```\n",
+            # Establishes "sub" as a real top-level entry, so an unmasked
+            # reference here would be a checked miss, not an R5 skip.
+            "sub/existing.md": "# Existing\n",
+        })
+        self.assertEqual([], MODULE.check(root))
+
+    def test_reference_after_a_closed_fence_is_still_checked(self):
+        root = self.make_repo({
+            "doc.md": "# Doc\n\n```\nexample\n```\nSee [x](sub/missing.md) here.\n",
+            "sub/existing.md": "# Existing\n",
+        })
+        failures = MODULE.check(root)
+        self.assertEqual(1, len(failures))
+        self.assertEqual("doc.md", failures[0].file)
+        self.assertEqual(6, failures[0].line)
+        self.assertEqual("sub/missing.md", failures[0].target)
 
 
 if __name__ == "__main__":
