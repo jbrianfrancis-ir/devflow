@@ -65,7 +65,7 @@ def check(root):
     return CheckResult(failures, checked)
 
 
-def main(argv=None):
+def main():
     try:
         root = _repo_root()
         failures = check(root)
@@ -91,12 +91,15 @@ def _repo_root():
 
 
 def _all_tracked(root):
+    # -z / NUL-split: plain `git ls-files` C-quotes any path with a newline,
+    # quote, backslash, or non-ASCII byte, which would push it past the
+    # ".md" suffix check below and out of the scan with no signal.
     result = subprocess.run(
-        ["git", "-C", root, "ls-files"], capture_output=True, text=True
+        ["git", "-C", root, "ls-files", "-z"], capture_output=True, text=True
     )
     if result.returncode != 0:
         raise RuntimeError(f"git ls-files failed: {result.stderr.strip()}")
-    return [f for f in result.stdout.splitlines() if f]
+    return [f for f in result.stdout.split("\0") if f]
 
 
 # --- per-file scan -----------------------------------------------------------
@@ -110,6 +113,7 @@ def _check_file(root, relfile, all_files, heading_cache):
         return [Failure(relfile, 0, relfile, f"could not read file: {exc}")], 0
 
     fence_mask, unterminated_at = _code_fence_mask(lines)
+    front_mask = _frontmatter_mask(lines)
     failures = []
     checked = 0
     if unterminated_at is not None:
@@ -120,7 +124,7 @@ def _check_file(root, relfile, all_files, heading_cache):
             "unterminated code fence — rest of file unchecked",
         ))
     for lineno, line in enumerate(lines, start=1):
-        if fence_mask[lineno - 1]:
+        if fence_mask[lineno - 1] or front_mask[lineno - 1]:
             continue
         for match in LINK_RE.finditer(line):
             target = _parse_link_target(match.group(2))
@@ -186,6 +190,9 @@ def _check_reference(root, relfile, lineno, target, all_files, heading_cache, is
         return Failure(relfile, lineno, target, "target does not exist"), True
 
     if frag is not None:
+        if os.path.isdir(resolved):
+            # A fragment against a directory target isn't heading-graded.
+            return None, True
         return _check_anchor(
             root, relfile, lineno, target, path_part, frag, heading_cache, resolved
         ), True
@@ -254,9 +261,16 @@ def _resolve(root, relfile, path_part, is_link):
     # directory only — one base. Backticked/{devflow_root} tokens are
     # base-ambiguous by design (D-08/D-09) and keep the multi-base walk.
     bases = [os.path.dirname(relfile)] if is_link else _bases_for(relfile)
+    root_real = os.path.realpath(root)
     for base in bases:
         candidate = os.path.normpath(os.path.join(root, base, path_part))
-        if os.path.isfile(candidate):
+        if not (os.path.isfile(candidate) or os.path.isdir(candidate)):
+            continue
+        # `../` (and symlinks, via realpath) must not resolve outside the
+        # repo: a reference GitHub cannot follow is truthfully "not resolved",
+        # not a pass that depends on what happens to sit above the checkout.
+        candidate_real = os.path.realpath(candidate)
+        if candidate_real == root_real or candidate_real.startswith(root_real + os.sep):
             return candidate
     return None
 

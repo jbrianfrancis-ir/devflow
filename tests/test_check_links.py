@@ -318,5 +318,116 @@ class FenceMaskingTests(CheckLinksTestCase):
         self.assertEqual("sub/missing.md", failures[0].target)
 
 
+class ContainmentTests(unittest.TestCase):
+    """S1: a resolved target must stay under the repo root. `../` traversal
+    and a symlink that escapes the checkout are treated as unresolved — the
+    same verdict GitHub gives, since it cannot follow either one. These
+    build their own fixture (not via make_repo) because the point is a real
+    file sitting just *outside* the fixture root."""
+
+    def make_nested_repo(self, files):
+        parent = tempfile.mkdtemp(prefix="check-links-outside-")
+        self.addCleanup(shutil.rmtree, parent, ignore_errors=True)
+        root = os.path.join(parent, "repo")
+        os.makedirs(root)
+        for relpath, content in files.items():
+            full = os.path.join(root, relpath)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w", encoding="utf-8") as stream:
+                stream.write(content)
+        subprocess.run(["git", "init", "-q"], cwd=root, env=GIT_ENV,
+                        check=True, capture_output=True)
+        subprocess.run(["git", "add", "-A"], cwd=root, env=GIT_ENV,
+                        check=True, capture_output=True)
+        return parent, root
+
+    def test_parent_traversal_from_a_root_level_link_does_not_escape_the_repo(self):
+        parent, root = self.make_nested_repo({
+            "escape.md": "# Doc\n\nSee [x](../outside.md) here.\n",
+        })
+        with open(os.path.join(parent, "outside.md"), "w", encoding="utf-8") as stream:
+            stream.write("# Outside\n")
+        failures = MODULE.check(root)
+        self.assertEqual(1, len(failures))
+        self.assertEqual("escape.md", failures[0].file)
+        self.assertEqual("../outside.md", failures[0].target)
+        self.assertEqual("target does not exist", failures[0].reason)
+
+    def test_symlink_escaping_the_repo_does_not_resolve(self):
+        parent, root = self.make_nested_repo({
+            "doc.md": "# Doc\n\nSee [x](evil.md) here.\n",
+        })
+        outside = os.path.join(parent, "secret.md")
+        with open(outside, "w", encoding="utf-8") as stream:
+            stream.write("# Secret\n")
+        os.symlink(outside, os.path.join(root, "evil.md"))
+        subprocess.run(["git", "add", "-A"], cwd=root, env=GIT_ENV,
+                        check=True, capture_output=True)
+        failures = MODULE.check(root)
+        self.assertEqual(1, len(failures))
+        self.assertEqual("evil.md", failures[0].target)
+        self.assertEqual("target does not exist", failures[0].reason)
+
+
+class DirectoryTargetTests(CheckLinksTestCase):
+    """S2: a link to a tracked directory is a normal, correct thing to write
+    (github.com renders a folder listing) and must not be reported broken."""
+
+    def test_link_to_a_tracked_directory_is_accepted(self):
+        root = self.make_repo({
+            "doc.md": "# Doc\n\nSee [refs](docs) here.\n",
+            "docs/guide.md": "# Guide\n",
+        })
+        self.assertEqual([], MODULE.check(root))
+
+    def test_anchor_into_a_directory_target_is_not_heading_graded(self):
+        root = self.make_repo({
+            "doc.md": "# Doc\n\nSee [refs](docs#nonexistent) here.\n",
+            "docs/guide.md": "# Guide\n",
+        })
+        self.assertEqual([], MODULE.check(root))
+
+
+class TrackedFileEnumerationTests(CheckLinksTestCase):
+    """S3: `git ls-files` (no `-z`) C-quotes any path with a newline, quote,
+    backslash, or non-ASCII byte, which pushes it past the `.md` suffix
+    filter and out of the scan with no signal — the "could not check
+    reported as clean" failure conventions.md names."""
+
+    def test_broken_reference_inside_a_specially_named_file_is_still_caught(self):
+        root = self.make_repo({
+            "sub/control.md": "# Control\n\nSee [x](sub/missing.md) here.\n",
+            'sub/quo"te.md': "# Quote\n\nSee [x](sub/missing.md) here.\n",
+        })
+        failures = MODULE.check(root)
+        self.assertEqual(2, len(failures))
+        self.assertEqual({"sub/control.md", 'sub/quo"te.md'}, {f.file for f in failures})
+
+
+class MainSignatureTests(unittest.TestCase):
+    """S4: main() takes no argv — a caller mirroring flow-fleet.py's
+    `main([root, "--json"])` contract must get a TypeError, not a silent
+    full run against the ambient cwd with every argument dropped."""
+
+    def test_main_does_not_silently_accept_an_argv_list(self):
+        with self.assertRaises(TypeError):
+            MODULE.main(["some", "argv"])
+
+
+class FrontmatterMaskingTests(CheckLinksTestCase):
+    """S5: `_check_file` must apply the same frontmatter mask `_heading_slugs`
+    already uses, so a path-shaped token in YAML frontmatter — a data field,
+    not prose — is not checked as a reference."""
+
+    def test_path_shaped_token_in_frontmatter_is_not_checked_as_a_reference(self):
+        root = self.make_repo({
+            "doc.md": "---\ntemplate: `sub/missing.md`\n---\n# Doc\n",
+            # Establishes "sub" as a real top-level entry so R5 alone
+            # cannot explain a pass — the frontmatter mask has to do it.
+            "sub/existing.md": "# Existing\n",
+        })
+        self.assertEqual([], MODULE.check(root))
+
+
 if __name__ == "__main__":
     unittest.main()
