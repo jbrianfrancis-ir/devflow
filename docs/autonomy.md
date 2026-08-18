@@ -35,12 +35,7 @@ the same string that lands in `DECISIONS.md` when the gate is answered, so quest
 it. A driver may surface options; it may never pick one.
 
 ## Human gates that never auto-proceed
-Checkpoint decisions and human-actions (incl. package legitimacy), secret-scan hits, external consult
-sends, PRs to upstream, replies to human PR reviewers and merges, refuting a blocking review finding,
-dropping a worktree with unmerged work, UAT acceptance + sign-off, production confirmation, tag pushes
-— none of these auto-proceed, even under `/goal`/`/loop`. Cost note: `/goal` turns and `/loop`
-iterations accumulate context in one session — small `STATE.md` and one-step-per-turn keep each cheap,
-but start a fresh session for each milestone-sized run. The authoritative gate list and gate-record
+A fixed list of gates never auto-proceeds, even under `/goal` or `/loop` — they span checkpoint decisions, secret-scan hits, anything outward-facing, and anything destructive in git. Enumerating them here would go stale the moment the list changes, and it already had. The authoritative gate list and gate-record
 fields are specified in [`autonomy.md`](../plugins/devflow/references/autonomy.md); checkpoint types
 (decision / human-action / human-verify) in
 [`checkpoints.md`](../plugins/devflow/references/checkpoints.md).
