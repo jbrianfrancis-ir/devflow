@@ -1,10 +1,6 @@
 # DevFlow
 
-Token-efficient spec-driven development for Claude Code and local Codex clients. Fresh-context subagents, wave-parallel execution, plan checking, independent diff review, goal-backward verification that abstains rather than guessing, and durable `.planning/` state. 20 shared Agent Skills and 11 subagents across ~220KB of prompt content — but nothing loads it all: skills load progressively at ~1–5k tokens each, and heavy work runs in bounded native subagents or, when explicitly selected, through the other provider's authenticated CLI.
-
-No Node runtime and no hooks. "Ship" is a real pipeline: harden → UAT → human sign-off → production, orchestrated with [Aspire](https://aspire.dev) + azd on Azure. Claude invokes skills as `/flow-*`; Codex invokes the same skills as `$flow-*`.
-
-**Orchestrator-agnostic.** DevFlow runs as skills inside the interactive host rather than replacing it. Native subagents are the default. Cross-provider work is opt-in via `--provider claude|codex` or a saved project default, and uses `claude -p` or `codex exec` only for that bounded peer role. What DevFlow adds is *legibility*: every skill ends in a machine-checkable `FLOW:` line, all state lives in files, and `flow-status --all` boards every DevFlow project without screen-scraping. Contract: [`docs/status-contract.md`](docs/status-contract.md).
+Token-efficient spec-driven development for Claude Code and local Codex clients. Fresh-context subagents, wave-parallel execution, plan checking, independent diff review, goal-backward verification that abstains rather than guessing, and durable `.planning/` state. Claude invokes skills as `/flow-*`; Codex invokes the same skills as `$flow-*`.
 
 ## Install
 
@@ -21,6 +17,23 @@ No Node runtime and no hooks. "Ship" is a real pipeline: harden → UAT → huma
 codex plugin marketplace add jbrianfrancis-ir/devflow
 codex plugin add devflow@devflow
 ```
+
+## Quick start
+
+1. `/flow-new` — run it in the repo you want to work in (new or existing). It asks a bounded round of
+   questions, then writes `.planning/` (`REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`, `config.json`, …) on a
+   new `flow/<slug>` feature branch.
+2. `/flow-plan 1` — discusses the phase's open decisions, then writes and checks the phase's plans.
+3. `/flow-execute 1` — runs the plans in dependency waves via executor subagents, then verifies the phase.
+4. Repeat 2–3 for each phase. `/flow-status` at any point prints where you are and the exact next command.
+5. `/flow-pr` once a phase is verified — pushes the branch and opens a pull request.
+
+```
+/flow-new ──► /flow-plan 1 ──► /flow-execute 1 ──► … all phases verified …
+         ──► /flow-harden ──► /flow-pr ──► /flow-ci ──► (merge) ──► /flow-uat ──► human sign-off ──► /flow-release
+```
+
+What happens inside a phase — the wave graph, the smoke gate, state files: [docs/execution-model.md](docs/execution-model.md).
 
 ## Commands
 
@@ -47,14 +60,21 @@ codex plugin add devflow@devflow
 | deploy | `/flow-uat` | Deploy to UAT (provision on first deploy), generate acceptance test plan |
 | deploy | `/flow-release` | Production deploy, gated on per-SHA UAT sign-off |
 
-## Flow
+## Configuration
 
-```
-/flow-new ──► /flow-plan 1 ──► /flow-execute 1 ──► … all phases verified …
-         ──► /flow-harden ──► /flow-pr ──► /flow-ci ──► (merge) ──► /flow-uat ──► human sign-off ──► /flow-release
-```
+- `--provider native|claude|codex` on the delegating skills, and the project default `agents.provider` in
+  `.planning/config.json` (`"agents": {"provider": "native"}`) — the flag wins over the file.
+- Other keys `.planning/config.json` carries, named not explained: `mode`, `commit_docs`,
+  `agents.models.<role>`, `autonomy.max_iterations`, `autonomy.max_repeats`, `autonomy.max_hours`,
+  `git.base`, `git.origin`, `git.upstream`, `git.branch`, `deploy.tool`.
+- Provider dispatch and model tiers: [docs/providers.md](docs/providers.md). Loop rails: [docs/autonomy.md](docs/autonomy.md).
 
-## Acknowledgements
+## Documentation
+
+Every topic page this README links out to — providers, execution model, autonomy, parallel work,
+provenance, and more — is indexed at [docs/README.md](docs/README.md).
+
+## License and acknowledgements
 
 Concept lineage and upstream credit: [docs/acknowledgements.md](docs/acknowledgements.md). Required attributions are in `NOTICE`.
 

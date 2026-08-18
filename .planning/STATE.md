@@ -2,9 +2,9 @@
 # State
 
 ## Position
-Phase: 2 of 4 (Carve out docs/) | Plans: 5/5 | Status: verified
-Last: 2026-08-18 — phase 2 VERIFIED: README 167→61 lines, 9 docs/ pages, coverage 162→179 refs
-Next: /flow-plan 3
+Phase: 4 of 4 (complete) | Plans: 4/4 | Status: verified
+Last: 2026-08-18 — phases 3 AND 4 done; phase 4 run as ad-hoc work, not a planned phase
+Next: PR this branch, then merge
 
 ## Gate
 none
@@ -23,5 +23,5 @@ none
 - none
 
 ## Session
-Stopped: phase 2 executed and verified (pass); not yet PR'd
-Resume: user runs /flow-pr. CARRY INTO THE PR: confirm lint ran `Check internal links` and passed, then push a deliberately broken internal reference and confirm lint turns red on that step, and revert. Evidence in phases/01-link-safety-net/VERIFICATION.md
+Stopped: all four phases complete; README rebuilt, docs indexed, references repointed
+Resume: SC-04 human check open — read README top-to-bottom as a newcomer, follow no docs/ link, confirm /flow-new through /flow-execute 1 works from README alone
