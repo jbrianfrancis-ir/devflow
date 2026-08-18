@@ -1,8 +1,8 @@
 # DevFlow
 
-Token-efficient spec-driven development for Claude Code and local Codex clients. Fresh-context subagents, wave-parallel execution, plan checking, independent diff review, goal-backward verification that abstains rather than guessing, and durable `.planning/` state. 20 shared Agent Skills and 11 subagents across ~220KB of prompt content — but nothing loads it all: skills load progressively at ~1–5k tokens each, and heavy work runs in bounded native subagents or, when explicitly selected, through the other provider's authenticated CLI.
+Token-efficient spec-driven development for Claude Code and local Codex clients. Fresh-context subagents, wave-parallel execution, plan checking, independent diff review, goal-backward verification that abstains rather than guessing, and durable `.planning/` state.
 
-No Node runtime and no hooks. "Ship" is a real pipeline: harden → UAT → human sign-off → production, orchestrated with [Aspire](https://aspire.dev) + azd on Azure. Claude invokes skills as `/flow-*`; Codex invokes the same skills as `$flow-*`.
+Claude invokes skills as `/flow-*`; Codex invokes the same skills as `$flow-*`.
 
 **Orchestrator-agnostic.** DevFlow runs as skills inside the interactive host rather than replacing it. Native subagents are the default. Cross-provider work is opt-in via `--provider claude|codex` or a saved project default, and uses `claude -p` or `codex exec` only for that bounded peer role. What DevFlow adds is *legibility*: every skill ends in a machine-checkable `FLOW:` line, all state lives in files, and `flow-status --all` boards every DevFlow project without screen-scraping. Contract: [`docs/status-contract.md`](docs/status-contract.md).
 
