@@ -2,9 +2,9 @@
 # State
 
 ## Position
-Phase: 1 of 4 (Link safety net) | Plans: 3/3 | Status: verified
-Last: 2026-08-18 — ARCHITECTURE.md `## Link checking` reconciled with the implementation; PR #20 green
-Next: human — merge PR #20; then /flow-plan 2
+Phase: 2 of 4 (Carve out docs/) | Plans: 0/0 | Status: planning
+Last: 2026-08-18 — phase 1 MERGED via PR #20; branch flow/phase-02-docs-carve cut off main
+Next: /flow-plan 2
 
 ## Gate
 none
@@ -22,5 +22,5 @@ none
 - none
 
 ## Session
-Stopped: PR #20 green, contract reconciled — https://github.com/jbrianfrancis-ir/devflow/pull/20 — awaiting human merge
+Stopped: phase 1 merged and integrated; phase 2 not yet planned
 Resume: user runs /flow-pr. CARRY INTO THE PR: confirm lint ran `Check internal links` and passed, then push a deliberately broken internal reference and confirm lint turns red on that step, and revert. Evidence in phases/01-link-safety-net/VERIFICATION.md
