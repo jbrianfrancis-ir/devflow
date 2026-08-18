@@ -5,6 +5,7 @@ load-bearing: the `## Gate` block reaches a caller as structured data (the one
 exception to "never parse skill prose"), and a check that could not run is never
 reported as clean (references/conventions.md → Fail-closed guards).
 """
+import datetime
 import importlib.util
 import io
 import json
@@ -17,6 +18,13 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCANNER = ROOT / "plugins/devflow/scripts/flow-fleet.py"
+
+# Journal date for fixtures that mean "this project has recent activity". It must
+# track the clock: the scanner flags STALE at age_days >= stale_days (default 3)
+# and STALE implies needs_human, so a hardcoded date silently converts any
+# "nothing needs a human" assertion into a time bomb that fires days later and
+# never passes again.
+TODAY = datetime.date.today().isoformat()
 SPEC = importlib.util.spec_from_file_location("flow_fleet", SCANNER)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
@@ -164,7 +172,7 @@ class ScanTests(unittest.TestCase):
     def test_no_gate_is_null(self):
         state = POSITION + "\n## Gate\nnone\n" + BLOCKERS_NONE
         p = self.scan(self.project("clean", state,
-                                   journal="- 2026-08-15 | /flow-execute | phase 3 | CONTINUE"))
+                                   journal="- %s | /flow-execute | phase 3 | CONTINUE" % TODAY))
         self.assertIsNone(p["gate"])
         self.assertFalse(p["needs_human"])
 
@@ -213,7 +221,7 @@ class ScanTests(unittest.TestCase):
 
     def test_exit_status_is_zero_when_everything_is_fine(self):
         state = POSITION + "\n## Gate\nnone\n" + RUN_BLOCK.replace("Repeats: 2", "Repeats: 0") + BLOCKERS_NONE
-        self.project("clean", state, journal="- 2026-08-15 | /flow-execute | phase 3 | CONTINUE")
+        self.project("clean", state, journal="- %s | /flow-execute | phase 3 | CONTINUE" % TODAY)
         buf = io.StringIO()
         with redirect_stdout(buf):
             code = MODULE.main([str(self.base), "--json", "--depth", "2"])
