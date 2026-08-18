@@ -1,6 +1,6 @@
 ---
 phase: 01-link-safety-net
-status: human_needed
+status: pass
 smoke: pass
 gaps: []
 unverified:
@@ -51,8 +51,11 @@ Key links: loads the hyphenated script via `importlib.util.spec_from_file_locati
 `git show 4f1a251 -- .planning/ARCHITECTURE.md` touches only the `## Smoke` Command line, "Pass looks like", and the deleted reservation comment — no hunk in `## Link checking`.
 
 ## Human checks
-- [ ] **On this phase's PR**: confirm `lint` ran the `Check internal links` step and passed; then push a commit with a deliberately broken internal reference, confirm `lint` turns red on that step, and revert. Carried from 01-03's SUMMARY — only observable on a real PR, not a gap.
-- [ ] **Backstop, anchor slugging**: decide the rule for duplicate headings (`-1`), headings holding inline code/links/punctuation, and setext headings, then write a held-out test against known-good GitHub-rendered anchors — or state the rule in REQUIREMENTS.md so it becomes inferable.
+- [x] **Backstop, anchor slugging** — ANSWERED 2026-08-18 (D-12): abstention **accepted**. The rule stays unproven and unasserted; revisit only if `docs/` introduces duplicate, inline-code, or setext headings. Deliberately NOT resolved by reading the slugger. Logged in DECISIONS.md at d1dfd04.
+- [ ] **CARRIED TO /flow-pr** — On this phase's PR: confirm `lint` ran the `Check internal links` step and passed; then push a commit with a deliberately broken internal reference, confirm `lint` turns red on that step, and revert. Carried from 01-03's SUMMARY — only observable on a real PR, not a gap.
+
+Phase verdict after the gate: **pass**, with one check carried forward. The carried check is
+not a gap — it is unobservable before a PR exists.
 
 ## Learnings
 - The checker ignores everything inside fenced code blocks — a rule beyond REQ-09e's documented R1–R5. It hides nothing today (measured: 0 otherwise-checkable backticked refs sit inside fences), but phases 02–04 moving examples into fences would lose that coverage with no signal.

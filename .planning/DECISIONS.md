@@ -14,3 +14,9 @@ checkpoint-human-action, package-verification, secret-scan-clearance, consult-se
 pr-upstream, review-refute, uat-acceptance, release-confirmation, tag-push,
 worktree-drop). `by` is the git identity that answered — `git config user.name` and
 user.email — never a guess at who was at the keyboard. -->
+
+## 2026-08-18 10:00 · checkpoint-decision
+- **asked**: Phase 01 verification abstained on GitHub anchor-slug rules for cases this repo contains none of (duplicate headings, inline-code/punctuation headings, setext). How should the backstop truth be settled?
+- **answered**: Accept the abstention (option 1). The rule stays unproven and unasserted; revisit if `docs/` ever introduces duplicate or inline-code headings. Explicitly NOT resolved by reading the slugger and declaring it correct.
+- **by**: jbrianfrancis-ir <brianf@informativeresearch.com>
+- **at**: d1dfd048f53c3e25dadbe586c5c6eff6d543c468 · phase 01 / plan 01-01
