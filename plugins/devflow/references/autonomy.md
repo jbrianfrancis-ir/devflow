@@ -2,7 +2,7 @@
 
 How Flow composes with Claude Code's `/goal` and `/loop`. Skills cannot start loops or set goals — they emit transcript-verifiable status and behave predictably when driven.
 
-The status line and `.planning/` file formats are a **public interface**, not an internal detail: outside sessions (a foreman session, a dashboard, a cron job, a context repo) observe and drive DevFlow through them rather than by reading terminal output. Full surface — file formats, the `flow-fleet.py --json` schema, exit codes, and what not to build against — in `../docs/status-contract.md`.
+The status line and `.planning/` file formats are a **public interface**, not an internal detail: outside sessions (a foreman session, a dashboard, a cron job, a context repo) observe and drive DevFlow through them rather than by reading terminal output. Full surface — file formats, the `flow-fleet.py --json` schema, exit codes, and what not to build against — in `docs/status-contract.md`.
 
 ## Status line
 Every orchestrating skill ends its final message with exactly one line:

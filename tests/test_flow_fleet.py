@@ -5,6 +5,7 @@ load-bearing: the `## Gate` block reaches a caller as structured data (the one
 exception to "never parse skill prose"), and a check that could not run is never
 reported as clean (references/conventions.md → Fail-closed guards).
 """
+import datetime
 import importlib.util
 import io
 import json
@@ -17,6 +18,13 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCANNER = ROOT / "plugins/devflow/scripts/flow-fleet.py"
+
+# Journal date for fixtures that mean "this project has recent activity". It must
+# track the clock: the scanner flags STALE at age_days >= stale_days (default 3)
+# and STALE implies needs_human, so a hardcoded date silently converts any
+# "nothing needs a human" assertion into a time bomb that fires days later and
+# never passes again.
+TODAY = datetime.date.today().isoformat()
 SPEC = importlib.util.spec_from_file_location("flow_fleet", SCANNER)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
@@ -149,7 +157,6 @@ class ScanTests(unittest.TestCase):
         return d
 
     def scan(self, d):
-        import datetime
         return MODULE.scan(str(d), datetime.date(2026, 8, 15), 3)
 
     def test_gate_reaches_json_as_structured_data(self):
@@ -206,17 +213,27 @@ class ScanTests(unittest.TestCase):
         self.assertIn("2. SQLite", out)
 
     def test_exit_status_is_one_when_any_project_needs_a_human(self):
-        self.project("gated", POSITION + GATE_BLOCK + BLOCKERS_NONE)
+        # T1: journal must itself carry a live GATE, not just be recent — a
+        # journal that only says CONTINUE would still pass this assertion via
+        # staleness (age_days >= stale_days also sets needs_human), which
+        # never actually exercises the GATE path the test is named for.
+        self.project("gated", POSITION + GATE_BLOCK + BLOCKERS_NONE,
+                     journal="- %s | /flow-execute | phase 3 | GATE" % TODAY)
         with redirect_stdout(io.StringIO()):
-            code = MODULE.main([str(self.base), "--json", "--depth", "2"])
+            # T2: --stale-days pinned explicitly so this doesn't depend on
+            # the developer's ~/.devflow/fleet.json (main() falls back to it
+            # when the flag is absent).
+            code = MODULE.main([str(self.base), "--json", "--depth", "2", "--stale-days", "3"])
         self.assertEqual(code, 1)
 
     def test_exit_status_is_zero_when_everything_is_fine(self):
         state = POSITION + "\n## Gate\nnone\n" + RUN_BLOCK.replace("Repeats: 2", "Repeats: 0") + BLOCKERS_NONE
-        self.project("clean", state, journal="- 2026-08-15 | /flow-execute | phase 3 | CONTINUE")
+        self.project("clean", state, journal="- %s | /flow-execute | phase 3 | CONTINUE" % TODAY)
         buf = io.StringIO()
         with redirect_stdout(buf):
-            code = MODULE.main([str(self.base), "--json", "--depth", "2"])
+            # T2: see above — pinned so a host config of e.g. stale_days: 0
+            # can't turn a "clean" fixture stale and flip this to non-zero.
+            code = MODULE.main([str(self.base), "--json", "--depth", "2", "--stale-days", "3"])
         self.assertEqual(code, 0, buf.getvalue())
 
 

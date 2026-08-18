@@ -1,0 +1,53 @@
+# Findings — security
+
+## Summary
+0 blocking, 2 should-fix, 3 nit
+
+## Findings
+
+### [should-fix] check-links.py resolves and reads references outside the repo root
+- `scripts/check-links.py:220-225` (`_resolve`), `scripts/check-links.py:230-244` (`_check_anchor`)
+- `_resolve` builds `os.path.normpath(os.path.join(root, base, path_part))` and accepts any `os.path.isfile` hit, with no check that the result is still under `root`. `_r5_skip` explicitly exempts a leading `.` / `..` (`scripts/check-links.py:211-212`), so `../` traversal bypasses every skip rule. Symlinks are followed too — a tracked symlink pointing outside the repo is resolved and read.
+- Exercised (not theoretical). Fixture repo, checker run unmodified:
+  - `[a](../outside.md)` in `docs/traversal.md` → resolved to a file **above the repo root**, reported as valid.
+  - `[b](../outside.md#secret-heading)` → no failure; `[c](../outside.md#no-such-heading)` → failure. The checker opened and parsed a file outside the repo, and the pass/fail difference discloses whether that outside file contains a heading matching a chosen slug.
+  - A tracked symlink `evil.md -> <outside>/outside.md` with `[x](evil.md#runner-secret)` → no failure. Escape via symlink confirmed.
+  - `[d](/etc/passwd)` is skipped (R5 sees an empty first segment), so absolute paths are already safe — only relative traversal and symlinks escape.
+- Failure scenario, in order of how much it actually matters here:
+  1. **Guard false-negative** — the ARCHITECTURE.md contract is "every internal reference resolves". `[x](../../../etc/hostname)` and an out-of-repo symlink both report green, while github.com 404s them. The checker certifies links it has not actually validated.
+  2. **Environment-dependent result** — resolution reaches into the parent of the checkout, so a ref that resolves on a dev machine (sibling checkout present) fails in CI, or vice versa. A guard whose verdict depends on files outside the repo is not reproducible.
+  3. **Untrusted-input read on CI** — `lint.yml` runs on `pull_request`, so a fork PR fully controls these paths. It gets arbitrary-file *existence* plus a heading-shaped-line oracle over anything the runner can read, one bit per reference, with the answers printed to a log the PR author can see. I could not turn this into credential disclosure: no file content is ever printed (only file/line/target/reason), the job carries no secrets, and its `GITHUB_TOKEN` is `contents: read`. The `AUTHORIZATION: basic …` line `actions/checkout` writes into `.git/config` is reachable by traversal but is not heading-shaped and cannot be brute-forced through a slug-equality oracle. That is why this is should-fix and not blocking.
+- Suggested fix: in `_resolve`, after `normpath`, reject any candidate where `os.path.realpath(candidate)` is not under `os.path.realpath(root)` — return `None` so it reports "target does not exist" (which is the truthful answer for a link GitHub cannot follow). Using `realpath` closes the symlink case in the same check. Same containment guard belongs on `_check_anchor`'s `resolved_abs` for the `resolved_abs is None` path.
+
+### [should-fix] `git ls-files` quoted output silently drops markdown files from the scan (fail-open)
+- `scripts/check-links.py:77-83` (`_all_tracked`), consumed at `scripts/check-links.py:43`
+- `git ls-files` C-quotes any path containing a special character, emitting e.g. `"sub/new\nline.md"` — literal quotes, literal backslash-n, on one line. `_all_tracked` splits on `\n` and returns that string as-is. The entry no longer ends in `.md` (it ends in `"`), so the `f.endswith(".md")` filter at line 43 drops it and the file is **never scanned** — no failure, no warning.
+- Exercised: fixture with two files carrying the *identical* broken reference `[broken](sub/missing.md)` — `sub/control.md` and a file whose name contains a newline. Output was `sub/control.md:2: sub/missing.md — target does not exist / 1 failure(s)`. The second file's broken link was silently missed. `git ls-files -z` enumerates the same tree correctly.
+- Failure scenario: this is the exact "could not check reported as clean" failure the repo's own `conventions.md` calls out as making a guard worse than no guard. A `.md` file with a quote, backslash, newline, or non-ASCII byte in its name is excluded from the link check while the checker prints `0 failures`. It is also fail-open in the direction that matters on CI: a fork PR can add such a file and its dangling references never get checked. Nothing today has such a name, so there is no live breakage — hence should-fix, not blocking.
+- Suggested fix: `subprocess.run(["git", "-C", root, "ls-files", "-z"], …)` and `result.stdout.split("\0")` instead of `splitlines()`. One-line change, no behavior change for ordinary paths. Alternatively `["git", "-C", root, "-c", "core.quotePath=false", "ls-files"]`, but `-z` is the only form that is correct for embedded newlines.
+
+### [nit] Anchor check reads a reference target whole, with no size bound and no job timeout
+- `scripts/check-links.py:237` (`stream.read()`), `.github/workflows/lint.yml:11-13`
+- Combined with the traversal above, a reference can point the checker at an arbitrarily large regular file and it is read entirely into memory. `lint.yml` sets no `timeout-minutes`, so the job inherits the 6h default.
+- Not blocking: a fork PR only burns its own runner, `isfile` excludes devices and FIFOs, and a non-UTF-8 read raises `UnicodeDecodeError` which is not caught by the `except OSError` at line 240 — it propagates to `main`'s `except Exception` (line 57) and exits 1, i.e. fail-closed. Worth noting that this means any tracked non-UTF-8 `.md` aborts the whole run with an opaque `could not check:` line.
+- Suggested fix: the containment fix above removes most of the exposure. Add `timeout-minutes: 10` to the `validate` job, and catch `UnicodeDecodeError` alongside `OSError` at lines 93 and 240 so one bad file degrades to a per-file failure rather than aborting the run.
+
+### [nit] release.yml interpolates `workflow_dispatch` inputs directly into a shell `run:` block
+- `.github/workflows/release.yml:37`, `.github/workflows/release.yml:39`
+- `VERSION="${{ inputs.version }}"` and `TARGET="${{ inputs.target }}"` are substituted into the script body before the shell sees it, so an input containing `"; …; "` executes in a job holding `contents: write` and `GH_TOKEN`.
+- **This diff does not touch `release.yml`** — the only `.github/` change in `main...HEAD` is the two added lines in `lint.yml`, confirmed by `git diff --stat -- .github/`. Reported for completeness because it was asked about. The privilege bar is high: `workflow_dispatch` requires write access, which already implies the ability to push a workflow.
+- Suggested fix (whenever release.yml is next touched): move both into `env:` (`INPUT_VERSION: ${{ inputs.version }}`) and reference `"$INPUT_VERSION"` in the script, so the value crosses as data rather than as source text.
+
+### [nit] `.claude/settings.json` auto-enables a plugin from a mutable GitHub source
+- `.claude/settings.json:1-6`
+- The file declares the `devflow` marketplace at `github:jbrianfrancis-ir/devflow` and sets `enabledPlugins: {"devflow@devflow": true}`, with no version or ref pin — it always tracks whatever is at the source's head.
+- Appropriate here, and I am not asking for a change: this repo **is** that plugin's source, the file is byte-identical to the block `conventions.md` mandates (`/flow-new` writes exactly this; verified by diff), and it declares only `extraKnownMarketplaces` and `enabledPlugins` — no `hooks`, no `permissions`, no `env`, so the file itself introduces no execution path. `.claude/settings.json` is the only file under `.claude/`.
+- The residual, noted so it is on the record rather than as a request: the source is an unpinned personal-namespace repo, so the trust anchor is the continued ownership of that GitHub path — if the repo were ever deleted, the name becomes claimable and every consumer's settings would follow the new owner. Mitigation if it ever matters: keep the name reserved, or move the marketplace to an org namespace.
+
+## Ruled out
+
+- **Command injection / argument injection into `git`** — both call sites (`scripts/check-links.py:69`, `scripts/check-links.py:78`) use list-form `subprocess.run` with a fixed argv and no `shell=True`. `grep -rnE "shell=True|os.system|os.popen|eval\(|exec\("` over `scripts/` and `tests/` returns nothing. The only variable argument is `root`, which comes from `git rev-parse --show-toplevel` and is therefore always an absolute path — it cannot be read as an option, and `-C` takes it as a value regardless. Filenames never reach an argv. Exercised with a repo containing files named `$(id).md`, `` `id`.md ``, `--dash-start.md`, `qu"ote.md`, and `we ird.md`: the checker completed with `0 failures` and no command execution.
+- **Secrets in the diff** — ran the `conventions.md` canonical pattern via `grep -inEf` over the added lines of `git diff main...HEAD -U0`: no hits. No added file matches `.env*` / `*.pem` / `*.pfx` / `*.key` / `id_rsa*`. Reviewed every added line matching `token|secret|password|credential|api[_-]?key` by hand: all are prose — `GH_TOKEN` named as a variable name only in `ARCHITECTURE.md`'s names-only environment table, `secret-scan` as a gate name in `autonomy.md`, and dozens of uses of "token" in the planning docs meaning *a parsed markdown token*, not a credential. No real-looking or example credential values anywhere in the diff.
+- **CI trust boundary unchanged by this diff** — `lint.yml` triggers on `pull_request` (not `pull_request_target`) with top-level `permissions: contents: read`, so a fork PR gets no repository secrets and a read-only token. The workflow contains no `${{ }}` interpolation at all. The added step runs `python3 scripts/check-links.py` from the PR's own checkout — exactly the same trust posture as the two pre-existing steps, which already execute PR-controlled Python. The step adds no permission, no secret, no new action, and no new trigger.
+- **Regex denial of service** — reviewed `LINK_RE`, `BACKTICK_RE`, `_parse_link_target`'s `^(\S+)(?:\s+["'].*["'])?$`, and the dynamically built fence regex. None has nested or overlapping quantifiers that can backtrack super-linearly; `\S+` cannot cross the whitespace the optional group requires, so failures are linear. The dynamic pattern at line 256 interpolates only `re.escape(fence_char)` (a single backtick or tilde) and an integer.
+- **Reading a path the repo does not control via absolute reference** — `[x](/etc/passwd)` is skipped by R5, confirmed by run.

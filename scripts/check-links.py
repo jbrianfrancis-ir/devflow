@@ -1,0 +1,482 @@
+#!/usr/bin/env python3
+"""Validate internal references across this repo's tracked markdown.
+
+Checks three reference kinds: `[text](target)` links and `#anchor` fragments
+(GitHub heading-slug rules), backticked repo-relative paths, and
+`{devflow_root}/...` references (resolved to `plugins/devflow/...`).
+
+Stdlib only — no network, no third-party import.
+"""
+
+import os
+import re
+import subprocess
+import sys
+from typing import NamedTuple
+
+EXCLUDE_PREFIXES = ("plugins/devflow/templates/", ".planning/")
+DEVFLOW_ROOT_PREFIX = "{devflow_root}/"
+DEVFLOW_ROOT_TARGET = "plugins/devflow/"
+
+LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
+BACKTICK_RE = re.compile(r"`([^`]+)`")
+BACKTICK_EXT_RE = re.compile(r"\.(md|py|json|yml)$")
+PLACEHOLDER_SEGMENT_RE = re.compile(r"^(NNN|NN|MM|YYYY)(?![A-Za-z0-9])")
+FAMILY_CHARS_RE = re.compile(r"[*<>{},|]")
+# Any URI scheme (RFC 3986), case-insensitive by construction since the
+# character class already spans both cases — round 3, N3.
+URI_SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
+
+
+class Failure(NamedTuple):
+    file: str
+    line: int
+    target: str
+    reason: str
+
+
+class CheckResult(list):
+    """The failure list, plus how many references were actually resolved.
+
+    Subclasses list so every existing caller that compares/iterates/indexes
+    the return of check() keeps working unchanged; `.checked` is additive.
+    """
+
+    def __init__(self, failures, checked):
+        super().__init__(failures)
+        self.checked = checked
+
+
+def check(root):
+    """Enumerate the markdown under `root` and return the list of failures.
+
+    Prints nothing and reads no file until called — importing this module
+    must have no side effect.
+    """
+    root = os.path.abspath(root)
+    all_files = _all_tracked(root)
+    md_files = [f for f in all_files if f.endswith(".md") and not f.startswith(EXCLUDE_PREFIXES)]
+
+    failures = []
+    checked = 0
+    heading_cache = {}
+    for relfile in md_files:
+        file_failures, file_checked = _check_file(root, relfile, all_files, heading_cache)
+        failures.extend(file_failures)
+        checked += file_checked
+    failures.sort(key=lambda f: (f.file, f.line))
+    return CheckResult(failures, checked)
+
+
+def main():
+    try:
+        root = _repo_root()
+        failures = check(root)
+    except Exception as exc:  # fail-closed: "could not check" is never silently clean
+        print(f"could not check: {exc}")
+        return 1
+    for failure in failures:
+        print(f"{failure.file}:{failure.line}: {failure.target} — {failure.reason}")
+    count_msg = f"{len(failures)} failure(s)" if failures else "0 failures"
+    print(f"{count_msg}, {failures.checked} references checked")
+    return 1 if failures else 0
+
+
+# --- repo enumeration -------------------------------------------------------
+
+def _repo_root():
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"not inside a git repository: {result.stderr.strip()}")
+    return result.stdout.strip()
+
+
+def _all_tracked(root):
+    # -z / NUL-split: plain `git ls-files` C-quotes any path with a newline,
+    # quote, backslash, or non-ASCII byte, which would push it past the
+    # ".md" suffix check below and out of the scan with no signal.
+    result = subprocess.run(
+        ["git", "-C", root, "ls-files", "-z"], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"git ls-files failed: {result.stderr.strip()}")
+    return [f for f in result.stdout.split("\0") if f]
+
+
+# --- per-file scan -----------------------------------------------------------
+
+def _check_file(root, relfile, all_files, heading_cache):
+    path = os.path.join(root, relfile)
+    try:
+        with open(path, encoding="utf-8") as stream:
+            lines = stream.read().splitlines()
+    except OSError as exc:
+        return [Failure(relfile, 0, relfile, f"could not read file: {exc}")], 0
+
+    # Frontmatter must be computed first: a fence-opener line living inside a
+    # genuine frontmatter block (e.g. a YAML literal block like `usage: |`
+    # followed by an indented ```bash example) is not markdown and must never
+    # reach the fence scanner in the first place (round 3, N2).
+    front_mask = _frontmatter_mask(lines)
+    fence_mask, fence_unterminated_at = _code_fence_mask(lines, front_mask)
+    failures = []
+    checked = 0
+    if fence_unterminated_at is not None:
+        # An unclosed fence masks every line to EOF — that must be visible as
+        # a failure, not a silent drop in coverage (conventions.md → fail-closed).
+        failures.append(Failure(
+            relfile, fence_unterminated_at, lines[fence_unterminated_at - 1].strip(),
+            "unterminated code fence — rest of file unchecked",
+        ))
+    for lineno, line in enumerate(lines, start=1):
+        if fence_mask[lineno - 1] or front_mask[lineno - 1]:
+            continue
+        for match in LINK_RE.finditer(line):
+            target = _parse_link_target(match.group(2))
+            failure, counted = _check_reference(
+                root, relfile, lineno, target, all_files, heading_cache, is_link=True
+            )
+            if counted:
+                checked += 1
+            if failure:
+                failures.append(failure)
+        for match in BACKTICK_RE.finditer(line):
+            token = match.group(1)
+            if "/" not in token or not BACKTICK_EXT_RE.search(token):
+                continue
+            failure, counted = _check_reference(
+                root, relfile, lineno, token, all_files, heading_cache, is_link=False
+            )
+            if counted:
+                checked += 1
+            if failure:
+                failures.append(failure)
+    return failures, checked
+
+
+def _parse_link_target(raw):
+    raw = raw.strip()
+    if raw.startswith("<"):
+        end = raw.find(">")
+        if end != -1:
+            return raw[1:end]
+    match = re.match(r"^(\S+)(?:\s+[\"'].*[\"'])?$", raw)
+    if match:
+        return match.group(1)
+    parts = raw.split()
+    return parts[0] if parts else raw
+
+
+def _is_external_link_target(target):
+    """True when a `[text](target)` target is not a repo-relative path at
+    all, so it must never reach the filesystem resolver (round 3, N3).
+
+    Round 2 exempted exactly `http://`, `https://`, `mailto:` — the only
+    remaining guard once R5 stopped rescuing links — which left every other
+    URI scheme (`ftp:`, `tel:`, `slack:`, an uppercase `HTTPS:`, …) and
+    protocol-relative targets (`//host/...`) mis-graded as "target does not
+    exist". Any RFC 3986 scheme prefix is external, not just the three
+    named ones; a colon that shows up after the first path segment (e.g.
+    `sub/re:port.md`) does not match, because the scheme grammar requires
+    the whole prefix up to the colon to be scheme characters, so an
+    ordinary relative path is unaffected.
+
+    A bare `www.example.com` (no scheme) is also treated as external: it is
+    plainly a hostname, not a repo path, and browsers/GitHub linkify it as
+    absolute despite the missing scheme.
+    """
+    return bool(URI_SCHEME_RE.match(target)) or target.startswith(("//", "www."))
+
+
+def _check_reference(root, relfile, lineno, target, all_files, heading_cache, is_link):
+    """Returns (failure_or_none, counted): `counted` is True whenever the
+    reference was actually graded — passed or failed — as opposed to skipped
+    by rule, so callers can report real check coverage, not just failures.
+    """
+    if is_link and _is_external_link_target(target):
+        return None, False
+
+    # {devflow_root}/... is a root-anchored placeholder (D-08/D-09): it always
+    # means plugins/devflow/... from the repo root, whether written backticked
+    # or as a markdown link. Remember that it fired so _resolve anchors to the
+    # root base only — is_link's own-directory-only rule must not silently
+    # override that anchor for a reference written from a nested file (N3).
+    root_anchored = target.startswith(DEVFLOW_ROOT_PREFIX)
+    if root_anchored:
+        target = DEVFLOW_ROOT_TARGET + target[len(DEVFLOW_ROOT_PREFIX):]
+
+    if "#" in target:
+        path_part, _, frag = target.partition("#")
+    else:
+        path_part, frag = target, None
+
+    if path_part == "":
+        # Bare #frag — check the current file's own headings.
+        return _check_anchor(root, relfile, lineno, target, relfile, frag, heading_cache), True
+
+    if _skip(path_part, relfile, root, all_files, is_link):
+        return None, False
+
+    resolved = _resolve(root, relfile, path_part, is_link, root_anchored)
+    if resolved is None:
+        return Failure(relfile, lineno, target, "target does not exist"), True
+
+    if frag is not None:
+        if os.path.isdir(resolved):
+            # A fragment against a directory target isn't heading-graded.
+            return None, True
+        return _check_anchor(
+            root, relfile, lineno, target, path_part, frag, heading_cache, resolved
+        ), True
+    return None, True
+
+
+# --- skip rules (R1-R5) -------------------------------------------------------
+
+def _skip(token, relfile, root, all_files, is_link):
+    if re.search(r"\s", token):
+        return True  # R1: contains whitespace — a command, not a path
+    if FAMILY_CHARS_RE.search(token):
+        return True  # R2: family/placeholder punctuation survives the rewrite
+    for segment in token.split("/"):
+        if PLACEHOLDER_SEGMENT_RE.match(segment):
+            return True  # R3: NN/NNN/MM/YYYY placeholder segment
+    if token.startswith(".planning/") or token.startswith("~/"):
+        return True  # R4: out-of-scope tree or home-relative
+    if is_link:
+        # R5 asks whether the token's first segment names nothing under any
+        # resolution base — a heuristic for whether a base-ambiguous prose
+        # token (backticked / {devflow_root}) is a repo path at all. A
+        # [text](target) link's base is never ambiguous — it's the referring
+        # file's own directory, per B1 — so an unmatched first segment means
+        # broken, not "not a reference." Applying R5 here would silently hide
+        # exactly the typo a hand-written doc index produces (N2). R1-R4 do
+        # not depend on base-ambiguity (whitespace, glob punctuation,
+        # placeholder segments, and explicit .planning/~ scope-exclusion all
+        # hold regardless of which syntax carries the token), so only R5 is
+        # exempted for links.
+        return False
+    if _r5_skip(token, relfile, all_files):
+        return True  # R5: first segment names nothing under any resolution base
+    return False
+
+
+def _bases_for(relfile):
+    bases = [""]
+    own_dir = os.path.dirname(relfile)
+    if own_dir:
+        bases.append(own_dir)
+    if relfile == DEVFLOW_ROOT_TARGET.rstrip("/") or relfile.startswith(DEVFLOW_ROOT_TARGET):
+        if DEVFLOW_ROOT_TARGET.rstrip("/") not in bases:
+            bases.append(DEVFLOW_ROOT_TARGET.rstrip("/"))
+    ordered = []
+    for base in bases:
+        if base not in ordered:
+            ordered.append(base)
+    return ordered
+
+
+def _top_level_entries(base, all_files):
+    prefix = f"{base}/" if base else ""
+    entries = set()
+    for f in all_files:
+        if base:
+            if not f.startswith(prefix):
+                continue
+            rest = f[len(prefix):]
+        else:
+            rest = f
+        if rest:
+            entries.add(rest.split("/", 1)[0])
+    return entries
+
+
+def _r5_skip(token, relfile, all_files):
+    first = token.split("/", 1)[0]
+    if first in (".", ".."):
+        return False
+    for base in _bases_for(relfile):
+        if first in _top_level_entries(base, all_files):
+            return False
+    return True
+
+
+def _resolve(root, relfile, path_part, is_link, root_anchored=False):
+    # [text](target) resolves on github.com against the referring file's own
+    # directory only — one base. Backticked/{devflow_root} tokens are
+    # base-ambiguous by design (D-08/D-09) and keep the multi-base walk. A
+    # {devflow_root}/... token is root-anchored regardless of syntax, so it
+    # resolves against the repo root only — is_link must not override that
+    # anchor for a reference written from a nested file (N3).
+    if root_anchored:
+        bases = [""]
+    else:
+        bases = [os.path.dirname(relfile)] if is_link else _bases_for(relfile)
+    root_real = os.path.realpath(root)
+    for base in bases:
+        # Reject an escape at the *reference* level — before touching the
+        # filesystem — so the verdict does not depend on whether the escape
+        # happens to land back inside the repo, which otherwise depends on
+        # what the checkout directory is named (round 2, S-1). The realpath
+        # check below is the complementary symlink-escape guard; neither
+        # subsumes the other.
+        joined = os.path.normpath(os.path.join(base, path_part))
+        if joined == os.pardir or joined.startswith(os.pardir + os.sep):
+            continue
+        candidate = os.path.normpath(os.path.join(root, joined))
+        if not (os.path.isfile(candidate) or os.path.isdir(candidate)):
+            continue
+        # `../` (and symlinks, via realpath) must not resolve outside the
+        # repo: a reference GitHub cannot follow is truthfully "not resolved",
+        # not a pass that depends on what happens to sit above the checkout.
+        candidate_real = os.path.realpath(candidate)
+        if candidate_real == root_real or candidate_real.startswith(root_real + os.sep):
+            return candidate
+    return None
+
+
+# --- anchors -------------------------------------------------------------------
+
+def _check_anchor(root, relfile, lineno, display_target, target_relpath, frag,
+                   heading_cache, resolved_abs=None):
+    if resolved_abs is None:
+        resolved_abs = os.path.join(root, target_relpath)
+    slug = _slugify(frag)
+    if resolved_abs not in heading_cache:
+        try:
+            with open(resolved_abs, encoding="utf-8") as stream:
+                text = stream.read()
+            heading_cache[resolved_abs] = _heading_slugs(text)
+        except OSError:
+            heading_cache[resolved_abs] = set()
+    if slug not in heading_cache[resolved_abs]:
+        return Failure(relfile, lineno, display_target, f"no such heading #{frag}")
+    return None
+
+
+def _code_fence_mask(lines, skip_mask=None):
+    """Returns (mask, unterminated_at): `unterminated_at` is the 1-indexed
+    line of a fence opener still open at EOF, or None if every fence closed.
+
+    `skip_mask`, when given, marks lines the fence scanner must not look at
+    — namely frontmatter. A YAML literal block (`usage: |` followed by an
+    indented ```bash example, exactly how this repo's SKILL.md frontmatter
+    is written) is routine, non-markdown content; without this, its fence
+    line opens a fence that nothing inside the frontmatter closes, masking
+    the rest of the file to EOF (round 3, N2). Lines are skipped rather than
+    pre-zeroed so `in_fence` state carries through them unchanged.
+    """
+    mask = [False] * len(lines)
+    fence_char = None
+    fence_len = 0
+    in_fence = False
+    fence_start = None
+    for i, line in enumerate(lines):
+        if skip_mask is not None and skip_mask[i]:
+            continue
+        stripped = line.strip()
+        if in_fence:
+            mask[i] = True
+            if re.match(rf"^{re.escape(fence_char)}{{{fence_len},}}\s*$", stripped):
+                in_fence = False
+            continue
+        match = re.match(r"^(`{3,}|~{3,})", stripped)
+        if match:
+            fence_char = stripped[0]
+            fence_len = len(match.group(1))
+            in_fence = True
+            fence_start = i + 1
+            mask[i] = True
+    return mask, (fence_start if in_fence else None)
+
+
+def _frontmatter_mask(lines):
+    """Returns the line mask for a genuine YAML frontmatter block.
+
+    A leading `---` opens frontmatter only if a closing `---` exists later
+    in the file. `---` alone on line 1 is also an ordinary CommonMark
+    thematic break (GitHub renders it as `<hr>` with the rest of the
+    document intact), and the checker cannot tell the two apart from the
+    opener alone — so with no closer, nothing is masked and nothing is
+    reported (round 3, N1). This also closes the fail-open half of round 2's
+    N1: there is no more "opened but never closed" span that silently drops
+    the references inside it, because an unterminated block is never
+    treated as frontmatter to begin with.
+    """
+    mask = [False] * len(lines)
+    if not lines or lines[0].strip() != "---":
+        return mask
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            for j in range(i + 1):
+                mask[j] = True
+            return mask
+    return mask  # no closing `---` — thematic break, not frontmatter
+
+
+def _heading_slugs(text):
+    lines = text.splitlines()
+    # Same ordering as _check_file: frontmatter first, so a fence-opener
+    # line inside it never reaches the fence scanner (round 3, N2).
+    front_mask = _frontmatter_mask(lines)
+    fence_mask, _ = _code_fence_mask(lines, front_mask)
+    counts = {}
+    slugs = set()
+    i = 0
+    n = len(lines)
+    while i < n:
+        if fence_mask[i] or front_mask[i]:
+            i += 1
+            continue
+        line = lines[i]
+        heading_text = None
+        consumed = 1
+        atx = re.match(r"^(#{1,6})(?:\s+(.*))?$", line)
+        if atx:
+            heading_text = (atx.group(2) or "").strip()
+            heading_text = re.sub(r"\s+#+\s*$", "", heading_text)
+        elif (
+            i + 1 < n
+            and not fence_mask[i + 1]
+            and not front_mask[i + 1]
+            and line.strip()
+            and not re.match(r"^[-*+]\s|^\d+[.)]\s|^#", line.strip())
+        ):
+            nxt = lines[i + 1].strip()
+            if re.match(r"^=+$", nxt) or re.match(r"^-+$", nxt):
+                heading_text = line.strip()
+                consumed = 2
+        if heading_text is not None:
+            slug = _slugify(heading_text)
+            count = counts.get(slug, 0)
+            counts[slug] = count + 1
+            slugs.add(slug if count == 0 else f"{slug}-{count}")
+        i += consumed
+    return slugs
+
+
+def _strip_inline_markdown(text):
+    text = re.sub(r"!\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"`+([^`]*)`+", r"\1", text)
+    text = re.sub(r"(\*\*\*|\*\*|\*|___|__|_|~~)", "", text)
+    return text
+
+
+def _slugify(text):
+    text = _strip_inline_markdown(text).strip().lower()
+    text = re.sub(r"[^\w\s-]", "", text)
+    # github-slugger's final step is a *per-character* `.replace(/ /g, '-')`,
+    # not a whitespace-run collapse. Stripping a punctuation character that
+    # sits between two spaces (e.g. "modes & push" -> "modes  push") leaves
+    # both spaces behind, and each becomes its own hyphen — two hyphens, not
+    # one. Collapsing the run to a single hyphen produces a slug that is one
+    # hyphen short of the real GitHub anchor (round 3, B5).
+    text = text.replace(" ", "-")
+    return text
+
+
+if __name__ == "__main__":
+    sys.exit(main())
