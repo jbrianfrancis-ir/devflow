@@ -8,8 +8,8 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 |------|---------|---------|
 | Runtime | {e.g. .NET} | {e.g. 9.0} |
 | Language | {e.g. C#} | {13} |
-| Orchestration | Aspire | {13.4.x} |
-<!-- Aspire: within-major updates auto-apply (13.4.5→13.4.6, 13.3→13.4); a major bump (13→14) needs approval.
+| Orchestration | Aspire | {13.5.x} |
+<!-- Aspire: within-major updates auto-apply (13.5.0→13.5.1, 13.4→13.5); a major bump (13→14) needs approval.
      Pin what the feed actually has — `dotnet package search Aspire.Hosting.AppHost --exact-match` — not the example above. -->
 
 
