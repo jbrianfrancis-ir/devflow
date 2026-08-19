@@ -10,8 +10,8 @@ Next: none — milestone done; new work starts at /flow-quick or a new roadmap
 none
 
 ## Run
-Iteration: 1 | Started: 2026-08-19T21:55Z | Repeats: 0
-Signature: none — run reset by an answered gate
+Iteration: 2 | Started: 2026-08-19T21:55Z | Repeats: 0
+Signature: rule7:phase04:plans4/4:verifverified — superseded by D-06, terminal DONE
 
 ## Decisions
 - init: no deployable surface — harden/uat/release N/A (D-06)
