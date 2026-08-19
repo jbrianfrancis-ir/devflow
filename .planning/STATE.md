@@ -3,8 +3,8 @@
 
 ## Position
 Phase: 4 of 4 (complete) | Plans: 4/4 | Status: verified
-Last: 2026-08-18 — phases 3 AND 4 done; phase 4 run as ad-hoc work, not a planned phase
-Next: PR this branch, then merge
+Last: 2026-08-19 — 0.14.0 merged and released; quick 001 refreshed the Aspire refs for 13.5.0 (0.14.1)
+Next: merge PR for flow/aspire-13-5-0, then close out SC-04
 
 ## Gate
 none
@@ -23,5 +23,5 @@ none
 - none
 
 ## Session
-Stopped: all four phases complete; README rebuilt, docs indexed, references repointed
+Stopped: all four phases complete and merged; quick 001 (Aspire 13.5.0 refs, 0.14.1) open as a PR
 Resume: SC-04 human check open — read README top-to-bottom as a newcomer, follow no docs/ link, confirm /flow-new through /flow-execute 1 works from README alone
