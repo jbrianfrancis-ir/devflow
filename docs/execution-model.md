@@ -1,7 +1,7 @@
 # Execution model
 
 ## Context economy
-20 shared Agent Skills and 11 subagents across ~220KB of prompt content — but nothing loads it all: skills load progressively at ~1–5k tokens each, and heavy work runs in bounded native subagents or, when explicitly selected, through the other provider's authenticated CLI.
+20 shared Agent Skills and 11 subagents across ~225KB of prompt content — but nothing loads it all: skills load progressively at ~1–5k tokens each, and heavy work runs in bounded native subagents or, when explicitly selected, through the other provider's authenticated CLI.
 
 ## Graph execution
 A phase's plans form a dependency graph — plans are nodes, `depends_on` edges exist only where one plan consumes another's output (the *fake-edge test*), and waves are the graph's parallel layers. Same-wave plans share no files and no mutable resources (a shared migration chain or lockfile is a *hidden edge*). `/flow-execute` fans out one fresh-context executor per plan per wave; a *fan-in guard* counts results against spawns so a dead executor can't slip silently into a "complete" phase; and a fresh-context verifier — never the executors that did the work — proves the phase's `must_haves` against *anchors*: commands actually run, tests actually passed, code traced. must_haves freeze at execution start; gaps close by changing code, never by weakening a truth. Wave arithmetic, the fake-edge test's exact statement, must_haves field lists, and the split signals that force a plan apart are specified in [`plan-format.md`](../plugins/devflow/references/plan-format.md).
