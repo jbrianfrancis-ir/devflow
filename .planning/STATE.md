@@ -3,25 +3,27 @@
 
 ## Position
 Phase: 4 of 4 (complete) | Plans: 4/4 | Status: verified
-Last: 2026-08-19 — 0.14.0 merged and released; quick 001 refreshed the Aspire refs for 13.5.0 (0.14.1)
-Next: merge PR for flow/aspire-13-5-0, then close out SC-04
+Last: 2026-08-19 — SC-04 answered PASS; all 5 success criteria met, roadmap complete
+Next: none — milestone done; new work starts at /flow-quick or a new roadmap
 
 ## Gate
 none
 
+## Run
+Iteration: 2 | Started: 2026-08-19T21:55Z | Repeats: 0
+Signature: rule7:phase04:plans4/4:verifverified — superseded by D-06, terminal DONE
+
 ## Decisions
-- init: README trimmed to install/quickstart/commands/index, ≤110 lines (D-01)
-- init: docs/ stays flat topic files + docs/README.md index (D-02)
-- init: link checker is stdlib-only scripts/check-links.py, no third-party CI action (D-04)
 - init: no deployable surface — harden/uat/release N/A (D-06)
+- init: link checker is stdlib-only scripts/check-links.py (D-04)
 - phase 2: docs/ summarizes + links to references/ as source of truth (D-10)
-- phase 2: true move, no fence-hidden paths, fold-ins mapped (D-14/15/16)
-- phase 1: anchor-slug backstop abstention accepted, left unproven (D-12)
-- phase 1: ARCHITECTURE.md link-checking contract reconciled to implementation (D-13)
+- phase 3: SC-04 confirmed PASS by human read-through (2026-08-19)
+- quick 001: Aspire refs at 13.5.0; auto-apply policy left unchanged — minors now
+  carry breaking changes, open question for the human
 
 ## Blockers
 - none
 
 ## Session
-Stopped: all four phases complete and merged; quick 001 (Aspire 13.5.0 refs, 0.14.1) open as a PR
-Resume: SC-04 human check open — read README top-to-bottom as a newcomer, follow no docs/ link, confirm /flow-new through /flow-execute 1 works from README alone
+Stopped: docs-restructure milestone COMPLETE — 4 phases verified, SC-01..SC-05 met, v0.14.1 released
+Resume: nothing outstanding. Loose ends if wanted: phase 03 has no VERIFICATION.md and phase 04 no dir (ad-hoc); /flow-audit would catch both
