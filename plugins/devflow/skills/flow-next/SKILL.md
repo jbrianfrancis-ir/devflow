@@ -29,12 +29,14 @@ Routing (first match wins):
 4. Plans exist without SUMMARYs → run `/flow-execute N --auto`.
 5. VERIFICATION has gaps → run `/flow-plan N --gaps`.
 6. Phase verified, more phases remain → step 3 for the next phase.
-7. All phases verified, no `.planning/deploy/PIPELINE.md` → run `/flow-harden`.
-8. Hardened, no PR URL recorded in STATE → run `/flow-pr` (it gates on human confirmation before opening the PR).
+7. All phases verified, no `.planning/deploy/PIPELINE.md` → run `/flow-harden`. **Does not fire when the project has no deployable surface** — see *Deploy N/A* below.
+8. Ready to integrate — hardened, or all phases verified on a deploy-N/A project — and no PR URL recorded in STATE → run `/flow-pr` (it gates on human confirmation before opening the PR).
 9. PR open, not green (checks failing/pending, or unresolved bot review threads) → run `/flow-ci`. It is autonomous work: driving a PR to green needs no human.
-10. PR open and green / awaiting human review or merge → stop: review and merge are human, and UAT needs the merge plus azd auth. `FLOW: GATE | PR #N green, awaiting review/merge | next: after merge, /flow-uat`
+10. PR open and green / awaiting human review or merge → stop: review and merge are human, and UAT needs the merge plus azd auth. `FLOW: GATE | PR #N green, awaiting review/merge | next: after merge, /flow-uat` (deploy N/A → `next: after merge, /flow-next` — the merge is the end).
 
-If the step itself ends at a gate (checkpoint, escalation, gaps needing a decision), report that state — the invoked skill's outcome decides CONTINUE vs GATE/BLOCKED — and make sure it left the `## Gate` block populated. All phases verified and deploy pipeline released → `FLOW: DONE`.
+**Deploy N/A.** When `.planning/config.json` → `deploy.tool` is `null`, the project has nothing to deploy (autonomy.md → Projects with no deployable surface). Rule 7 does not fire, rule 8 keys off *verified* instead of *hardened* so the work still routes to a PR, and a merged PR is terminal. Only an explicit `null` qualifies: missing, unreadable, or non-null config all mean the project deploys and the deploy chain applies unchanged.
+
+If the step itself ends at a gate (checkpoint, escalation, gaps needing a decision), report that state — the invoked skill's outcome decides CONTINUE vs GATE/BLOCKED — and make sure it left the `## Gate` block populated. All phases verified and deploy pipeline released → `FLOW: DONE`; on a deploy-N/A project, all phases verified with the work merged → `FLOW: DONE`, because verified *is* the end state and there is no pipeline to wait on.
 
 When a gate is answered, clear `## Gate` to `none` and reset `## Run` (`Iteration: 1`, fresh `Started`, `Repeats: 0`): a human touching the run is the strongest possible evidence it is no longer stuck.
 

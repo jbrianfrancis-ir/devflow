@@ -25,6 +25,14 @@ any work: a **stuck** detector on a signature of what the routing actually match
 `BLOCKED`, never read as zero — a counter that can't be read is not a counter that says zero. Full rail
 semantics and the stuck-signature format: [`autonomy.md`](../plugins/devflow/references/autonomy.md).
 
+## Projects that never deploy
+A library, CLI, plugin, or docs repo ships by merging, not by deploying. Set `deploy.tool` to `null` in
+`.planning/config.json` and routing skips `/flow-harden`, `/flow-uat`, and `/flow-release` — verified work
+routes to a PR, and the merge is `FLOW: DONE`. Without it, `/flow-next` sends a verified roadmap to
+`/flow-harden` forever: no pipeline file is ever produced, the same rule re-matches, and the Repeats rail
+eventually reports "no progress" about a routing bug rather than about stuck work. Only an explicit `null`
+qualifies — an unset or unreadable config means the project deploys and takes the audit.
+
 ## Gates you can answer from anywhere
 `FLOW: GATE | <position>` tells a driver that a human is needed, but position alone never said *what
 was being asked* or *what the choices were*, and the contract forbids parsing skill prose to find out.

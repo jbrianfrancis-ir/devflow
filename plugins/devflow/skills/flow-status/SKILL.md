@@ -19,6 +19,8 @@ No `.planning/` → point to `/flow-new` (except `--all`, which needs no project
 - PR open but not green (failing/pending checks, unresolved bot threads) → `/flow-ci`
 - PR merged to base → `/flow-uat`, then sign-off, `/flow-release` (see `.planning/deploy/PIPELINE.md` if present)
 
+When `.planning/config.json` → `deploy.tool` is `null` the project has no deployable surface (autonomy.md): drop the harden/uat/release rows, route *all phases verified, not yet PR'd* straight to `/flow-pr`, and report a verified-and-merged roadmap as `DONE` rather than pointing at a deploy step it will never take. Only an explicit `null` — missing or unreadable config means the project deploys.
+
 A populated `## Gate` block outranks the routing: print `asked` and the numbered `options` verbatim, note who has to answer, and route to that instead. Report a non-zero `## Run` `Repeats` as "the loop has not moved in K iterations at `{signature}`" — the run is in trouble before the rail trips, and this is where a human notices. A malformed `## Run` block is `BLOCKED`, not a shrug.
 
 If the routing disagrees with what's on disk (ROADMAP status vs SUMMARYs vs VERIFICATION), say so and point at `/flow-audit` rather than guessing which artifact is right.

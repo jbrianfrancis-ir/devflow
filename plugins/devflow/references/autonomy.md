@@ -15,7 +15,7 @@ States (the `/goal` evaluator matches these tokens):
 - `CONTINUE` — more autonomous work is available; the next command can run without human input.
 - `GATE` — human input required: checkpoint decision/human-action (incl. package legitimacy), a secret-scan hit, PR to upstream, sending an external consult bundle, UAT acceptance + sign-off, production confirmation, azd login. Include what's needed in `<position>`.
 - `BLOCKED` — an error needs investigation before anything can proceed.
-- `DONE` — roadmap fully verified (or released, after /flow-release).
+- `DONE` — roadmap fully verified (or released, after /flow-release; or fully verified with deploy N/A — see below).
 
 Example: `FLOW: CONTINUE | phase 2/4 executed, verification pass | next: /flow-plan 3`
 
@@ -25,6 +25,21 @@ A skill that emits `GATE` also writes the `## Gate` block in `STATE.md` (format 
 `<position>` is prose and stays prose — a human-readable clause, deliberately unparseable. The block is the machine-readable half, and it exists because a driver that can detect a gate but cannot learn the choices has to wake someone up to read a transcript. Now it can render the question and the options anywhere a human is.
 
 **Structured is not auto-answerable.** A driver may surface options; it may never select one. Every gate below still requires a human, and the block changes only how legibly the question reaches them.
+
+## Projects with no deployable surface
+Not every project deploys. A library, a CLI, a marketplace plugin, a docs repo — the work is done when the roadmap is verified and merged; there is no UAT environment and no production to release to. For those, `.planning/config.json` records:
+
+```json
+"deploy": { "tool": null }
+```
+
+`null` is the signal, and it means exactly one thing: **this project has nothing to deploy.** Routing skips `/flow-harden`, `/flow-uat`, and `/flow-release` entirely, and a fully verified roadmap is terminal — `FLOW: DONE`, with no deploy pipeline to wait for.
+
+Without it, a verified non-deploying project is unroutable: `/flow-next` rule 7 sends it to `/flow-harden`, which produces no `deploy/PIPELINE.md` because there is nothing to harden, so rule 7 matches again on the next iteration. Under `/loop` that burns hardening passes until the Repeats rail stops the run as `BLOCKED` — the rail reporting "no progress" about a routing bug rather than about work that is genuinely stuck, which is the one failure mode a rail must not manufacture.
+
+**Fail-closed in the safe direction** (`conventions.md` → Fail-closed guards): only an explicit `null` skips the deploy chain. A missing `config.json`, an unreadable one, an absent `deploy` block, or any non-null tool all mean *this project deploys* — the default `/flow-new` writes is `"aspire+azd"`. Wrongly running a hardening pass costs a pass; wrongly skipping one ships unhardened code to production, so the ambiguous case takes the audit.
+
+The human-readable "why" belongs in `PROJECT.md` as a `D-NN` decision. The config field is what routing reads; the decision entry is what a person reads six months later.
 
 ## Human gates — never auto-proceed, even in auto mode or under /goal//loop
 Checkpoint `decision` and `human-action` tasks; failed-package verification; a fail-closed secret-scan hit (credential material in an outgoing diff — see `conventions.md`); sending a consult bundle to an external model (`/flow-oracle` — outward-facing, see `oracle.md`); UAT acceptance results and SIGNOFF.md; production release confirmation; opening a pull request to upstream; replying to or resolving a **human** reviewer's PR thread, and merging a PR (`/flow-ci` — driving checks to green is autonomous, review and merge are not); refuting a `blocking` review finding rather than fixing it, and shipping a `CONFIRMED` finding dispositioned `ACCEPTED AS-IS` — a known defect going out knowingly is a human's call, never a subagent's (`/flow-pr`, `adjudication.md`); removing a worktree with unmerged or unpushed commits (`/flow-workstream drop`); pushing tags; anything destructive in git. Also a hard rule (not a gate): never commit to the base branch (`dev`/`main`) — always a feature branch (see `conventions.md`).

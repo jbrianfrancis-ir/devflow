@@ -11,7 +11,7 @@ description: Production-hardening pass - audit the codebase against the Aspire p
 
 Context rules: read `.planning/STATE.md` first; paths not contents.
 
-**Pre-flight**: all ROADMAP phases verified (otherwise list what's pending and stop — hardening unfinished work wastes a pass).
+**Pre-flight**: `.planning/config.json` → `deploy.tool` is not `null` — a `null` tool means the project has no deployable surface (autonomy.md), so there is no production to harden for: say so, point at the `D-NN` decision that recorded it, and stop with `FLOW: DONE` rather than auditing a codebase that will never deploy. Then: all ROADMAP phases verified (otherwise list what's pending and stop — hardening unfinished work wastes a pass).
 
 1. **Read** `{devflow_root}/references/aspire.md` (Detection, No-AppHost, Build-gate, Hardening-checklist sections).
 
