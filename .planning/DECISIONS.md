@@ -26,3 +26,9 @@ user.email — never a guess at who was at the keyboard. -->
 - **answered**: PASS. Confirmed met, with no conditions or follow-up attached.
 - **by**: jbrianfrancis-ir <brianf@informativeresearch.com>
 - **at**: 1d1c398e02e633de777b60a67d42f8b8db65e504 · phase 03 / SC-04
+
+## 2026-08-20 · pr-upstream
+- **asked**: Open the pull request to merge `flow/sc-04-signoff` into `main`? Opening a PR is outward-facing and never auto-proceeds, so the branch sat pushed-but-unmerged awaiting this.
+- **answered**: Approved — "create the PR to merge sc-04". No changes requested to scope or content.
+- **by**: jbrianfrancis-ir <brianf@informativeresearch.com>
+- **at**: 0eb2cd8 · PR for flow/sc-04-signoff
