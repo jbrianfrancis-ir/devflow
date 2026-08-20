@@ -1,1 +1,2 @@
 - 001 | 2026-08-19 | refresh Aspire references for 13.5.0; version 0.14.1 | 2f88eef
+- 002 | 2026-08-20 | route deploy-N/A projects to DONE instead of looping on /flow-harden | 277e29f
