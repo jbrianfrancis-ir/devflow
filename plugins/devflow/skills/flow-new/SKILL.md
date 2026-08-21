@@ -41,7 +41,7 @@ Context rules (all flow skills): read `.planning/STATE.md` before acting when it
    - `CLAUDE.md` and `AGENTS.md` (repo root) — the same body from `{devflow_root}/templates/agent-pointer.md`, per conventions.md (Agent pointer files), so a session that never runs a `flow-*` skill still finds `.planning/`. Merge by markers, never overwrite.
 
 5. **Commit** (if commit_docs): `chore(flow): initialize project` on the feature branch, then `git push -u origin <branch>` (the push canary — an auth failure is a GATE per conventions.md Credential modes, not a retry loop). Print the roadmap table, then the autonomy recipes:
-   - Drive to completion: `/goal FLOW says DONE or GATE, or stop after 40 turns` then `/flow-next`
+   - Drive to completion: `/flow-handsoff` (by hand: `/goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns` then `/flow-next`)
    - Background cadence: `/loop /flow-next`
    If the user indicated they'll drive autonomously, set `"mode":"auto"` in config.json.
 

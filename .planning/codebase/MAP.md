@@ -36,7 +36,7 @@ Not a running app — no runtime data flow. A user's project installs `plugins/d
 
 ## Conventions
 - Skill dirs and agent files name-match 1:1 into `flow-agent.py`'s `READ_ONLY_ROLES`/`WRITE_ROLES` sets (filename minus `flow-`); `validate-plugin.py` regex-parses those literals and enforces the match, plus frontmatter shape and read-only agents declaring no write tools.
-- Both plugin.json manifests must carry identical `version`; marketplace.json points at `./plugins/devflow`. CI pins exactly 20 skills, 11 agents.
+- Both plugin.json manifests must carry identical `version`; marketplace.json points at `./plugins/devflow`. CI pins exactly 21 skills, 11 agents.
 - Prose style (README + docs/ + references + skills): dense, terse, load-bearing — no filler.
 - `docs/*.md` (phase 02): one H1, topical H2s, each links its authority as `[`file.md`](../plugins/devflow/references/file.md)` — never a bare backticked path. Sibling links as `blitzos.md`, not `docs/blitzos.md` (markdown links resolve against the referring file's own dir only — github.com's rule).
 - Tests import hyphenated `flow-*.py`/`check-links.py` via `importlib.util.spec_from_file_location` (hyphens aren't valid module names).
