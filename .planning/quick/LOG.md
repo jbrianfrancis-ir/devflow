@@ -1,6 +1,6 @@
 - 001 | 2026-08-19 | refresh Aspire references for 13.5.0; version 0.14.1 | 2f88eef
 - 002 | 2026-08-20 | route deploy-N/A projects to DONE instead of looping on /flow-harden | 277e29f
 - 003 | 2026-08-20 | reconstruct phase 03/04 verification records; correct a drifted size numeral | 530a540
-- 004 | 2026-08-21 | enforce the no-GSD rule after /flow-migrate via a skillOverrides block | 4e4b0e6
-- 005 | 2026-08-21 | add /flow-handsoff for one-command hands-off runs | 62013cb
-- 006 | 2026-08-21 | close /flow-pr review: JSON-injection guard, flow-harden DONE ordering, D-20 | (this commit)
+- 004 | 2026-08-21 | enforce the no-GSD rule after /flow-migrate via a skillOverrides block | 5e3b675
+- 005 | 2026-08-21 | add /flow-handsoff for one-command hands-off runs | e7160f7
+- 006 | 2026-08-21 | close /flow-pr review: JSON-injection guard, flow-harden DONE ordering, D-20 | d14693a..78c6235
