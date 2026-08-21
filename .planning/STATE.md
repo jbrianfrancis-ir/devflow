@@ -20,7 +20,7 @@ Signature: rule7:phase04:plans4/4:verifverified — superseded by D-06, terminal
 - phase 3: SC-04 confirmed PASS by human read-through (2026-08-19)
 - quick 001: Aspire refs at 13.5.0; auto-apply policy left unchanged — minors now
   carry breaking changes, open question for the human
-- D-20: skills may declare hooks (skill-scoped, prompt-type, validated) — reverses
+- D-21: skills may declare hooks (skill-scoped, prompt-type, validated) — reverses
   the standing "ships no hooks" property; /flow-handsoff needs it
 
 ## Blockers

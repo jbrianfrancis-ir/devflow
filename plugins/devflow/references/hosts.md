@@ -23,7 +23,7 @@ before calling a tool.
   the review page beneath `.planning/reviews/` and return its path.
 - `/goal`, `/loop`, and `/clear` are optional Claude conveniences. In Codex,
   repeatedly invoke `$flow-next` for durable one-step advancement.
-- **Skill-declared `Stop` hooks** are Claude-only (ARCHITECTURE.md `D-20`: skill-scoped,
+- **Skill-declared `Stop` hooks** are Claude-only (ARCHITECTURE.md `D-21`: skill-scoped,
   `type: prompt`, structurally validated). `/flow-handsoff` is the only skill using one.
   A host without hook support must degrade loudly — say the run cannot be driven here and
   give the per-step form — never start a run the host will not actually sustain. Note the

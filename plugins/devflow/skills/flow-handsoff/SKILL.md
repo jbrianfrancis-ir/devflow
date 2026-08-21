@@ -8,9 +8,9 @@ hooks:
           prompt: |
             A DevFlow hands-off run may be active. Allow the turn to end when ANY of the following holds. Block it only when none of them do.
 
-            0. **No run is in flight.** Either no `FLOW-HANDSOFF: RUN START` marker appears in the transcript, or the most recent one is already followed by an assistant turn ending in a terminal `FLOW:` status line (`DONE`, `GATE`, or `BLOCKED`). This hook stays registered for the whole session and cannot be cleared with `/goal clear`, so a finished run must never let it block a turn that has nothing to do with one.
+            0. **No run is in flight.** Any of: no `FLOW-HANDSOFF: RUN START` marker appears in the transcript; the most recent marker is followed by an assistant turn ending in a terminal `FLOW:` status line (`DONE`, `GATE`, or `BLOCKED`); the most recent marker is followed by a `FLOW-HANDSOFF: RUN END` marker; or **any user message after the most recent marker asked to stop, pause, abort, or interrupt**. That last clause is what makes an abort stick: a stop request releases the turn it was typed on under condition 3, and without it the run would silently resume on the user's next unrelated message. This hook stays registered for the whole session and cannot be cleared with `/goal clear`, so a run that is over — finished or revoked — must never block a turn that has nothing to do with it.
             1. The last assistant message ends with a `FLOW:` status line whose state is `DONE`, `GATE`, or `BLOCKED`. All three are terminal for a hands-off run; only `CONTINUE` means keep going.
-            2. Eight or more assistant turns have elapsed since the most recent `FLOW-HANDSOFF: RUN START` marker.
+            2. Seven or more assistant turns have elapsed since the most recent `FLOW-HANDSOFF: RUN START` marker. Seven, not eight: the marker turn is itself the first block, so releasing at eight would land one turn after the host's own cap had already cut the turn.
             3. The **most recent user message** asks to stop, pause, abort, or interrupt, or answers a gate question. Judge that message alone, never the earlier transcript — the user's intent always wins and must not latch from a previous turn.
             4. The last two consecutive assistant turns produced no `FLOW:` status line and made no tool progress. The driver is broken, and trapping the session helps nobody.
 
@@ -28,7 +28,7 @@ Read `{devflow_root}/references/autonomy.md` before the first step — the statu
 **Claude Code only.** Session `Stop` hooks are a Claude mechanism and ARCHITECTURE.md permits exactly this one (skill-scoped, `type: prompt`). On Codex there is no equivalent: do not start a run, print the manual form (`$flow-next`, re-invoked per step) and stop with `FLOW: GATE | hands-off runs need Claude Code | next: $flow-next, one step at a time`. Say which host the user is on rather than failing quietly — a user who believes a run is driving itself when it is not will come back to an untouched project.
 
 ## The real limit is the host's, not this skill's
-Claude Code force-ends a turn after **8 consecutive `Stop`-hook blocks** (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`, default 8). That is the true ceiling on a single run: **at most 8 `/flow-next` steps**, after which the host ends the turn even though the run may still be reporting `CONTINUE`. The hook's own cap is set to 8 to match, so the run reports its own stop instead of being cut off mid-step by a host warning.
+Claude Code force-ends a turn after **8 consecutive `Stop`-hook blocks** (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`, default 8). That is the true ceiling on a single run: **at most 7 `/flow-next` steps**, after which the host would end the turn even though the run may still be reporting `CONTINUE`. The hook releases at seven so the run reports its own stop one turn *before* the host's cap, rather than being cut off mid-step by a warning the user has no branch to interpret. Setting the hook's cap equal to the host's would land exactly one turn too late.
 
 Tell the user this number when the run starts. A skill that promises to drive to completion and quietly stops at 8 leaves them with a half-driven project and no reason to look. Re-running `/flow-handsoff` starts a fresh run from wherever the last one reached; the project's own `## Run` rails in `STATE.md` (`autonomy.max_iterations`, default 40) still bound the total across runs, and those are the caps to tune — this skill never edits them.
 
@@ -45,6 +45,7 @@ Invoke `flow-next` for exactly one step, let it emit its status line, and end th
 State plainly which condition ended the run and what the human should do:
 - `DONE` — the roadmap is verified (or released). Nothing is pending.
 - `GATE` — surface the `## Gate` block's `asked` and `options` verbatim. Never pick one. Answering it does not resume the run; `/flow-handsoff` again starts the next one.
+- **User stopped it** — print `FLOW-HANDSOFF: RUN END` and `FLOW: GATE | run stopped by the user at {position} | next: /flow-handsoff to resume, or /flow-status`. Emit these on the turn the stop is honoured, not later: the marker is what tells the hook the run is over, and without it the next unrelated message drags the session back into a run the user revoked.
 - `BLOCKED` — say what stopped moving and point at `/flow-debug`.
 - **Step cap (8) reached** — the run is not finished and nothing is wrong. Say which step it reached and that `/flow-handsoff` resumes from there.
 - **Host cut the turn** — if the turn ends with the host's stop-hook warning rather than one of the above, the run exceeded the block cap. Report it as a cap stop, not as a completed run.
