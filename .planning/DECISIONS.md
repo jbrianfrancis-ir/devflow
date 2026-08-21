@@ -32,3 +32,9 @@ user.email — never a guess at who was at the keyboard. -->
 - **answered**: Approved — "create the PR to merge sc-04". No changes requested to scope or content.
 - **by**: jbrianfrancis-ir <brianf@informativeresearch.com>
 - **at**: 0eb2cd8 · PR for flow/sc-04-signoff
+
+## 2026-08-21 · architecture-reversal
+- **asked**: `ARCHITECTURE.md` defines a skill as `SKILL.md` with (`name`, `description`) frontmatter and is silent on hooks. `/flow-handsoff` needs a session `Stop` hook declared there, which reverses DevFlow's standing "ships no hooks" property — the same property `migrate-gsd.md` cites when telling migrators to strip project-level hooks. Permit skill-declared hooks, forbid them, or leave the question open?
+- **answered**: Permit, with constraints. Amended `ARCHITECTURE.md` → Architecture & patterns to allow `hooks` in skill frontmatter under four limits (skill-scoped, `type: prompt` only, degrades where unsupported, structurally validated), recorded as `D-20`. The no-Node-runtime half of the old claim stands; only the hook half is reversed, and the prose asserting it in `migrate-gsd.md` and `docs/execution-model.md` was corrected in the same commit.
+- **by**: jbrianfrancis-ir <brianf@informativeresearch.com>
+- **at**: b523140 · /flow-pr review round 1, architecture lens

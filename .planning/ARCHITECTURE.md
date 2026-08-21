@@ -87,6 +87,7 @@ No third-party packages. No `requirements.txt`, no `pyproject.toml`.
 
 ## Architecture & patterns
 - One skill per dir: `plugins/devflow/skills/<name>/SKILL.md` with frontmatter (`name`, `description`).
+- A skill **may** declare `hooks` in that frontmatter, under all four constraints: **skill-scoped** (never a user- or project-level hook registration), **`type: prompt` only** (no `command` hooks — DevFlow ships no executable hook scripts and no runtime to run them), **degrades on hosts without hook support** rather than failing or pretending to work, and **structurally validated by `scripts/validate-plugin.py`**. A hook that blocks a turn must also carry a release condition the user's own words can satisfy. See `D-20`.
 - One agent per file: `plugins/devflow/agents/flow-<role>.md`, frontmatter declares `model`.
 - Shared prose contracts in `references/*.md`; artifact shapes in `templates/*.md`.
 - Public prose (`README.md`, `docs/*.md`) must render on github.com with no build step.

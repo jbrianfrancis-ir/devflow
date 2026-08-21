@@ -30,6 +30,19 @@ def load_json(rel):
 
 
 def frontmatter(path):
+    block = frontmatter_block(path)
+    if block is None:
+        return None
+    values = {}
+    for line in block:
+        if line and not line.startswith((" ", "\t", "#")) and ":" in line:
+            key, _, value = line.partition(":")
+            values[key.strip()] = value.strip()
+    return values
+
+
+def frontmatter_block(path):
+    """The raw frontmatter lines, indentation intact."""
     with open(path, encoding="utf-8") as stream:
         text = stream.read()
     if not text.startswith("---"):
@@ -37,12 +50,50 @@ def frontmatter(path):
     end = text.find("\n---", 3)
     if end == -1:
         return None
-    values = {}
-    for line in text[3:end].strip("\n").splitlines():
-        if line and not line.startswith((" ", "\t", "#")) and ":" in line:
-            key, _, value = line.partition(":")
-            values[key.strip()] = value.strip()
-    return values
+    return text[3:end].strip("\n").splitlines()
+
+
+# ARCHITECTURE.md D-20 permits skills to declare hooks under four constraints; two of
+# them ("type: prompt only", "structurally validated") are enforced here. The flat
+# frontmatter() parser drops every indented line, so a malformed hooks: block was
+# invisible to the whole check surface — a renamed event key or a de-indented entry
+# validated clean while the hook silently never fired.
+HOOK_EVENTS = {"Stop", "SessionStart", "PreToolUse", "PostToolUse",
+               "SubagentStop", "PreCompact", "UserPromptSubmit"}
+
+
+def check_hooks(path, rel):
+    block = frontmatter_block(path)
+    if block is None or not any(l.rstrip() == "hooks:" for l in block):
+        return
+    body, seen = [], False
+    for line in block:
+        if line.rstrip() == "hooks:":
+            seen = True
+            continue
+        if seen:
+            if line and not line.startswith((" ", "\t")):
+                break
+            body.append(line)
+    if not any(l.strip() for l in body):
+        err(f"{rel}: hooks: declared but empty")
+        return
+    events = [l.strip().rstrip(":") for l in body
+              if l.strip().endswith(":") and len(l) - len(l.lstrip()) <= 2 and l.strip() != "hooks:"]
+    if not events:
+        err(f"{rel}: hooks: has no event key")
+    for event in events:
+        if event not in HOOK_EVENTS:
+            err(f"{rel}: hooks: unknown event '{event}'")
+    types = [l.split("type:", 1)[1].strip() for l in body
+             if l.strip().startswith(("type:", "- type:"))]
+    if not types:
+        err(f"{rel}: hooks: declares no hook entry with a type")
+    for kind in types:
+        if kind != "prompt":
+            err(f"{rel}: hooks: type '{kind}' — D-20 permits type: prompt only")
+    if not any(l.strip().startswith(("prompt:", "- prompt:")) for l in body):
+        err(f"{rel}: hooks: prompt-type hook with no prompt")
 
 
 claude = load_json("plugins/devflow/.claude-plugin/plugin.json")
@@ -90,6 +141,7 @@ for path in skills:
     rel = os.path.relpath(path, ROOT)
     if not fm or fm.get("name") != name or not fm.get("description"):
         err(f"{rel}: invalid name/description frontmatter")
+    check_hooks(path, rel)
 MODELS = {"opus", "sonnet", "haiku", "inherit"}
 for path in agents:
     name = os.path.splitext(os.path.basename(path))[0]
