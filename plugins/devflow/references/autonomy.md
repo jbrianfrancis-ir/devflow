@@ -1,6 +1,6 @@
 # Autonomy protocol
 
-How Flow composes with Claude Code's `/goal` and `/loop`. Skills cannot start loops or set goals — they emit transcript-verifiable status and behave predictably when driven.
+How Flow composes with Claude Code's `/goal` and `/loop`. Skills cannot start a `/loop`, and cannot invoke `/goal` — it is a built-in CLI command, not something a skill can call. What a skill *can* do is register the same session-scoped `Stop` hook `/goal` registers, which is how `/flow-handsoff` starts a hands-off run in one command; everything else here emits transcript-verifiable status and behaves predictably when driven.
 
 The status line and `.planning/` file formats are a **public interface**, not an internal detail: outside sessions (a foreman session, a dashboard, a cron job, a context repo) observe and drive DevFlow through them rather than by reading terminal output. Full surface — file formats, the `flow-fleet.py --json` schema, exit codes, and what not to build against — in `docs/status-contract.md`.
 
@@ -71,7 +71,8 @@ Tunable per project in `.planning/config.json` — defaults bind before a wasted
 Rails belong to `/flow-next`. A human running `/flow-plan` or `/flow-execute` by hand is the rail.
 
 ## Suggested invocations (what skills print, users run)
-- Drive to completion: `/goal FLOW says DONE or GATE, or stop after 40 turns` then `/flow-next`
+- Drive to completion: `/flow-handsoff` (one command — registers the stop condition and starts driving)
+- Same thing by hand: `/goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns` then `/flow-next`. **`BLOCKED` belongs in the condition**: it is as terminal as the other two, and a condition listing only DONE and GATE leaves a blocked run being retried by an evaluator waiting for a state it will never reach.
 - Background cadence: `/loop /flow-next`
 - Drive a PR to green: `/loop /flow-ci`
 - Board every project (any session, no `.planning/` needed): `/flow-status --all`
