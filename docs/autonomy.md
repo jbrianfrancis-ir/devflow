@@ -7,7 +7,7 @@ can verify from the transcript, and which `/loop` and `/flow-status --all` read 
 is specified in [`autonomy.md`](../plugins/devflow/references/autonomy.md).
 
 ## Recipes
-- **Drive to completion** (primary): `/flow-handsoff` — one command; registers the stop condition and drives. By hand, or with a different bound: `/goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns` then `/flow-next`. Claude keeps advancing phase by phase, turn after turn, stopping when done or when a human is needed.
+- **Drive to completion** (primary): `/goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns` then `/flow-next`. Claude keeps advancing phase by phase, turn after turn, stopping when done or when a human is needed.
 - **Background cadence**: `/loop /flow-next` — one step per iteration, self-paced; the loop stops itself on GATE/BLOCKED/DONE.
 - **Drive a PR to green**: `/loop /flow-ci` — checks watched, failures fixed, bot threads answered; stops when it's green or a human is needed.
 - **Sweep the fleet**: `/flow-status --all` in any session (no `.planning/` required) — every project, attention first.

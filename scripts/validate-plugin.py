@@ -30,19 +30,6 @@ def load_json(rel):
 
 
 def frontmatter(path):
-    block = frontmatter_block(path)
-    if block is None:
-        return None
-    values = {}
-    for line in block:
-        if line and not line.startswith((" ", "\t", "#")) and ":" in line:
-            key, _, value = line.partition(":")
-            values[key.strip()] = value.strip()
-    return values
-
-
-def frontmatter_block(path):
-    """The raw frontmatter lines, indentation intact."""
     with open(path, encoding="utf-8") as stream:
         text = stream.read()
     if not text.startswith("---"):
@@ -50,104 +37,12 @@ def frontmatter_block(path):
     end = text.find("\n---", 3)
     if end == -1:
         return None
-    return text[3:end].strip("\n").splitlines()
-
-
-# ARCHITECTURE.md D-21 permits skills to declare hooks under four constraints; two of
-# them ("type: prompt only", "structurally validated") are enforced here.
-#
-# This parses the block's *shape*, not just its lines. The first version grepped flat
-# lines and three mutations walked straight past it: dropping a list dash (Stop becomes
-# a mapping, so the hook cannot register), an inline flow-style value carrying
-# type: command, and deleting the block outright. A guard that only catches the
-# mutations its author imagined is not a guard. PyYAML is unavailable by design
-# (ARCHITECTURE: no third-party packages), so the accepted shape is deliberately narrow
-# and anything it cannot prove correct is an error rather than a pass.
-HOOK_EVENTS = {"Stop", "SessionStart", "PreToolUse", "PostToolUse",
-               "SubagentStop", "PreCompact", "UserPromptSubmit"}
-
-
-def _indent(line):
-    return len(line) - len(line.lstrip())
-
-
-def check_hooks(path, rel):
-    block = frontmatter_block(path)
-    if block is None:
-        return
-    header = next((l for l in block
-                   if not l.startswith((" ", "\t")) and l.split(":", 1)[0].strip() == "hooks"), None)
-    if header is None:
-        return
-    if header.split(":", 1)[1].strip():
-        err(f"{rel}: hooks: must be a block mapping — inline/flow style is not accepted")
-        return
-
-    body, seen = [], False
-    for line in block:
-        if line is header:
-            seen = True
-            continue
-        if seen:
-            if line.strip() and not line.startswith((" ", "\t")):
-                break
-            body.append(line)
-    if any("\t" in l for l in body):
-        err(f"{rel}: hooks: contains a tab — YAML forbids tab indentation")
-        return
-    body = [l for l in body if l.strip()]
-    if not body:
-        err(f"{rel}: hooks: declared but empty")
-        return
-
-    # Strip block-scalar payloads (prompt: |) so prose is never read as structure.
-    structural, skip_deeper = [], None
-    for line in body:
-        if skip_deeper is not None and _indent(line) > skip_deeper:
-            continue
-        skip_deeper = None
-        structural.append(line)
-        if re.match(r"^\s*-?\s*prompt:\s*[|>]", line):
-            skip_deeper = _indent(line)
-
-    event_indent = _indent(structural[0])
-    events, current = {}, None
-    for line in structural:
-        stripped = line.strip()
-        if _indent(line) == event_indent:
-            if not stripped.endswith(":"):
-                err(f"{rel}: hooks: expected an event key, found {stripped!r}")
-                return
-            current = stripped[:-1]
-            events[current] = []
-        elif current is not None:
-            events[current].append(line)
-
-    if not events:
-        err(f"{rel}: hooks: has no event key")
-    for event, lines in events.items():
-        if event not in HOOK_EVENTS:
-            err(f"{rel}: hooks: unknown event '{event}'")
-        groups = [l for l in lines if l.strip().startswith("- hooks:")]
-        if not groups:
-            err(f"{rel}: hooks: event '{event}' declares no '- hooks:' matcher group")
-            continue
-        entries = [l for l in lines if re.match(r"^\s*-\s*type:", l)]
-        if not entries:
-            err(f"{rel}: hooks: event '{event}' declares no '- type:' entry")
-        for line in entries:
-            kind = line.split("type:", 1)[1].strip()
-            if kind != "prompt":
-                err(f"{rel}: hooks: event '{event}' type '{kind}' — D-21 permits type: prompt only")
-        prompts = [l for l in lines if re.match(r"^\s*-?\s*prompt:", l)]
-        if len(prompts) != len(entries):
-            err(f"{rel}: hooks: event '{event}' has {len(entries)} entries but {len(prompts)} prompts")
-        for line in prompts:
-            if not line.split("prompt:", 1)[1].strip():
-                err(f"{rel}: hooks: event '{event}' has an empty prompt")
-        for line in lines:
-            if re.match(r"^\s*-?\s*command:", line):
-                err(f"{rel}: hooks: event '{event}' declares a command — D-21 forbids executable hooks")
+    values = {}
+    for line in text[3:end].strip("\n").splitlines():
+        if line and not line.startswith((" ", "\t", "#")) and ":" in line:
+            key, _, value = line.partition(":")
+            values[key.strip()] = value.strip()
+    return values
 
 
 claude = load_json("plugins/devflow/.claude-plugin/plugin.json")
@@ -185,8 +80,8 @@ if codex_market:
 
 skills = sorted(glob.glob(os.path.join(PLUGIN, "skills", "*", "SKILL.md")))
 agents = sorted(glob.glob(os.path.join(PLUGIN, "agents", "*.md")))
-if len(skills) != 21:
-    err(f"expected 21 skills, found {len(skills)}")
+if len(skills) != 20:
+    err(f"expected 20 skills, found {len(skills)}")
 if len(agents) != 11:
     err(f"expected 11 Claude role agents, found {len(agents)}")
 for path in skills:
@@ -195,7 +90,6 @@ for path in skills:
     rel = os.path.relpath(path, ROOT)
     if not fm or fm.get("name") != name or not fm.get("description"):
         err(f"{rel}: invalid name/description frontmatter")
-    check_hooks(path, rel)
 MODELS = {"opus", "sonnet", "haiku", "inherit"}
 for path in agents:
     name = os.path.splitext(os.path.basename(path))[0]

@@ -2,5 +2,6 @@
 - 002 | 2026-08-20 | route deploy-N/A projects to DONE instead of looping on /flow-harden | 277e29f
 - 003 | 2026-08-20 | reconstruct phase 03/04 verification records; correct a drifted size numeral | 530a540
 - 004 | 2026-08-21 | enforce the no-GSD rule after /flow-migrate via a skillOverrides block | 5e3b675
-- 005 | 2026-08-21 | add /flow-handsoff for one-command hands-off runs | e7160f7
-- 006 | 2026-08-21 | close /flow-pr review: JSON-injection guard, flow-harden DONE ordering, D-21 | d14693a..78c6235
+- 005 | 2026-08-21 | add /flow-handsoff for one-command hands-off runs | e7160f7 (REVERTED — see 007)
+- 006 | 2026-08-21 | close /flow-pr review: JSON-injection guard, flow-harden DONE ordering | d14693a..78c6235
+- 007 | 2026-08-22 | revert /flow-handsoff after 4 review rounds failed to converge; settings check made advisory | (this commit)

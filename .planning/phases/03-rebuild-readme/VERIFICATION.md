@@ -10,7 +10,6 @@ status: pass
 smoke: pass
 gaps:
   - "CLOSED IN THIS COMMIT — docs/execution-model.md said `~220KB` of prompt content; re-measured 2026-08-20 as 234438 B = 228 KiB, floor-5 **225**. Corrected to `~225KB`. Listed rather than silently fixed: verification found it, and a gaps list that only ever reads `[]` is not a record."
-  - "SUPERSEDED 2026-08-21 by the /flow-handsoff branch — two byte-identity truths below no longer hold and are not repairable by re-running. (a) L3s3: the reconstruction pinned the literal `20 shared Agent Skills` while substituting the agent count and size dynamically, so a 21st skill turns it red for a numeral that is now *correct*. Corrected command adds the same treatment for the skill count — `sed \"s/20 shared/$sk shared/; s/9 subagents/$n subagents/; s/~165KB/~${kb}KB/\"` where `sk=$(ls -d plugins/devflow/skills/*/ | wc -l)`; re-run against docs/execution-model.md at this commit it prints nothing (GREEN), reconstructing `21 shared Agent Skills and 11 subagents across ~240KB`. (b) L5s1+L5s2: the pinned sentence opens `No Node runtime and no hooks.`, which D-21 deliberately reversed — that truth is superseded by a recorded decision, not drifted, and byte-identity against the phase-start blob can never hold again. (c) 03-04's command-table truth pinned `20 data rows` and byte-identity against the same blob; the `/flow-handsoff` row makes it 21 and the tables differ by exactly that line. All three are recorded rather than quietly re-pinned: a truth edited to match the code it grades stops being a check."
 unverified: []
 ---
 
@@ -18,7 +17,7 @@ unverified: []
 Retroactive. Not an independent fresh-context check when it ran (923cae8 states this plainly), and not one now either — same caveat, stated rather than hidden. What makes it evidence is that every truth in this phase is a *command*: the commands are re-run here and their output recorded, so the record does not rest on anyone's report.
 
 ## Smoke
-`python3 scripts/validate-plugin.py && python3 -m unittest discover -s tests && python3 scripts/check-links.py` → **exit 0**. `Plugin OK: 20 shared skills, 11 Claude agents, both hosts valid.`; `OK (skipped=2)` over 101 tests; `0 failures, 197 references checked`. *(As run on 2026-08-20. At 2026-08-21 the same command prints `21 shared skills` and 109 tests — see the supersession entry in `gaps`; the recorded output is what this pass actually saw, not what a re-run prints today.)*
+`python3 scripts/validate-plugin.py && python3 -m unittest discover -s tests && python3 scripts/check-links.py` → **exit 0**. `Plugin OK: 20 shared skills, 11 Claude agents, both hosts valid.`; `OK (skipped=2)` over 101 tests; `0 failures, 197 references checked`.
 
 ## Truths — 03-01 (fence guard)
 | must_have truth | result | evidence |
@@ -49,14 +48,14 @@ Retroactive. Not an independent fresh-context check when it ran (923cae8 states 
 | opening is one paragraph, 346 bytes with newline | VERIFIED | `awk` extraction → `1 line, 346 bytes`. Exact, so nothing was added or reworded. |
 | each of 3 chunks: 0 in README, exactly one docs page | VERIFIED | `nothing loads it all` → README 0, `docs/execution-model.md`; `azd on Azure` → README 0, `docs/execution-model.md`; `rather than replacing it` → README 0, `docs/providers.md`. |
 | D-14 holds at **every** commit of the plan | VERIFIED | 3 commits carry `DevFlow-Plan: 03-03`; the per-SHA loop printed no `D-14 VIOLATION`. Non-vacuous: the `shas` guard was checked and found non-empty. |
-| moved sentences byte-identical; numerals match the repo | **SUPERSEDED 2026-08-21** (was VERIFIED — one numeral had drifted, corrected in that pass) | `ls plugins/devflow/agents/*.md \| wc -l` → **11**, matches "11 subagents". The size numeral did **not**: measured 234438 B = 228 KiB → floor-5 **225**, against `~220KB` on the page. Corrected to `~225KB` in this commit. The sentence is otherwise byte-identical. |
+| moved sentences byte-identical; numerals match the repo | VERIFIED (one numeral had drifted — corrected here) | `ls plugins/devflow/agents/*.md \| wc -l` → **11**, matches "11 subagents". The size numeral did **not**: measured 234438 B = 228 KiB → floor-5 **225**, against `~220KB` on the page. Corrected to `~225KB` in this commit. The sentence is otherwise byte-identical. |
 
 ## Truths — 03-04 (README shape)
 | must_have truth | result | evidence |
 |---|---|---|
 | exactly six `##` sections, in order | VERIFIED | `Install, Quick start, Commands, Configuration, Documentation, License and acknowledgements`; `grep -c '^## '` → 6. |
 | SC-01: <= 110 lines, <= 14000 bytes | VERIFIED | **101** lines, **5957** bytes — both well inside. |
-| command table byte-identical, 20 data rows | **SUPERSEDED 2026-08-21** (was VERIFIED) | `diff` against `5ffe726:README.md`'s table printed nothing at the time; row count **20**. The `/flow-handsoff` row added on this branch makes it 21, so neither the byte-identity nor the row count holds at HEAD — see the supersession entry in `gaps`. |
+| command table byte-identical, 20 data rows | VERIFIED | `diff` against `5ffe726:README.md`'s table printed nothing; row count **20**. |
 | Quick start names flow-new → flow-plan 1 → flow-execute 1 in order, all in the table | VERIFIED | first mentions in that order; all five commands named in the section (`flow-new`, `flow-plan`, `flow-execute`, `flow-status`, `flow-pr`) each appear in the 20-row table. |
 | ASCII diagram survived byte-identically **with its fence**, inside Quick start | VERIFIED | blob `38b2bc0` lines 52–55 all found via `grep -qxF`; blob reachable (guard checked); anchor at README:32, and lines 31/34 are the ``` fence pair. |
 

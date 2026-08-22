@@ -38,15 +38,7 @@ What happens inside a phase — the wave graph, the smoke gate, state files: [do
 ### Running it hands-off
 
 Steps 2–4 are the loop, and you don't have to type each one. Every skill ends in a
-machine-checkable `FLOW:` line, so the loop can drive itself and stop on its own:
-
-```
-/flow-handsoff
-```
-
-That registers the stop condition and starts driving. It runs up to 8 steps — Claude Code
-force-ends a turn after 8 consecutive stop-hook blocks — then reports where it got to, so
-re-run it to continue. To assemble the same thing by hand, or to use a different bound:
+machine-checkable `FLOW:` line, so Claude Code's `/goal` can drive the loop and stop on its own:
 
 ```
 /goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns
@@ -73,7 +65,6 @@ the complete gate list: [docs/autonomy.md](docs/autonomy.md).
 | core | `/flow-execute N` | Run plans in parallel waves via executor subagents, then verify |
 | core | `/flow-verify N` | Re-verify a phase; walk through batched human checks |
 | auto | `/flow-next` | Advance exactly one step — the driver for `/goal` and `/loop` |
-| auto | `/flow-handsoff` | Hands-off run: drives `/flow-next` to a terminal state (Claude Code only) |
 | ad-hoc | `/flow-quick <task>` | Small task with Flow guarantees, no ceremony |
 | ad-hoc | `/flow-debug <symptom>` | Hypothesis-driven debugging with session-resumable state |
 | ad-hoc | `/flow-oracle <question>` | Second opinion from an external model — curated context bundle, `--panel` cross-check, resumable consults |
