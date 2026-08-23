@@ -4,7 +4,7 @@
 ## Position
 Phase: 4 of 4 (complete) | Plans: 4/4 | Status: verified
 Last: 2026-08-22 — quick 004–007; /flow-pr review over 4 rounds, /flow-handsoff reverted
-Next: /flow-pr — push and open the PR for flow/deploy-na-routing (7 commits)
+Next: /flow-ci — drive PR #28 to green
 
 ## Gate
 none
@@ -25,5 +25,5 @@ Signature: rule7:phase04:plans4/4:verifverified — superseded by D-06, terminal
 - none
 
 ## Session
-Stopped: mid-/flow-pr on flow/deploy-na-routing — review closed, /flow-handsoff reverted, PR not yet opened
-Resume: /flow-pr to open it. /flow-handsoff is deferred to its own branch — see DECISIONS 2026-08-22 for why
+Stopped: PR #28 opened (github.com/jbrianfrancis-ir/devflow/pull/28) — 15 commits, checks running
+Resume: /flow-ci for PR #28. /flow-handsoff is deferred to its own branch — see DECISIONS 2026-08-22 for why
