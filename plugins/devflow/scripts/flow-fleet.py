@@ -246,29 +246,57 @@ def plugin_versions():
     try:
         with open(INSTALLED_PLUGINS, encoding="utf-8") as fh:
             installed = json.load(fh)
+    except FileNotFoundError:
+        # No registry file is "nothing is registered here", not "the check
+        # failed" — flagging every project for it would make a whole fleet need
+        # a human over an inapplicable question.
+        out["state"] = "absent"
+        return out
     except (OSError, ValueError):
         out["state"] = "unreadable"
         return out
 
+    # A wrong top-level shape is a registry we cannot read, NOT an empty one.
+    # Skipping past it into an empty result would report "nothing registered,
+    # all clean" for a file we failed to understand — the fail-open this guard
+    # exists to prevent. Unknown *entry* shapes are tolerated below, because the
+    # file carries a schema version and may legitimately grow fields.
+    if not isinstance(installed, dict) or not isinstance(installed.get("plugins"), dict):
+        out["state"] = "unreadable"
+        return out
+
     known = []
-    for name, entries in (installed.get("plugins") or {}).items():
-        if not name.startswith("devflow@"):
-            continue
-        for entry in entries if isinstance(entries, list) else []:
-            version = entry.get("version")
-            if semver(version):
-                known.append(semver(version))
-            if entry.get("scope") == "project" and entry.get("projectPath"):
-                out["by_path"][os.path.realpath(entry["projectPath"])] = version
-            elif entry.get("scope") == "user":
-                out["user"] = version
+    try:
+        for name, entries in installed["plugins"].items():
+            if not str(name).startswith("devflow@"):
+                continue
+            for entry in entries if isinstance(entries, list) else []:
+                if not isinstance(entry, dict):
+                    continue
+                parsed = semver(entry.get("version"))
+                if parsed:
+                    known.append(parsed)
+                if entry.get("scope") == "project" and entry.get("projectPath"):
+                    # Only a parseable pin is recorded; storing an unparseable
+                    # one raw makes it render as though it were a version.
+                    out["by_path"][os.path.realpath(str(entry["projectPath"]))] = (
+                        entry.get("version") if parsed else None)
+                elif entry.get("scope") == "user" and parsed:
+                    out["user"] = entry.get("version")
+    except (AttributeError, TypeError):
+        out["state"] = "unreadable"
+        return out
 
     try:
         with open(MARKETPLACE_MANIFEST, encoding="utf-8") as fh:
-            for plugin in json.load(fh).get("plugins") or []:
-                if plugin.get("name") == "devflow" and semver(plugin.get("version")):
-                    known.append(semver(plugin["version"]))
-    except (OSError, ValueError):
+            manifest = json.load(fh)
+        entries = manifest.get("plugins") if isinstance(manifest, dict) else None
+        for plugin in entries if isinstance(entries, list) else []:
+            if isinstance(plugin, dict) and plugin.get("name") == "devflow":
+                parsed = semver(plugin.get("version"))
+                if parsed:
+                    known.append(parsed)
+    except (OSError, ValueError, AttributeError, TypeError):
         pass  # the cache is optional; the pinned versions still tell us plenty
 
     if known:
@@ -287,15 +315,17 @@ def plugin_versions():
         try:
             age = (datetime.date.today()
                    - datetime.date.fromtimestamp(os.path.getmtime(fetch_head))).days
-            out["cache_age_days"] = max(age, 0)
-        except OSError:
-            # Present but never fetched, or unreadable: not a fresh cache.
+            # A negative age (clock moved, restored or rsynced tree) is not a
+            # fresh cache — it is an unusable fetch record. Clamping it to 0
+            # would report the least trustworthy reading as the freshest.
+            out["cache_age_days"] = age if age >= 0 else None
+        except (OSError, ValueError, OverflowError):
+            # Present but never fetched, or an unusable timestamp.
             out["cache_age_days"] = None
     return out
 
 
-def scan(path, today, stale_days, versions=None):
-    versions = versions if versions is not None else {"by_path": {}, "latest": None, "state": "absent"}
+def scan(path, today, stale_days, versions):
     state = read_capped(os.path.join(path, ".planning", "STATE.md"), 4096)
     journal = read_capped(os.path.join(path, ".planning", "JOURNAL.md"), 4096)
     roadmap = read_capped(os.path.join(path, "ROADMAP.md")) or \
@@ -399,11 +429,21 @@ def scan(path, today, stale_days, versions=None):
     if "devflow@devflow" not in decl:
         p["flags"].append("NO-DECL")
 
-    p["devflow_version"] = versions["by_path"].get(os.path.realpath(path))
+    real = os.path.realpath(path)
+    p["devflow_version"] = versions["by_path"].get(real)
     if versions["state"] == "unreadable":
         p["flags"].append("VER-UNKNOWN")
-    elif p["devflow_version"] and versions["latest"]:
-        if semver(p["devflow_version"]) < semver(versions["latest"]):
+    elif real in versions["by_path"] and not semver(p["devflow_version"]):
+        # Registered here, but the pin does not parse — unknown, never clean.
+        # Checked at the point of use rather than trusting the reader upstream:
+        # a caller can hand us any mapping, and "unknown" must not depend on
+        # which producer built it.
+        p["flags"].append("VER-UNKNOWN")
+    else:
+        pin, best = semver(p["devflow_version"]), semver(versions.get("latest"))
+        # Compare parsed values, never the strings: a pin that does not parse
+        # made this `None < tuple` and took the whole board down with it.
+        if pin and best and pin < best:
             p["flags"].append("OLD-PLUGIN")
 
     p["needs_human"] = bool(
@@ -524,16 +564,26 @@ def render(projects, stale_days, versions=None):
                            "apart and none update on their own."
                            % (len(behind), versions["latest"],
                               ", ".join(p["repo"] for p in behind)))
+
+        # Deliberately NOT nested under `if pinned:`. A machine with no
+        # project-scope pins still has a marketplace cache, and a cache that has
+        # gone stale is the half of this that hides a published release — the
+        # exact case this feature exists for. Reporting it only when some other
+        # condition happens to hold would silence it precisely when nothing else
+        # is speaking.
+        if versions.get("latest"):
             age = versions.get("cache_age_days")
             commit = versions.get("cache_commit") or "unknown"
+            if not pinned:
+                out.append("")
             known = "  Newest build this machine knows of: %s (marketplace cache at %s" % (
                 versions["latest"], commit)
             if age is None:
-                out.append(known + ", never refreshed).")
-                out.append("    That cache is the only local record of what has been published, and "
-                           "it has no fetch on record — so %s is the newest build seen here, not the "
-                           "newest that exists. Run `claude plugin marketplace update devflow`."
-                           % versions["latest"])
+                out.append(known + ", no usable fetch record).")
+                out.append("    That cache is the only local record of what has been published, "
+                           "and it has no fetch on record — so %s is the newest build seen here, "
+                           "not the newest that exists. Run `claude plugin marketplace update "
+                           "devflow`." % versions["latest"])
             elif age >= stale_days:
                 out.append(known + ", refreshed %dd ago)." % age)
                 out.append("    A release published since then is invisible here, which is how a "
