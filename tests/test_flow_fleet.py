@@ -237,5 +237,83 @@ class ScanTests(unittest.TestCase):
         self.assertEqual(code, 0, buf.getvalue())
 
 
+
+
+class PluginVersionTests(unittest.TestCase):
+    """Version staleness, and the three outcomes it must not collapse.
+
+    Every DevFlow repo carries the self-bootstrap block, so each gets its own
+    pinned install and they drift apart with nothing reconciling them. The
+    scanner reports that drift; these pin the reporting, and in particular that
+    "no Claude plugin system here" (absent) is never confused with "the registry
+    would not parse" (unreadable) — the first is not applicable, the second is a
+    check that did not run.
+    """
+
+    def scan_with(self, versions, project_version=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "proj"
+            (path / ".planning").mkdir(parents=True)
+            (path / ".planning" / "STATE.md").write_text(
+                "# State\n\n## Position\nPhase: 1 of 2 | Plans: 1/1 | Status: verified\n"
+                "Next: /flow-plan 2\nLast: %s — ok\n\n## Gate\nnone\n\n## Blockers\n- none\n" % TODAY,
+                encoding="utf-8")
+            (path / ".planning" / "JOURNAL.md").write_text(
+                "# Journal\n- %s | /flow-plan 1 | done | CONTINUE\n" % TODAY, encoding="utf-8")
+            if project_version:
+                versions = dict(versions)
+                versions["by_path"] = {str(Path(path).resolve()): project_version}
+            return MODULE.scan(str(path), datetime.date.today(), 3, versions)
+
+    def test_behind_the_newest_known_is_flagged(self):
+        p = self.scan_with({"by_path": {}, "user": "0.15.0", "latest": "0.15.0", "state": "ok"},
+                           project_version="0.12.0")
+        self.assertIn("OLD-PLUGIN", p["flags"])
+        self.assertEqual(p["devflow_version"], "0.12.0")
+
+    def test_current_version_is_not_flagged(self):
+        p = self.scan_with({"by_path": {}, "user": "0.15.0", "latest": "0.15.0", "state": "ok"},
+                           project_version="0.15.0")
+        self.assertNotIn("OLD-PLUGIN", p["flags"])
+
+    def test_absent_plugin_system_is_not_a_failure(self):
+        # A Codex host or a container has no ~/.claude/plugins. That is "not
+        # applicable" — flagging it would make every project on such a machine
+        # need a human for a check that does not apply there.
+        p = self.scan_with({"by_path": {}, "user": None, "latest": None, "state": "absent"})
+        self.assertNotIn("VER-UNKNOWN", p["flags"])
+        self.assertNotIn("OLD-PLUGIN", p["flags"])
+        self.assertIsNone(p["devflow_version"])
+
+    def test_unreadable_registry_is_never_clean(self):
+        # It exists but would not parse: a check that did not run, so it must
+        # flag and count in needs_human (conventions.md → Fail-closed guards).
+        p = self.scan_with({"by_path": {}, "user": None, "latest": None, "state": "unreadable"})
+        self.assertIn("VER-UNKNOWN", p["flags"])
+        self.assertTrue(p["needs_human"])
+
+    def test_unknown_latest_cannot_flag_anything_stale(self):
+        p = self.scan_with({"by_path": {}, "user": None, "latest": None, "state": "ok"},
+                           project_version="0.12.0")
+        self.assertNotIn("OLD-PLUGIN", p["flags"])
+
+    def test_semver_rejects_non_versions(self):
+        self.assertEqual(MODULE.semver("1.2.3"), (1, 2, 3))
+        for bad in ("1.2", "1.2.3.4", "v1.2.3", "1.2.x", None, "", "main"):
+            self.assertIsNone(MODULE.semver(bad), bad)
+
+    def test_semver_orders_numerically_not_lexically(self):
+        # "0.9.0" > "0.10.0" as strings; the whole check depends on it not being.
+        self.assertLess(MODULE.semver("0.9.0"), MODULE.semver("0.10.0"))
+
+    def test_plugin_versions_reports_absent_when_no_plugin_root(self):
+        original = MODULE.PLUGIN_ROOT
+        try:
+            MODULE.PLUGIN_ROOT = "/nonexistent-plugin-root-for-test"
+            self.assertEqual(MODULE.plugin_versions()["state"], "absent")
+        finally:
+            MODULE.PLUGIN_ROOT = original
+
+
 if __name__ == "__main__":
     unittest.main()

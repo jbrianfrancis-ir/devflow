@@ -38,6 +38,10 @@ PRUNE = {
 }
 FLOW_STATES = ("CONTINUE", "GATE", "BLOCKED", "DONE")
 ATTENTION = ("GATE", "BLOCKED")
+PLUGIN_ROOT = os.path.expanduser("~/.claude/plugins")
+INSTALLED_PLUGINS = os.path.join(PLUGIN_ROOT, "installed_plugins.json")
+MARKETPLACE_MANIFEST = os.path.join(
+    PLUGIN_ROOT, "marketplaces", "devflow", ".claude-plugin", "marketplace.json")
 
 
 # ---------------------------------------------------------------- helpers
@@ -208,7 +212,70 @@ def find_projects(roots, depth):
 
 # ---------------------------------------------------------------- per-project read
 
-def scan(path, today, stale_days):
+def semver(text):
+    """(1, 2, 3) from "1.2.3"; None when it is not a plain version."""
+    if not isinstance(text, str):
+        return None
+    parts = text.split(".")
+    if len(parts) != 3 or not all(x.isdigit() for x in parts):
+        return None
+    return tuple(int(x) for x in parts)
+
+
+def plugin_versions():
+    """Which DevFlow build each project is pinned to, read locally.
+
+    Every DevFlow repo carries the self-bootstrap block (conventions.md), so each
+    one gets its OWN pinned install alongside the user-scope one, and they drift
+    apart independently — a project can run a build two minors old with nothing
+    saying so. This reads that pinning; it never touches the network, so
+    `latest` is the newest build this machine has *heard of*, which may itself
+    lag the published release. Reported as such rather than as the truth.
+
+    Returns {"by_path", "user", "latest", "state"} where state is one of
+    "ok" | "absent" (no Claude plugin system here — not applicable, not a
+    failure) | "unreadable" (it exists but could not be parsed — a check that
+    did not run, per conventions.md → Fail-closed guards).
+    """
+    out = {"by_path": {}, "user": None, "latest": None, "state": "ok"}
+    if not os.path.isdir(PLUGIN_ROOT):
+        out["state"] = "absent"
+        return out
+    try:
+        with open(INSTALLED_PLUGINS, encoding="utf-8") as fh:
+            installed = json.load(fh)
+    except (OSError, ValueError):
+        out["state"] = "unreadable"
+        return out
+
+    known = []
+    for name, entries in (installed.get("plugins") or {}).items():
+        if not name.startswith("devflow@"):
+            continue
+        for entry in entries if isinstance(entries, list) else []:
+            version = entry.get("version")
+            if semver(version):
+                known.append(semver(version))
+            if entry.get("scope") == "project" and entry.get("projectPath"):
+                out["by_path"][os.path.realpath(entry["projectPath"])] = version
+            elif entry.get("scope") == "user":
+                out["user"] = version
+
+    try:
+        with open(MARKETPLACE_MANIFEST, encoding="utf-8") as fh:
+            for plugin in json.load(fh).get("plugins") or []:
+                if plugin.get("name") == "devflow" and semver(plugin.get("version")):
+                    known.append(semver(plugin["version"]))
+    except (OSError, ValueError):
+        pass  # the cache is optional; the pinned versions still tell us plenty
+
+    if known:
+        out["latest"] = ".".join(str(n) for n in max(known))
+    return out
+
+
+def scan(path, today, stale_days, versions=None):
+    versions = versions if versions is not None else {"by_path": {}, "latest": None, "state": "absent"}
     state = read_capped(os.path.join(path, ".planning", "STATE.md"), 4096)
     journal = read_capped(os.path.join(path, ".planning", "JOURNAL.md"), 4096)
     roadmap = read_capped(os.path.join(path, "ROADMAP.md")) or \
@@ -312,9 +379,17 @@ def scan(path, today, stale_days):
     if "devflow@devflow" not in decl:
         p["flags"].append("NO-DECL")
 
+    p["devflow_version"] = versions["by_path"].get(os.path.realpath(path))
+    if versions["state"] == "unreadable":
+        p["flags"].append("VER-UNKNOWN")
+    elif p["devflow_version"] and versions["latest"]:
+        if semver(p["devflow_version"]) < semver(versions["latest"]):
+            p["flags"].append("OLD-PLUGIN")
+
     p["needs_human"] = bool(
         p["flow"] in ATTENTION or p["blockers"]
         or any(f.startswith("STALE") for f in p["flags"])
+        or "VER-UNKNOWN" in p["flags"]
         or not p["git_readable"]
         # A check that could not run never reports clean (conventions.md → Fail-closed
         # guards): an unreadable FLOW state or run counter is attention, not silence.
@@ -343,7 +418,7 @@ def rank(p):
     return 3
 
 
-def render(projects, stale_days):
+def render(projects, stale_days, versions=None):
     if not projects:
         return ("No DevFlow projects found. Pass roots as arguments, or create "
                 "%s with {\"roots\": [\"~/dev\"]}." % CONFIG_PATH)
@@ -406,10 +481,38 @@ def render(projects, stale_days):
         out.append("Ready to advance (%d): %s" % (
             len(idle), ", ".join("%s [%s]" % (p["repo"], p["branch"]) for p in idle)))
 
+    versions = versions or {}
+    if versions.get("state") == "unreadable":
+        out.append("")
+        out.append("DevFlow build: could not read %s — version staleness NOT checked."
+                   % tilde(INSTALLED_PLUGINS))
+    elif versions.get("state") == "ok":
+        pinned = sorted({p["devflow_version"] for p in projects if p.get("devflow_version")})
+        if pinned:
+            spread = ", ".join(
+                "%s (%d)" % (v, sum(1 for p in projects if p.get("devflow_version") == v))
+                for v in reversed(pinned))
+            line = "DevFlow build: %s" % spread
+            if versions.get("user"):
+                line += " · user scope %s" % versions["user"]
+            out.append("")
+            out.append(line)
+            behind = [p for p in projects if "OLD-PLUGIN" in p["flags"]]
+            if behind:
+                out.append("  %d project(s) behind %s: %s — each DevFlow repo carries its own "
+                           "pinned install (conventions.md → Plugin self-bootstrap), so they drift "
+                           "apart and none update on their own."
+                           % (len(behind), versions["latest"],
+                              ", ".join(p["repo"] for p in behind)))
+            out.append("  Newest build this machine knows of: %s — from the local marketplace "
+                       "cache, which lags the published release until Claude Code refreshes it. "
+                       "Not proof you are current." % versions["latest"])
+
     out.append("")
     out.append("%d project(s) — stale threshold %dd. Flags: ON-BASE=committing to the base "
                "branch, WT=git worktree, NO-DECL=missing plugin self-bootstrap, "
-               "GIT-UNKNOWN/FLOW-UNKNOWN/RUN-UNKNOWN=check could not run (not clean)."
+               "OLD-PLUGIN=pinned DevFlow build behind the newest known, "
+               "GIT-UNKNOWN/FLOW-UNKNOWN/RUN-UNKNOWN/VER-UNKNOWN=check could not run (not clean)."
                % (len(projects), stale_days))
     return "\n".join(out)
 
@@ -436,13 +539,15 @@ def main(argv=None):
     depth = args.depth if args.depth is not None else cfg.get("depth", 3)
 
     today = datetime.date.today()
-    projects = [scan(p, today, stale_days) for p in find_projects(roots, depth)]
+    versions = plugin_versions()
+    projects = [scan(p, today, stale_days, versions) for p in find_projects(roots, depth)]
     projects.sort(key=lambda p: (rank(p), p["repo"]))
 
     if args.as_json:
-        print(json.dumps({"scanned": roots, "stale_days": stale_days, "projects": projects}, indent=2))
+        print(json.dumps({"scanned": roots, "stale_days": stale_days,
+                          "plugin_versions": versions, "projects": projects}, indent=2))
     else:
-        print(render(projects, stale_days))
+        print(render(projects, stale_days, versions))
 
     return 1 if any(p["needs_human"] for p in projects) else 0
 

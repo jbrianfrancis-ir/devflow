@@ -98,12 +98,15 @@ Walks roots for DevFlow projects (including git worktrees of any repo it finds, 
 
 ```json
 { "scanned": ["~/dev"], "stale_days": 3,
+  "plugin_versions": { "by_path": {"/home/me/dev/app": "0.14.1"}, "user": "0.15.0",
+                       "latest": "0.15.0", "state": "ok" },
   "projects": [{
     "path": "...", "repo": "owner/name", "branch": "flow/payments", "worktree": false,
     "phase": "3/6", "plans": "2/4", "status": "executing", "position": "<STATE Position, verbatim>",
     "next": "/flow-execute 3", "last": "...", "resume": "...", "blockers": ["..."],
     "journal": "<top JOURNAL line, verbatim>", "flow": "GATE", "last_date": "2026-08-10",
     "age_days": 0, "dirty": 2, "flags": ["WT"], "needs_human": true,
+    "devflow_version": "0.14.1",
     "gate": { "type": "decision", "asked": "...", "options": ["Postgres — ...", "SQLite — ..."],
               "default": "none", "plan": "03-02", "task": "2" },
     "run": { "iteration": 7, "started": "2026-08-15T09:12Z", "repeats": 1,
@@ -112,7 +115,11 @@ Walks roots for DevFlow projects (including git worktrees of any repo it finds, 
 
 `gate` and `run` are `null` when the blocks are absent or say `none`. `gate.options` is `[]` for a gate with no choices (most `human-action` gates).
 
-`flags`: `ON-BASE` (committing to the base branch — a convention violation), `DIRTY:n`, `STALE:nd` (in-flight with no activity), `WT` (git worktree), `NO-DECL` (missing the plugin self-bootstrap block), `GIT-UNKNOWN` (git could not be read here), `FLOW-UNKNOWN` (no parseable `FLOW:` state — the check did not run).
+`flags`: `ON-BASE` (committing to the base branch — a convention violation), `DIRTY:n`, `STALE:nd` (in-flight with no activity), `WT` (git worktree), `NO-DECL` (missing the plugin self-bootstrap block), `OLD-PLUGIN` (this project's pinned DevFlow build is behind the newest one this machine knows of), `GIT-UNKNOWN` (git could not be read here), `FLOW-UNKNOWN` (no parseable `FLOW:` state — the check did not run), `VER-UNKNOWN` (the plugin registry exists but could not be read).
+
+**`plugin_versions` — why a per-project build at all.** Every DevFlow repo carries the self-bootstrap block (`conventions.md` → Plugin self-bootstrap) so a cold clone works with no setup. The cost is that each repo gets its **own** pinned install alongside the user-scope one, pinned at whatever was current the first time that repo was opened, and nothing reconciles them — a project can run a build two minors old with nothing saying so. `devflow_version` is that pin, `by_path` is the whole map, `user` is the user-scope install.
+
+`latest` is the newest build **this machine has heard of** — the highest of the pinned versions and the locally cached marketplace manifest. It is not the published release: the cache lags until Claude Code refreshes it, so `latest` can be behind what is actually shipped and a project matching it is not thereby current. `state` distinguishes the three outcomes a consumer must not collapse: `ok`, `absent` (no Claude plugin system here — not applicable, and no project is flagged for it), and `unreadable` (the registry exists but did not parse — a check that did not run, so every project flags `VER-UNKNOWN` and counts in `needs_human`, per `conventions.md` → Fail-closed guards).
 
 **Unanswerable checks are `null`, not a clean value.** `dirty` and `worktree` are `null` — never `0` or `false` — when git could not be consulted, and `git_readable` says whether it could. A consumer must not read `null` as "fine"; the project is flagged `GIT-UNKNOWN` and counted in `needs_human` for exactly that reason (conventions.md → Fail-closed guards). `flow: "unknown"` is the same shape: an unparseable or missing `JOURNAL.md` means the state check did not run, so it flags `FLOW-UNKNOWN` and counts in `needs_human` — it does not mean the project is fine.
 
