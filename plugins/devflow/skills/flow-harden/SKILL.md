@@ -11,7 +11,11 @@ description: Production-hardening pass - audit the codebase against the Aspire p
 
 Context rules: read `.planning/STATE.md` first; paths not contents.
 
-**Pre-flight**: all ROADMAP phases verified (otherwise list what's pending and stop — hardening unfinished work wastes a pass).
+**Pre-flight**, in this order — the verified check comes **first**, because `DONE` is the contract's terminal state and must never be emitted on a state this skill did not establish (autonomy.md → Status line):
+
+1. **All ROADMAP phases verified?** No → list what's pending and stop; hardening unfinished work wastes a pass. On a deploy-N/A project stop with `FLOW: CONTINUE | phase {N}/{T} not verified | next: /flow-next`, never `DONE` — a half-built project reported as finished is read that way by every consumer of the status contract (`docs/status-contract.md`), including `flow-fleet.py --json` and any `/goal` or `/loop` run driving on it.
+2. **`.planning/config.json` → `deploy.tool`**: `null` means the project has no deployable surface (autonomy.md), so there is no production to harden for. Say so, point at the `D-NN` decision that recorded it, and stop — `FLOW: DONE` once the work is also merged, otherwise `FLOW: CONTINUE | roadmap verified, nothing to harden | next: /flow-pr`, since on these projects the merge *is* the end state and it has not happened yet.
+3. Otherwise continue with the hardening pass below.
 
 1. **Read** `{devflow_root}/references/aspire.md` (Detection, No-AppHost, Build-gate, Hardening-checklist sections).
 

@@ -35,7 +35,7 @@ The builder merges the same marketplace block from §1 into the **context repo's
 
 ## 4. Work loop
 
-Boot → BlitzOS warm start (`sessions/INDEX.md` + recent records) → `cd` into the member repo → `/flow-status` → drive with `/flow-next` (one step per turn), or `/goal FLOW says DONE or GATE, or stop after 40 turns` + `/flow-next`.
+Boot → BlitzOS warm start (`sessions/INDEX.md` + recent records) → `cd` into the member repo → `/flow-status` → drive with `/flow-next` (one step per turn), or `/goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns`.
 
 Every DevFlow skill ends with exactly one machine-checkable line the portal/feed parses:
 

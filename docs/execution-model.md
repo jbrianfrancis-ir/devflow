@@ -1,7 +1,7 @@
 # Execution model
 
 ## Context economy
-20 shared Agent Skills and 11 subagents across ~220KB of prompt content — but nothing loads it all: skills load progressively at ~1–5k tokens each, and heavy work runs in bounded native subagents or, when explicitly selected, through the other provider's authenticated CLI.
+20 shared Agent Skills and 11 subagents across ~235KB of prompt content — but nothing loads it all: skills load progressively at ~1–5k tokens each, and heavy work runs in bounded native subagents or, when explicitly selected, through the other provider's authenticated CLI.
 
 ## Graph execution
 A phase's plans form a dependency graph — plans are nodes, `depends_on` edges exist only where one plan consumes another's output (the *fake-edge test*), and waves are the graph's parallel layers. Same-wave plans share no files and no mutable resources (a shared migration chain or lockfile is a *hidden edge*). `/flow-execute` fans out one fresh-context executor per plan per wave; a *fan-in guard* counts results against spawns so a dead executor can't slip silently into a "complete" phase; and a fresh-context verifier — never the executors that did the work — proves the phase's `must_haves` against *anchors*: commands actually run, tests actually passed, code traced. must_haves freeze at execution start; gaps close by changing code, never by weakening a truth. Wave arithmetic, the fake-edge test's exact statement, must_haves field lists, and the split signals that force a plan apart are specified in [`plan-format.md`](../plugins/devflow/references/plan-format.md).
@@ -25,4 +25,4 @@ Code lives under `src/` and tests under `tests/` off the repo root, and every ch
 `/flow-design` links a [Claude Design](https://claude.ai/design) design-system project up front (offered during `/flow-new` for UI projects), pulls it into `design-system/`, and distills tokens + component inventory into `.planning/DESIGN.md`. UI plans must name the component and its local spec path; executors read the spec before building; invented styles and one-off components are verification gaps. Missing components route back to the design system via a decision checkpoint, then `/flow-design --refresh`.
 
 ## Ship pipeline
-No Node runtime and no hooks. "Ship" is a real pipeline: harden → UAT → human sign-off → production, orchestrated with [Aspire](https://aspire.dev) + azd on Azure.
+No Node runtime and no hooks. "Ship" is a real pipeline: harden → UAT → human sign-off → production, orchestrated with [Aspire](https://aspire.dev) + azd on Azure. Projects that have nothing to deploy — a library, CLI, plugin, or docs repo — set `deploy.tool` to `null` in `.planning/config.json`; routing then skips the whole chain and a verified, merged roadmap is `FLOW: DONE`. Only an explicit `null` counts, so an unset or unreadable config still takes the hardening pass. Specified in [`autonomy.md`](../plugins/devflow/references/autonomy.md).

@@ -125,7 +125,7 @@ cd <repo> && /flow-status          # orient (cold start needs nothing else)
 cd <repo> && /flow-next            # advance exactly one step, then stop with FLOW:
 ```
 
-`/flow-next` is the driver: one step per invocation, bounded turns, always terminating in a status line. Loop it (`/loop /flow-next`) or gate it (`/goal FLOW says DONE or GATE, or stop after 40 turns`). `/flow-ci` drives an open PR to green the same way. `/flow-status --all` boards every project; `/flow-workstream` adds a parallel worktree.
+`/flow-next` is the driver: one step per invocation, bounded turns, always terminating in a status line. Loop it (`/loop /flow-next`) or gate it (`/goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns`). `/flow-ci` drives an open PR to green the same way. `/flow-status --all` boards every project; `/flow-workstream` adds a parallel worktree.
 
 **Gates a driver must surface and never answer itself** (authoritative list in `plugins/devflow/references/autonomy.md`): checkpoint decisions and human-actions; failed-package (typosquat) verification; a fail-closed secret-scan hit; sending an external consult bundle; opening a PR to upstream; replying to human PR reviewers; shipping a confirmed review finding `ACCEPTED AS-IS`; UAT acceptance and sign-off; production release confirmation; pushing tags; anything destructive in git. Hard rule, not a gate: never commit to the base branch.
 

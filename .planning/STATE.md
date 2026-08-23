@@ -3,8 +3,8 @@
 
 ## Position
 Phase: 4 of 4 (complete) | Plans: 4/4 | Status: verified
-Last: 2026-08-19 — SC-04 answered PASS; all 5 success criteria met, roadmap complete
-Next: none — milestone done; new work starts at /flow-quick or a new roadmap
+Last: 2026-08-22 — quick 004–007; /flow-pr review over 4 rounds, /flow-handsoff reverted
+Next: /flow-ci — drive PR #28 to green
 
 ## Gate
 none
@@ -25,5 +25,5 @@ Signature: rule7:phase04:plans4/4:verifverified — superseded by D-06, terminal
 - none
 
 ## Session
-Stopped: docs-restructure milestone COMPLETE — 4 phases verified, SC-01..SC-05 met, v0.14.1 released
-Resume: nothing outstanding. Loose ends if wanted: phase 03 has no VERIFICATION.md and phase 04 no dir (ad-hoc); /flow-audit would catch both
+Stopped: PR #28 opened (github.com/jbrianfrancis-ir/devflow/pull/28) — 15 commits, checks running
+Resume: /flow-ci for PR #28. /flow-handsoff is deferred to its own branch — see DECISIONS 2026-08-22 for why

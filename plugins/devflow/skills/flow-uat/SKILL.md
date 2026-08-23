@@ -9,7 +9,7 @@ description: Deploy to the UAT environment on Azure (provisioning on first deplo
 
 Context rules: read `.planning/STATE.md` first. Auth and secrets are the human's job; commands are yours — never store credentials in the repo.
 
-**Pre-flight**: STATE shows hardened (or `deploy/PIPELINE.md` exists); working tree clean; `aspire` and `azd` CLIs available; `azd auth login --check-status` OK (otherwise have the user run `azd auth login` and wait). Block with specifics otherwise.
+**Pre-flight**: **Deploy N/A**: `.planning/config.json` → `deploy.tool` is `null` means this project has nothing to deploy (autonomy.md), so this skill does not apply — say so, point at the `D-NN` that recorded it, and stop with `FLOW: GATE | no deployable surface — /flow-uat does not apply | next: /flow-pr` (or `/flow-next` once merged). Only an explicit `null` qualifies; missing or unreadable config means the project deploys. Otherwise: STATE shows hardened (or `deploy/PIPELINE.md` exists); working tree clean; `aspire` and `azd` CLIs available; `azd auth login --check-status` OK (otherwise have the user run `azd auth login` and wait). Block with specifics otherwise.
 
 1. **Read** `{devflow_root}/references/aspire.md` (Environments, Environment-config, Failure→fix sections).
 

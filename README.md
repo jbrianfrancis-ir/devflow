@@ -41,7 +41,7 @@ Steps 2–4 are the loop, and you don't have to type each one. Every skill ends 
 machine-checkable `FLOW:` line, so Claude Code's `/goal` can drive the loop and stop on its own:
 
 ```
-/goal FLOW says DONE or GATE, or stop after 40 turns
+/goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns
 /flow-next
 ```
 

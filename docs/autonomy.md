@@ -7,7 +7,7 @@ can verify from the transcript, and which `/loop` and `/flow-status --all` read 
 is specified in [`autonomy.md`](../plugins/devflow/references/autonomy.md).
 
 ## Recipes
-- **Drive to completion** (primary): `/goal FLOW says DONE or GATE, or stop after 40 turns` then `/flow-next`. Claude keeps advancing phase by phase, turn after turn, stopping when done or when a human is needed.
+- **Drive to completion** (primary): `/goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns` then `/flow-next`. Claude keeps advancing phase by phase, turn after turn, stopping when done or when a human is needed.
 - **Background cadence**: `/loop /flow-next` — one step per iteration, self-paced; the loop stops itself on GATE/BLOCKED/DONE.
 - **Drive a PR to green**: `/loop /flow-ci` — checks watched, failures fixed, bot threads answered; stops when it's green or a human is needed.
 - **Sweep the fleet**: `/flow-status --all` in any session (no `.planning/` required) — every project, attention first.
@@ -24,6 +24,14 @@ any work: a **stuck** detector on a signature of what the routing actually match
 "max_hours": null}` in `.planning/config.json`. An absent block is a cold start; a *malformed* one is
 `BLOCKED`, never read as zero — a counter that can't be read is not a counter that says zero. Full rail
 semantics and the stuck-signature format: [`autonomy.md`](../plugins/devflow/references/autonomy.md).
+
+## Projects that never deploy
+A library, CLI, plugin, or docs repo ships by merging, not by deploying. Set `deploy.tool` to `null` in
+`.planning/config.json` and routing skips `/flow-harden`, `/flow-uat`, and `/flow-release` — verified work
+routes to a PR, and the merge is `FLOW: DONE`. Without it, `/flow-next` sends a verified roadmap to
+`/flow-harden` forever: no pipeline file is ever produced, the same rule re-matches, and the Repeats rail
+eventually reports "no progress" about a routing bug rather than about stuck work. Only an explicit `null`
+qualifies — an unset or unreadable config means the project deploys and takes the audit.
 
 ## Gates you can answer from anywhere
 `FLOW: GATE | <position>` tells a driver that a human is needed, but position alone never said *what
