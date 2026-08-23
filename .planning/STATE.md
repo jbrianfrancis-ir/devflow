@@ -3,8 +3,8 @@
 
 ## Position
 Phase: 4 of 4 (complete) | Plans: 4/4 | Status: verified
-Last: 2026-08-22 — quick 004–007; /flow-pr review over 4 rounds, /flow-handsoff reverted
-Next: /flow-ci — drive PR #28 to green
+Last: 2026-08-23 — PR #28 merged as v0.15.0; quick 008 adds build-staleness reporting
+Next: /flow-pr — open the PR for flow/plugin-version-staleness
 
 ## Gate
 none
@@ -25,5 +25,5 @@ Signature: rule7:phase04:plans4/4:verifverified — superseded by D-06, terminal
 - none
 
 ## Session
-Stopped: PR #28 opened (github.com/jbrianfrancis-ir/devflow/pull/28) — 15 commits, checks running
-Resume: /flow-ci for PR #28. /flow-handsoff is deferred to its own branch — see DECISIONS 2026-08-22 for why
+Stopped: quick 008 on flow/plugin-version-staleness — 3 commits, review closed, PR not yet opened
+Resume: /flow-pr for this branch. /flow-handsoff is deferred to its own branch — see DECISIONS 2026-08-22 for why

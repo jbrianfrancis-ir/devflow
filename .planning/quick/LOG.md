@@ -5,3 +5,4 @@
 - 005 | 2026-08-21 | add /flow-handsoff for one-command hands-off runs | e7160f7 (REVERTED — see 007)
 - 006 | 2026-08-21 | close /flow-pr review: JSON-injection guard, flow-harden DONE ordering | d14693a..78c6235
 - 007 | 2026-08-22 | revert /flow-handsoff after 4 review rounds failed to converge; settings check made advisory | (this commit)
+- 008 | 2026-08-23 | surface stale DevFlow builds and a stale marketplace cache in /flow-status | f7c5f4b..HEAD

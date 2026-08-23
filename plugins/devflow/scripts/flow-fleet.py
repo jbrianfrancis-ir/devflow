@@ -7,8 +7,12 @@ because it reads files, never screens.
 
 Reads ONLY: `.planning/STATE.md` (≤1.5KB, including its `## Gate` and `## Run`
 blocks), the `ROADMAP.md` table, the top lines of `.planning/JOURNAL.md`,
-`.planning/config.json`, and git metadata. Never opens source, `.env*`, or key
-files — same discipline as the BlitzOS scanner contract (`docs/blitzos.md` §1).
+`.planning/config.json`, and git metadata — plus, outside the project tree, the
+Claude plugin registry (`~/.claude/plugins/installed_plugins.json`), the cached
+marketplace manifest, and that cache clone's git metadata, which is how it can
+say a project's pinned DevFlow build is stale. Never opens source, `.env*`, or
+key files, and never touches the network — same discipline as the BlitzOS
+scanner contract (`docs/blitzos.md` §1).
 
 Zero dependencies (stdlib only).
 
