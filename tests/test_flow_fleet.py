@@ -315,5 +315,64 @@ class PluginVersionTests(unittest.TestCase):
             MODULE.PLUGIN_ROOT = original
 
 
+class MarketplaceCacheFreshnessTests(unittest.TestCase):
+    """The other half of staleness: how much `latest` is actually worth.
+
+    The marketplace cache is a git clone that only moves when Claude Code
+    refreshes it, so a release can be tagged and public while every local
+    reading still reports the old number — which is how 0.15.0 stayed invisible
+    on this machine after it shipped. The scanner never fetches, so it cannot
+    say "you are behind"; it says how old the reading is and lets that speak.
+    """
+
+    PROJECT = {
+        "repo": "a/b", "branch": "main", "phase": "1/1", "plans": "", "status": "verified",
+        "flow": "CONTINUE", "age_days": 0, "flags": [], "next": "/flow-pr",
+        "needs_human": False, "devflow_version": "0.14.1", "blockers": [], "gate": None,
+        "run": None, "git_readable": True, "dirty": 0, "path": "/x", "worktree": False,
+    }
+
+    def render_with(self, **cache):
+        versions = {"state": "ok", "latest": "0.15.0", "user": "0.15.0",
+                    "cache_commit": "1d1c398", "cache_age_days": 0}
+        versions.update(cache)
+        return MODULE.render([dict(self.PROJECT)], 3, versions)
+
+    def test_fresh_cache_does_not_nag(self):
+        out = self.render_with(cache_age_days=0)
+        self.assertIn("refreshed today", out)
+        self.assertNotIn("marketplace update", out)
+
+    def test_stale_cache_names_the_refresh_command(self):
+        out = self.render_with(cache_age_days=9)
+        self.assertIn("refreshed 9d ago", out)
+        self.assertIn("claude plugin marketplace update devflow", out)
+
+    def test_never_fetched_is_not_reported_as_fresh(self):
+        out = self.render_with(cache_age_days=None)
+        self.assertIn("never refreshed", out)
+        self.assertIn("claude plugin marketplace update devflow", out)
+
+    def test_threshold_follows_stale_days(self):
+        versions = {"state": "ok", "latest": "0.15.0", "user": "0.15.0",
+                    "cache_commit": "1d1c398", "cache_age_days": 4}
+        self.assertNotIn("marketplace update", MODULE.render([dict(self.PROJECT)], 7, versions))
+        self.assertIn("marketplace update", MODULE.render([dict(self.PROJECT)], 3, versions))
+
+    def test_cache_commit_is_shown_so_a_reading_can_be_traced(self):
+        self.assertIn("1d1c398", self.render_with(cache_age_days=2))
+
+    def test_absent_plugin_system_reports_no_cache_fields(self):
+        original = MODULE.PLUGIN_ROOT
+        try:
+            MODULE.PLUGIN_ROOT = "/nonexistent-plugin-root-for-test"
+            v = MODULE.plugin_versions()
+            self.assertEqual(v["state"], "absent")
+            self.assertIsNone(v["cache_age_days"])
+            self.assertIsNone(v["cache_commit"])
+        finally:
+            MODULE.PLUGIN_ROOT = original
+
+
 if __name__ == "__main__":
     unittest.main()

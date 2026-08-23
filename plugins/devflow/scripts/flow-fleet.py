@@ -42,6 +42,7 @@ PLUGIN_ROOT = os.path.expanduser("~/.claude/plugins")
 INSTALLED_PLUGINS = os.path.join(PLUGIN_ROOT, "installed_plugins.json")
 MARKETPLACE_MANIFEST = os.path.join(
     PLUGIN_ROOT, "marketplaces", "devflow", ".claude-plugin", "marketplace.json")
+MARKETPLACE_CACHE = os.path.join(PLUGIN_ROOT, "marketplaces", "devflow")
 
 
 # ---------------------------------------------------------------- helpers
@@ -237,7 +238,8 @@ def plugin_versions():
     failure) | "unreadable" (it exists but could not be parsed — a check that
     did not run, per conventions.md → Fail-closed guards).
     """
-    out = {"by_path": {}, "user": None, "latest": None, "state": "ok"}
+    out = {"by_path": {}, "user": None, "latest": None, "state": "ok",
+           "cache_commit": None, "cache_age_days": None}
     if not os.path.isdir(PLUGIN_ROOT):
         out["state"] = "absent"
         return out
@@ -271,6 +273,24 @@ def plugin_versions():
 
     if known:
         out["latest"] = ".".join(str(n) for n in max(known))
+
+    # How much `latest` is worth. The marketplace cache is a git clone that only
+    # moves when Claude Code refreshes it, so a release can be tagged and public
+    # while every local reading still says the old number — which is exactly how
+    # 0.15.0 stayed invisible here after it shipped. Nothing below touches the
+    # network (this scanner reads local state only), so the honest signal is not
+    # "you are behind" but "this reading is N days old"; a stale cache means
+    # `latest` is unproven, not that it is wrong.
+    out["cache_commit"] = git(MARKETPLACE_CACHE, "rev-parse", "--short", "HEAD")
+    fetch_head = os.path.join(MARKETPLACE_CACHE, ".git", "FETCH_HEAD")
+    if os.path.isdir(MARKETPLACE_CACHE):
+        try:
+            age = (datetime.date.today()
+                   - datetime.date.fromtimestamp(os.path.getmtime(fetch_head))).days
+            out["cache_age_days"] = max(age, 0)
+        except OSError:
+            # Present but never fetched, or unreadable: not a fresh cache.
+            out["cache_age_days"] = None
     return out
 
 
@@ -504,9 +524,23 @@ def render(projects, stale_days, versions=None):
                            "apart and none update on their own."
                            % (len(behind), versions["latest"],
                               ", ".join(p["repo"] for p in behind)))
-            out.append("  Newest build this machine knows of: %s — from the local marketplace "
-                       "cache, which lags the published release until Claude Code refreshes it. "
-                       "Not proof you are current." % versions["latest"])
+            age = versions.get("cache_age_days")
+            commit = versions.get("cache_commit") or "unknown"
+            known = "  Newest build this machine knows of: %s (marketplace cache at %s" % (
+                versions["latest"], commit)
+            if age is None:
+                out.append(known + ", never refreshed).")
+                out.append("    That cache is the only local record of what has been published, and "
+                           "it has no fetch on record — so %s is the newest build seen here, not the "
+                           "newest that exists. Run `claude plugin marketplace update devflow`."
+                           % versions["latest"])
+            elif age >= stale_days:
+                out.append(known + ", refreshed %dd ago)." % age)
+                out.append("    A release published since then is invisible here, which is how a "
+                           "merged version reaches nobody. Run `claude plugin marketplace update "
+                           "devflow` before trusting this number.")
+            else:
+                out.append(known + ", refreshed %s)." % ("today" if age == 0 else "%dd ago" % age))
 
     out.append("")
     out.append("%d project(s) — stale threshold %dd. Flags: ON-BASE=committing to the base "
