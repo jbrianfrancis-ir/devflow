@@ -5,3 +5,4 @@ Append-only, chronological (oldest first), uncapped. Never dropped, only moved. 
 - 2026-08-17 | /flow-new | initialized docs-restructure project — 4 phases, 12 REQs, 1 open marker (REQ-12); codebase mapped | CONTINUE
 - 2026-08-17 | /flow-execute 1 | phase 1 executed — 3 plans, 6 commits, scope conformance exact; smoke pass; 2 human checks open (anchor backstop, PR-only CI check) | GATE
 - 2026-08-18 | /flow-execute 1 | phase 1 VERIFIED — anchor backstop abstention accepted (D-12); CI check carried to PR; map refreshed | GATE
+- 2026-08-18 | /flow-pr | PR #20 opened — https://github.com/jbrianfrancis-ir/devflow/pull/20 — 3 review rounds, 9 blocking fixed, 92 tests | CONTINUE
