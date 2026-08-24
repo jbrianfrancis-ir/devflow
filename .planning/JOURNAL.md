@@ -3,6 +3,7 @@ to .planning/history/JOURNAL-<YYYY>.md (append, chronological, uncapped) — nev
 The cap bounds what loads into context each run; it is not permission to forget.
 One line per completed state-changing skill run. Warm-start + audit trail; context repos (docs/blitzos.md) index these lines verbatim. -->
 # Journal
+- 2026-08-23 | /flow-pr | PR #29 opened (github.com/jbrianfrancis-ir/devflow/pull/29) — v0.16.0, build-staleness reporting; 3 lenses, 3 blocking (2 board-killing crashes, 1 machine-dependent test) all fixed | CONTINUE
 - 2026-08-23 | /flow-pr | PR #28 opened (github.com/jbrianfrancis-ir/devflow/pull/28) — 15 commits, v0.15.0. 4 review rounds / 5 lenses / 13 blocking; /flow-handsoff + its validator reverted after findings rose 3→4→6 (D-21 approved then reversed) | CONTINUE
 - 2026-08-19 | SC-04 | human read-through PASS — final success criterion met; docs-restructure milestone COMPLETE (v0.14.1 released) | DONE
 - 2026-08-18 | phase 3+4 | README rebuilt (6 sections, 81 lines); 3 stale refs repointed; content audit clean. Phase 4 done as ad-hoc, not a planned phase | CONTINUE
@@ -12,4 +13,3 @@ One line per completed state-changing skill run. Warm-start + audit trail; conte
 - 2026-08-18 | merge | phase 1 MERGED via PR #20 — link safety net live in CI; branch cut for phase 2 | CONTINUE
 - 2026-08-18 | /flow-pr | ARCHITECTURE.md link-checking contract reconciled (D-13); PR #20 green, awaiting merge | GATE
 - 2026-08-18 | /flow-ci | PR #20 validate PASS first run; link-check step proven live in CI (162 refs) | GATE
-- 2026-08-18 | /flow-pr | PR #20 opened — https://github.com/jbrianfrancis-ir/devflow/pull/20 — 3 review rounds, 9 blocking fixed, 92 tests | CONTINUE

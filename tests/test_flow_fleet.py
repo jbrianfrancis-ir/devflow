@@ -5,8 +5,12 @@ load-bearing: the `## Gate` block reaches a caller as structured data (the one
 exception to "never parse skill prose"), and a check that could not run is never
 reported as clean (references/conventions.md → Fail-closed guards).
 """
+import contextlib
 import datetime
 import importlib.util
+import os
+import shutil
+import time
 import io
 import json
 from contextlib import redirect_stdout
@@ -25,6 +29,32 @@ SCANNER = ROOT / "plugins/devflow/scripts/flow-fleet.py"
 # "nothing needs a human" assertion into a time bomb that fires days later and
 # never passes again.
 TODAY = datetime.date.today().isoformat()
+# scan() takes `versions` explicitly — there is no default, so a caller can
+# never silently report version-clean. Tests that are not about versions pass
+# this: "no Claude plugin system here", which flags nothing.
+NO_VERSIONS = {"by_path": {}, "user": None, "latest": None, "state": "absent",
+               "cache_commit": None, "cache_age_days": None}
+
+
+@contextlib.contextmanager
+def no_plugin_registry():
+    """Pin plugin_versions() to "absent" for the duration.
+
+    main() reads the host's ~/.claude/plugins. Without this, a scanner test
+    asserts on the developer's machine: a host whose registry is missing or
+    unparseable yields VER-UNKNOWN on every project, which sets needs_human and
+    flips main()'s exit status. The suite passed here only because this box's
+    registry happens to parse — the same class of environment leak the T2 notes
+    below already guard against for ~/.devflow/fleet.json.
+    """
+    original = MODULE.PLUGIN_ROOT
+    MODULE.PLUGIN_ROOT = "/nonexistent-plugin-root-for-test"
+    try:
+        yield
+    finally:
+        MODULE.PLUGIN_ROOT = original
+
+
 SPEC = importlib.util.spec_from_file_location("flow_fleet", SCANNER)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
@@ -157,7 +187,7 @@ class ScanTests(unittest.TestCase):
         return d
 
     def scan(self, d):
-        return MODULE.scan(str(d), datetime.date(2026, 8, 15), 3)
+        return MODULE.scan(str(d), datetime.date(2026, 8, 15), 3, NO_VERSIONS)
 
     def test_gate_reaches_json_as_structured_data(self):
         p = self.scan(self.project("gated", POSITION + GATE_BLOCK + BLOCKERS_NONE))
@@ -219,10 +249,11 @@ class ScanTests(unittest.TestCase):
         # never actually exercises the GATE path the test is named for.
         self.project("gated", POSITION + GATE_BLOCK + BLOCKERS_NONE,
                      journal="- %s | /flow-execute | phase 3 | GATE" % TODAY)
-        with redirect_stdout(io.StringIO()):
+        with redirect_stdout(io.StringIO()), no_plugin_registry():
             # T2: --stale-days pinned explicitly so this doesn't depend on
             # the developer's ~/.devflow/fleet.json (main() falls back to it
-            # when the flag is absent).
+            # when the flag is absent). T3: the plugin registry is pinned for
+            # the same reason — see no_plugin_registry().
             code = MODULE.main([str(self.base), "--json", "--depth", "2", "--stale-days", "3"])
         self.assertEqual(code, 1)
 
@@ -230,11 +261,288 @@ class ScanTests(unittest.TestCase):
         state = POSITION + "\n## Gate\nnone\n" + RUN_BLOCK.replace("Repeats: 2", "Repeats: 0") + BLOCKERS_NONE
         self.project("clean", state, journal="- %s | /flow-execute | phase 3 | CONTINUE" % TODAY)
         buf = io.StringIO()
-        with redirect_stdout(buf):
-            # T2: see above — pinned so a host config of e.g. stale_days: 0
-            # can't turn a "clean" fixture stale and flip this to non-zero.
+        with redirect_stdout(buf), no_plugin_registry():
+            # T2/T3: see above — pinned so neither a host config of e.g.
+            # stale_days: 0 nor an unparseable plugin registry can turn a
+            # "clean" fixture into a non-zero exit.
             code = MODULE.main([str(self.base), "--json", "--depth", "2", "--stale-days", "3"])
         self.assertEqual(code, 0, buf.getvalue())
+        envelope = json.loads(buf.getvalue())
+        # docs/status-contract.md documents this envelope key; without an
+        # assertion the documented machine-readable contract can regress silently.
+        self.assertIn("plugin_versions", envelope)
+        self.assertEqual(envelope["plugin_versions"]["state"], "absent")
+
+
+
+
+class PluginVersionTests(unittest.TestCase):
+    """Version staleness, and the three outcomes it must not collapse.
+
+    Every DevFlow repo carries the self-bootstrap block, so each gets its own
+    pinned install and they drift apart with nothing reconciling them. The
+    scanner reports that drift; these pin the reporting, and in particular that
+    "no Claude plugin system here" (absent) is never confused with "the registry
+    would not parse" (unreadable) — the first is not applicable, the second is a
+    check that did not run.
+    """
+
+    def scan_with(self, versions, project_version=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "proj"
+            (path / ".planning").mkdir(parents=True)
+            (path / ".planning" / "STATE.md").write_text(
+                "# State\n\n## Position\nPhase: 1 of 2 | Plans: 1/1 | Status: verified\n"
+                "Next: /flow-plan 2\nLast: %s — ok\n\n## Gate\nnone\n\n## Blockers\n- none\n" % TODAY,
+                encoding="utf-8")
+            (path / ".planning" / "JOURNAL.md").write_text(
+                "# Journal\n- %s | /flow-plan 1 | done | CONTINUE\n" % TODAY, encoding="utf-8")
+            # git init so git_readable is True: without it GIT-UNKNOWN sets
+            # needs_human on its own and any assertion about VER-UNKNOWN's
+            # contribution passes vacuously.
+            subprocess.run(["git", "init", "-q", str(path)], capture_output=True)
+            if project_version is not None:
+                versions = dict(versions)
+                versions["by_path"] = {str(Path(path).resolve()): project_version}
+            return MODULE.scan(str(path), datetime.date.today(), 3, versions)
+
+    def test_behind_the_newest_known_is_flagged(self):
+        p = self.scan_with({"by_path": {}, "user": "0.15.0", "latest": "0.15.0", "state": "ok"},
+                           project_version="0.12.0")
+        self.assertIn("OLD-PLUGIN", p["flags"])
+        self.assertEqual(p["devflow_version"], "0.12.0")
+
+    def test_current_version_is_not_flagged(self):
+        p = self.scan_with({"by_path": {}, "user": "0.15.0", "latest": "0.15.0", "state": "ok"},
+                           project_version="0.15.0")
+        self.assertNotIn("OLD-PLUGIN", p["flags"])
+
+    def test_absent_plugin_system_is_not_a_failure(self):
+        # A Codex host or a container has no ~/.claude/plugins. That is "not
+        # applicable" — flagging it would make every project on such a machine
+        # need a human for a check that does not apply there.
+        p = self.scan_with({"by_path": {}, "user": None, "latest": None, "state": "absent"})
+        self.assertNotIn("VER-UNKNOWN", p["flags"])
+        self.assertNotIn("OLD-PLUGIN", p["flags"])
+        self.assertIsNone(p["devflow_version"])
+
+    def test_unreadable_registry_is_never_clean(self):
+        # It exists but would not parse: a check that did not run, so it must
+        # flag and count in needs_human (conventions.md → Fail-closed guards).
+        p = self.scan_with({"by_path": {}, "user": None, "latest": None, "state": "unreadable"})
+        self.assertIn("VER-UNKNOWN", p["flags"])
+        self.assertTrue(p["needs_human"])
+
+    def test_unknown_latest_cannot_flag_anything_stale(self):
+        p = self.scan_with({"by_path": {}, "user": None, "latest": None, "state": "ok"},
+                           project_version="0.12.0")
+        self.assertNotIn("OLD-PLUGIN", p["flags"])
+
+    def test_semver_rejects_non_versions(self):
+        self.assertEqual(MODULE.semver("1.2.3"), (1, 2, 3))
+        for bad in ("1.2", "1.2.3.4", "v1.2.3", "1.2.x", None, "", "main"):
+            self.assertIsNone(MODULE.semver(bad), bad)
+
+    def test_semver_orders_numerically_not_lexically(self):
+        # "0.9.0" > "0.10.0" as strings; the whole check depends on it not being.
+        self.assertLess(MODULE.semver("0.9.0"), MODULE.semver("0.10.0"))
+
+    def test_plugin_versions_reports_absent_when_no_plugin_root(self):
+        original = MODULE.PLUGIN_ROOT
+        try:
+            MODULE.PLUGIN_ROOT = "/nonexistent-plugin-root-for-test"
+            self.assertEqual(MODULE.plugin_versions()["state"], "absent")
+        finally:
+            MODULE.PLUGIN_ROOT = original
+
+
+class MarketplaceCacheFreshnessTests(unittest.TestCase):
+    """The other half of staleness: how much `latest` is actually worth.
+
+    The marketplace cache is a git clone that only moves when Claude Code
+    refreshes it, so a release can be tagged and public while every local
+    reading still reports the old number — which is how 0.15.0 stayed invisible
+    on this machine after it shipped. The scanner never fetches, so it cannot
+    say "you are behind"; it says how old the reading is and lets that speak.
+    """
+
+    PROJECT = {
+        "repo": "a/b", "branch": "main", "phase": "1/1", "plans": "", "status": "verified",
+        "flow": "CONTINUE", "age_days": 0, "flags": [], "next": "/flow-pr",
+        "needs_human": False, "devflow_version": "0.14.1", "blockers": [], "gate": None,
+        "run": None, "git_readable": True, "dirty": 0, "path": "/x", "worktree": False,
+    }
+
+    def render_with(self, **cache):
+        versions = {"state": "ok", "latest": "0.15.0", "user": "0.15.0",
+                    "cache_commit": "1d1c398", "cache_age_days": 0}
+        versions.update(cache)
+        return MODULE.render([dict(self.PROJECT)], 3, versions)
+
+    def test_fresh_cache_does_not_nag(self):
+        out = self.render_with(cache_age_days=0)
+        self.assertIn("refreshed today", out)
+        self.assertNotIn("marketplace update", out)
+
+    def test_stale_cache_names_the_refresh_command(self):
+        out = self.render_with(cache_age_days=9)
+        self.assertIn("refreshed 9d ago", out)
+        self.assertIn("claude plugin marketplace update devflow", out)
+
+    def test_never_fetched_is_not_reported_as_fresh(self):
+        out = self.render_with(cache_age_days=None)
+        self.assertIn("no usable fetch record", out)
+        self.assertIn("claude plugin marketplace update devflow", out)
+
+    def test_threshold_follows_stale_days(self):
+        versions = {"state": "ok", "latest": "0.15.0", "user": "0.15.0",
+                    "cache_commit": "1d1c398", "cache_age_days": 4}
+        self.assertNotIn("marketplace update", MODULE.render([dict(self.PROJECT)], 7, versions))
+        self.assertIn("marketplace update", MODULE.render([dict(self.PROJECT)], 3, versions))
+
+    def test_cache_commit_is_shown_so_a_reading_can_be_traced(self):
+        self.assertIn("1d1c398", self.render_with(cache_age_days=2))
+
+    def test_absent_plugin_system_reports_no_cache_fields(self):
+        original = MODULE.PLUGIN_ROOT
+        try:
+            MODULE.PLUGIN_ROOT = "/nonexistent-plugin-root-for-test"
+            v = MODULE.plugin_versions()
+            self.assertEqual(v["state"], "absent")
+            self.assertIsNone(v["cache_age_days"])
+            self.assertIsNone(v["cache_commit"])
+        finally:
+            MODULE.PLUGIN_ROOT = original
+
+
+
+
+class PluginVersionComparisonTests(unittest.TestCase):
+    """The comparison site itself, not just the semver() helper.
+
+    Every earlier case (0.12.0 vs 0.15.0, 0.15.0 vs 0.15.0) orders the same
+    lexically as numerically, so comparing raw strings at the call site passed
+    the whole suite. 0.9.0 vs 0.10.0 is the case that separates them.
+    """
+
+    def scan_with(self, pin, latest):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "proj"
+            (path / ".planning").mkdir(parents=True)
+            (path / ".planning" / "STATE.md").write_text(
+                "# State\n\n## Position\nPhase: 1 of 1 | Plans: 1/1 | Status: verified\n"
+                "Next: /flow-pr\nLast: %s — ok\n\n## Gate\nnone\n\n## Blockers\n- none\n" % TODAY,
+                encoding="utf-8")
+            (path / ".planning" / "JOURNAL.md").write_text(
+                "# Journal\n- %s | /flow-plan 1 | done | CONTINUE\n" % TODAY, encoding="utf-8")
+            subprocess.run(["git", "init", "-q", str(path)], capture_output=True)
+            versions = {"by_path": {str(path.resolve()): pin}, "user": None,
+                        "latest": latest, "state": "ok"}
+            return MODULE.scan(str(path), datetime.date.today(), 3, versions)
+
+    def test_nine_is_older_than_ten(self):
+        # Lexically "0.9.0" > "0.10.0"; numerically it is not.
+        self.assertIn("OLD-PLUGIN", self.scan_with("0.9.0", "0.10.0")["flags"])
+
+    def test_unparseable_pin_is_unknown_not_clean(self):
+        p = self.scan_with("0.15", "0.15.0")
+        self.assertIn("VER-UNKNOWN", p["flags"])
+        self.assertNotIn("OLD-PLUGIN", p["flags"])
+
+    def test_unparseable_pin_does_not_crash_the_scan(self):
+        # It compared semver(pin) < semver(latest) guarded on the raw strings,
+        # so a non-semver pin raised TypeError and took the whole board down.
+        for pin in ("0.15", "0.16.0-rc.1", "main", ""):
+            self.scan_with(pin, "0.15.0")
+
+
+class PluginRegistryReadingTests(unittest.TestCase):
+    """plugin_versions() against real files, not a hand-built dict.
+
+    Every other test hands scan()/render() a synthetic versions mapping, so the
+    whole reading path — scopes, latest, the manifest merge, FETCH_HEAD — was
+    unexercised: reversing max() to min(), dropping the user scope, or hardcoding
+    cache_age_days all left the suite green.
+    """
+
+    def build(self, registry=None, manifest=None, fetch_head_age_days=None):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        root = Path(tmp) / "plugins"
+        (root / "marketplaces" / "devflow" / ".claude-plugin").mkdir(parents=True)
+        (root / "marketplaces" / "devflow" / ".git").mkdir(parents=True)
+        if registry is not None:
+            (root / "installed_plugins.json").write_text(json.dumps(registry), encoding="utf-8")
+        if manifest is not None:
+            (root / "marketplaces" / "devflow" / ".claude-plugin" / "marketplace.json").write_text(
+                json.dumps(manifest), encoding="utf-8")
+        if fetch_head_age_days is not None:
+            fh = root / "marketplaces" / "devflow" / ".git" / "FETCH_HEAD"
+            fh.write_text("x", encoding="utf-8")
+            when = time.time() - fetch_head_age_days * 86400
+            os.utime(fh, (when, when))
+        for name, value in (("PLUGIN_ROOT", str(root)),
+                            ("INSTALLED_PLUGINS", str(root / "installed_plugins.json")),
+                            ("MARKETPLACE_MANIFEST", str(root / "marketplaces" / "devflow" /
+                                                         ".claude-plugin" / "marketplace.json")),
+                            ("MARKETPLACE_CACHE", str(root / "marketplaces" / "devflow"))):
+            original = getattr(MODULE, name)
+            setattr(MODULE, name, value)
+            self.addCleanup(setattr, MODULE, name, original)
+        return MODULE.plugin_versions()
+
+    REGISTRY = {"version": 2, "plugins": {"devflow@devflow": [
+        {"scope": "user", "version": "0.14.1"},
+        {"scope": "project", "projectPath": "/somewhere/app", "version": "0.12.0"},
+    ]}}
+
+    def test_reads_both_scopes(self):
+        v = self.build(registry=self.REGISTRY)
+        self.assertEqual(v["user"], "0.14.1")
+        self.assertEqual(v["by_path"][os.path.realpath("/somewhere/app")], "0.12.0")
+
+    def test_latest_is_the_highest_not_the_lowest(self):
+        self.assertEqual(self.build(registry=self.REGISTRY)["latest"], "0.14.1")
+
+    def test_manifest_raises_latest_above_every_pin(self):
+        v = self.build(registry=self.REGISTRY,
+                       manifest={"plugins": [{"name": "devflow", "version": "0.15.0"}]})
+        self.assertEqual(v["latest"], "0.15.0")
+
+    def test_cache_age_comes_from_fetch_head(self):
+        v = self.build(registry=self.REGISTRY, fetch_head_age_days=6)
+        self.assertEqual(v["cache_age_days"], 6)
+
+    def test_no_fetch_head_is_none_not_zero(self):
+        self.assertIsNone(self.build(registry=self.REGISTRY)["cache_age_days"])
+
+    def test_future_fetch_head_is_unknown_not_today(self):
+        # A clock moved back or a restored tree must not read as the freshest
+        # possible cache.
+        self.assertIsNone(self.build(registry=self.REGISTRY, fetch_head_age_days=-5)["cache_age_days"])
+
+    def test_missing_registry_is_absent(self):
+        self.assertEqual(self.build()["state"], "absent")
+
+    def test_corrupt_registry_is_unreadable(self):
+        v = self.build(registry=None)
+        root = Path(MODULE.INSTALLED_PLUGINS)
+        root.write_text("{not json", encoding="utf-8")
+        self.assertEqual(MODULE.plugin_versions()["state"], "unreadable")
+
+    def test_wrong_top_level_shape_is_unreadable_not_empty(self):
+        # Parses fine, means nothing: reporting "ok, nothing registered" for a
+        # file we failed to understand is the fail-open this guard prevents.
+        for payload in ([], {"plugins": "none"}, {"plugins": []}):
+            self.assertEqual(self.build(registry=payload)["state"], "unreadable", payload)
+
+    def test_unknown_entry_shapes_are_tolerated(self):
+        # The file carries a schema version and may grow fields; an unknown
+        # entry shape is skipped, not treated as corruption.
+        v = self.build(registry={"plugins": {"devflow@devflow": [
+            "a string", {"scope": "user", "version": "0.15.0"}]}})
+        self.assertEqual(v["state"], "ok")
+        self.assertEqual(v["user"], "0.15.0")
 
 
 if __name__ == "__main__":
