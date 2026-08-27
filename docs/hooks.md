@@ -1,0 +1,36 @@
+# Hooks
+
+DevFlow's hard rules — never commit to the base branch, secret-scan every commit and push,
+protected paths need a human — are written into every agent's own instructions. `/flow-hooks`
+scaffolds a deterministic backstop for three of them: Claude Code
+[PreToolUse hooks](https://code.claude.com/docs/en/hooks) that fire whether or not an agent
+followed its instructions.
+
+## What it installs
+
+| Guard | Fires on | Blocks |
+|---|---|---|
+| `base-branch-guard.py` | `Bash` | `git commit`/`git push` while checked out on the project's base branch |
+| `protected-paths-guard.py` | `Edit`/`Write` | an edit to a path matching `protected_paths`, unless `DEVFLOW_PROTECTED_PATH_OK` is set |
+| `secret-scan-guard.py` | `Bash` | `git commit`/`git push` whose diff matches conventions.md's secret pattern class |
+
+Run `/flow-hooks` (optionally `--only base,secret,paths` for a subset) in any project — no
+`.planning/` required. It copies the scripts into `.claude/hooks/` and merges idempotent
+`PreToolUse` entries into `.claude/settings.json`, leaving unrelated settings untouched. Those
+are the target repo's own files; the skill writes them but never commits on your behalf.
+
+## Why a backstop
+
+A guard here is best-effort, not the sole control: each script fails open (exit 0) with a loud
+stderr warning whenever it cannot determine the answer — no git repo, unreadable config — because
+blocking on infrastructure noise would cost more than the gap it closes. The rules themselves,
+including the exact secret-scan pattern and the fail-closed discipline around it (only a human
+clears a hit, including false positives), are specified in
+[`conventions.md`](../plugins/devflow/references/conventions.md).
+
+## Configuration it reads
+
+`base-branch-guard.py` and `secret-scan-guard.py` read `git.base` from `.planning/config.json`
+(falling back to `main`/`master` if absent); `protected-paths-guard.py` reads `protected_paths`, a
+glob list, from the same file. Full script contracts live in
+`plugins/devflow/templates/hooks/*.py`.

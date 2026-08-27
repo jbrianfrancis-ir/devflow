@@ -15,6 +15,7 @@ Reference pages for DevFlow that go beyond what the [repo README](../README.md) 
 - [parallel-work.md](parallel-work.md) — seeing every project's status at once, and running phases side by side in worktrees.
 - [autonomy.md](autonomy.md) — the FLOW status line, loop rails, and the gates that never auto-proceed.
 - [provenance.md](provenance.md) — who made a change and who approved it: commit trailers and the decision log.
+- [hooks.md](hooks.md) — deterministic Claude Code hooks that back the base-branch, protected-paths, and secret-scan rules with an enforced backstop.
 
 ## Background
 
