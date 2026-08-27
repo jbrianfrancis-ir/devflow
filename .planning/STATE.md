@@ -3,8 +3,10 @@
 
 ## Position
 Phase: 4 of 4 (complete) | Plans: 4/4 | Status: verified
-Last: 2026-08-23 — PR #28 merged as v0.15.0; quick 008 adds build-staleness reporting
-Next: /flow-ci — drive PR #29 to green
+Last: 2026-08-27 — PR #30 (v0.17.0, /flow-hooks) and PR #31 (flow-pr direct-invocation
+  gate) both open in parallel off main, not yet merged
+Next: /flow-ci for PR #30, then PR #31 (or vice versa) — expect a STATE.md/JOURNAL.md
+  merge conflict between them, resolve by keeping both entries
 
 ## Gate
 none
@@ -25,5 +27,5 @@ Signature: rule7:phase04:plans4/4:verifverified — superseded by D-06, terminal
 - none
 
 ## Session
-Stopped: PR #29 opened (v0.16.0) — 6 commits, checks running
-Resume: /flow-ci for PR #29. /flow-handsoff is deferred to its own branch — see DECISIONS 2026-08-22 for why
+Stopped: PR #31 opened (github.com/jbrianfrancis-ir/devflow/pull/31) — quick 010, 2 commits
+Resume: /flow-ci for PR #30 and #31. /flow-handsoff is deferred to its own branch — see DECISIONS 2026-08-22 for why
