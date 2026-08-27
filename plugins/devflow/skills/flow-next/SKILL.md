@@ -24,15 +24,21 @@ Absent block → cold start: `Iteration: 1`, `Started: {now}`, `Repeats: 0`. Mal
 
 Routing (first match wins):
 1. No `.planning/` → do nothing. `FLOW: GATE | no project — /flow-new is interactive | next: /flow-new`
-2. STATE shows an unresolved checkpoint or blocker → `FLOW: GATE | {what's needed} | next: {command}` (or `BLOCKED` if it's an error to investigate, suggesting `/flow-debug`). A populated `## Gate` block is itself an unresolved gate: surface its `asked` + `options` to the human verbatim and never answer it.
+2. STATE shows an unresolved checkpoint or blocker → `FLOW: GATE | {what's needed} | next: {command}` (or `BLOCKED` if it's an error to investigate, suggesting `/flow-debug`). A populated `## Gate` block is itself an unresolved gate: surface its `asked` + `options` to the human verbatim and never answer it — unless `asked` turns on state another system owns (a PR merge, a deploy, a check): validate that against a live read first (autonomy.md → External state is a cache, never evidence). A gate the world already answered is not an open gate, and re-asking it is how a run parks forever on a question with no remaining answer — clear it and continue routing instead.
 3. Current phase has no plans → run the `/flow-plan N --auto` flow (invoke the flow-plan skill with `N --auto`).
 4. Plans exist without SUMMARYs → run `/flow-execute N --auto`.
 5. VERIFICATION has gaps → run `/flow-plan N --gaps`.
 6. Phase verified, more phases remain → step 3 for the next phase.
 7. All phases verified, no `.planning/deploy/PIPELINE.md` → run `/flow-harden`. **Does not fire when the project has no deployable surface** — see *Deploy N/A* below.
 8. Ready to integrate — hardened, or all phases verified on a deploy-N/A project — and no PR URL recorded in STATE → run `/flow-pr` (it gates on human confirmation before opening the PR).
-9. PR open, not green (checks failing/pending, or unresolved bot review threads) → run `/flow-ci`. It is autonomous work: driving a PR to green needs no human.
-10. PR open and green / awaiting human review or merge → stop: review and merge are human, and UAT needs the merge plus azd auth. `FLOW: GATE | PR #N green, awaiting review/merge | next: after merge, /flow-uat` (deploy N/A → `next: after merge, /flow-next` — the merge is the end).
+
+**If STATE records a PR, re-read it live before rules 9-11 evaluate** — `gh pr view <n> --json state,mergedAt,mergeStateStatus,reviewDecision,url` — and route on that result, never on the line STATE has recorded (autonomy.md → External state is a cache, never evidence: the gate rule 10 raises is answered by a human acting outside this session, so the recorded line is stale from the moment it's written). `gh` unavailable or unauthenticated → `FLOW: BLOCKED | cannot read PR #N state ({reason}) | next: gh auth login, then /flow-next` — never fall back to the recorded line.
+
+9. PR **live** open and not green (checks failing/pending, or unresolved bot review threads) → run `/flow-ci`. It is autonomous work: driving a PR to green needs no human.
+10. PR **live** open and green / awaiting human review or merge → stop: review and merge are human, and UAT needs the merge plus azd auth. `FLOW: GATE | PR #N green, awaiting review/merge | next: after merge, /flow-uat` (deploy N/A → `next: after merge, /flow-next` — the merge is the end).
+11. PR **live** merged → the merge *is* the answer to rule 10's gate. Clear `## Gate` to `none`, reset `## Run` (`Iteration: 1`, fresh `Started`, `Repeats: 0`), record the merge in STATE (Position + Session) and prepend a `.planning/JOURNAL.md` line, then route on: deploy N/A with all phases verified → `FLOW: DONE | PR #N merged, roadmap verified | next: none`; otherwise → `FLOW: CONTINUE | PR #N merged | next: /flow-uat`.
+
+PR **live** closed unmerged → `FLOW: GATE | PR #N closed without merging | next: decide whether to reopen or re-branch` — a closed PR is a human decision, not a routing hop.
 
 **Deploy N/A.** When `.planning/config.json` → `deploy.tool` is `null`, the project has nothing to deploy (autonomy.md → Projects with no deployable surface). Rule 7 does not fire, rule 8 keys off *verified* instead of *hardened* so the work still routes to a PR, and a merged PR is terminal. Only an explicit `null` qualifies: missing, unreadable, or non-null config all mean the project deploys and the deploy chain applies unchanged.
 
