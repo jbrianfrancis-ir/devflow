@@ -3,14 +3,17 @@
 
 ## Position
 Phase: 4 of 4 (complete) | Plans: 4/4 | Status: verified
-Last: 2026-08-27 — PR #32 opened (quick 011, v0.18.0) — external state is a cache;
-  3 review rounds, 1 blocking + 9 should-fix/nit all fixed, none refuted
-Next: /flow-ci — drive PR #32 to green
+Last: 2026-08-27 — PR #32 green (validate pass, mergeStateStatus CLEAN, 0 review
+  threads) — quick 011, v0.18.0; 3 review rounds, all findings fixed, none refuted
+Next: human review + merge; after merge /flow-next (deploy N/A — the merge is the end)
 
 ## Gate
-type: none
-asked: none
-options: none
+type: approval
+asked: PR #32 (quick 011, v0.18.0) is green — validate passes, CLEAN, 0 review threads,
+  no human review yet. Merge it?
+options:
+  1. Review and merge on GitHub — deploy N/A, so the merge is terminal; /flow-next then reports DONE
+  2. Request changes / leave open — /flow-ci keeps watching for new pushes or comments
 default: none
 plan: none | task: none
 
@@ -21,9 +24,6 @@ Signature: none
 ## Decisions
 - init: no deployable surface — harden/uat/release N/A (D-06)
 - init: link checker is stdlib-only scripts/check-links.py (D-04)
-- phase 3: SC-04 confirmed PASS by human read-through (2026-08-19)
-- quick 001: Aspire refs at 13.5.0; auto-apply policy left unchanged — minors now
-  carry breaking changes, open question for the human
 - quick 009: /flow-hooks scaffolds guard-only PreToolUse backstops (base-branch,
   protected-paths, secret-scan); no .planning/ required to run it
 - quick 011: external state (PR/CI/deploy) is a cache, never evidence — re-read
@@ -33,6 +33,5 @@ Signature: none
 - none
 
 ## Session
-Stopped: PR #32 opened (github.com/jbrianfrancis-ir/devflow/pull/32) — 11 commits, smoke
-  green (validate-plugin OK, 161 tests OK/2 skipped, check-links 0/212)
-Resume: /flow-ci for PR #32; review and merge stay human
+Stopped: PR #32 green and awaiting human review/merge — this pass observed only, fixed nothing
+Resume: after merge, /flow-next — it now re-reads PR state live and clears this gate itself
