@@ -11,7 +11,7 @@ Context rules: read `.planning/STATE.md` and `.planning/config.json` (`git` bloc
 
 Babysitting CI is not a human decision, so this skill does it. What stays human: merging, replying to **human** reviewers, force-pushing, anything destructive. Never auto-merge, ever — reaching green is the deliverable.
 
-**Pre-flight**: `gh` authenticated (`gh auth status`); a PR exists for the current branch (`gh pr view --json number,url,state,isDraft,mergeStateStatus`) or the number was passed — none → point to `/flow-pr`. This read is live every pass, never from STATE (`autonomy.md` → External state is a cache, never evidence). PR closed/merged → report and route to `/flow-uat`. On the feature branch, working tree clean.
+**Pre-flight**: `gh` authenticated (`gh auth status`); a PR exists for the current branch (`gh pr view --json number,url,state,isDraft,mergeStateStatus`) or the number was passed — none → point to `/flow-pr`. This read is live every pass, never from STATE (`autonomy.md` → External state is a cache, never evidence). PR **merged** → report and route to `/flow-uat`. PR **closed unmerged** → `FLOW: GATE | PR #N closed without merging | next: decide whether to reopen or re-branch`; nothing reached the base branch, so UAT would be testing work that was never integrated (same split as `/flow-next` rules 11 and 12). On the feature branch, working tree clean.
 
 **One invocation = one bounded pass.** Poll while checks are `pending` (recheck every ~60s, readiness-driven — never a fixed sleep as a substitute for a real signal), up to ~10 minutes; if still pending when the budget is spent, stop with `CONTINUE` so `/loop` or `/goal` picks it up rather than burning a session on a queue.
 

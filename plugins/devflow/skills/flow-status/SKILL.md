@@ -20,8 +20,7 @@ No `.planning/` → point to `/flow-new` (except `--all`, which needs no project
 - PR merged to base → `/flow-uat`, then sign-off, `/flow-release` (see `.planning/deploy/PIPELINE.md` if present)
 
 The two PR rows above come from a live `gh pr view`, never from the line STATE has recorded
-(autonomy.md → External state is a cache, never evidence): a merge or a review happens outside
-this session, so the recorded line is stale from the moment a gate is raised on it. When the live
+(autonomy.md → External state is a cache, never evidence). When the live
 state contradicts STATE, report the live state, say plainly that STATE was stale and what it had
 claimed, and correct STATE in this pass. When `gh` cannot answer, say the PR check did not run and
 report the recorded line as a recorded line with its date — never as current. That is weaker than

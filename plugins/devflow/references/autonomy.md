@@ -71,6 +71,15 @@ cache that cannot be checked is not a cache that is current.
 When live and recorded disagree, the live read wins and the skill corrects STATE in the same
 pass, so the next invocation does not rediscover the same drift.
 
+**Observation answers a fact, never an authorization.** This rule licenses re-reading the world;
+it does not license answering a gate by looking at it. "Has PR #31 been merged?" is a fact, and
+`gh pr view` settles it — so finding it merged closes that gate. "May I release to production?"
+is an authorization, and no observation settles it: a deployment appearing in Azure is not a human
+saying yes, it is a thing that happened. The distinction is the whole safety margin here, because
+the same live read that correctly retires a stale PR gate would, applied one category wider, let a
+run clear its own release gate by noticing a deploy. Every gate in the list above stays human
+except the PR-merge one, and that one only because the question it asks is about a fact.
+
 ## Under /loop (dynamic mode)
 After emitting the status line: `CONTINUE` → reschedule soon and keep going next iteration. `GATE`/`BLOCKED`/`DONE` → stop the loop (ScheduleWakeup `stop: true`) and state plainly why it stopped and what the human should do.
 
