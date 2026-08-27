@@ -5,11 +5,18 @@
 Phase: 4 of 4 (complete) | Plans: 4/4 | Status: verified
 Last: 2026-08-27 — PR #30 (v0.17.0, /flow-hooks) and PR #31 (flow-pr direct-invocation
   gate) both open in parallel off main, not yet merged
-Next: /flow-ci for PR #30, then PR #31 (or vice versa) — expect a STATE.md/JOURNAL.md
-  merge conflict between them, resolve by keeping both entries
+Next: PR #31 green, awaiting human review/merge. /flow-ci still owed to PR #30. Expect a
+  STATE.md/JOURNAL.md merge conflict between them, resolve by keeping both entries
 
 ## Gate
-none
+type: approval
+asked: PR #31 (flow-pr direct-invocation gate) is green — required checks pass, no open bot
+  threads, no human review yet. Merge it?
+options:
+  1. Review and merge on GitHub — proceeds to /flow-uat (N/A, no deployable surface)
+  2. Request changes / leave open — /flow-ci keeps watching for new pushes or comments
+default: none
+plan: none | task: none
 
 ## Run
 Iteration: 2 | Started: 2026-08-19T21:55Z | Repeats: 0
