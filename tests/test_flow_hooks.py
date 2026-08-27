@@ -1,0 +1,227 @@
+import importlib.util
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+HOOKS_DIR = ROOT / "plugins/devflow/templates/hooks"
+CONVENTIONS = ROOT / "plugins/devflow/references/conventions.md"
+
+BASE_BRANCH_GUARD = HOOKS_DIR / "base-branch-guard.py"
+PROTECTED_PATHS_GUARD = HOOKS_DIR / "protected-paths-guard.py"
+SECRET_SCAN_GUARD = HOOKS_DIR / "secret-scan-guard.py"
+
+
+def load_module(path, name):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def run_hook(script, payload, env=None):
+    full_env = os.environ.copy()
+    if env:
+        full_env.update(env)
+    return subprocess.run(
+        [sys.executable, str(script)],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        env=full_env,
+    )
+
+
+def git(repo, *args):
+    result = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr}")
+    return result.stdout
+
+
+class GitFixture:
+    """A scratch git repo with a `.planning/config.json` (`git.base`) and one commit."""
+
+    def __init__(self, base="main", protected_paths=None):
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.repo = Path(self.tempdir.name)
+        git(self.repo, "init", "-q", "-b", base)
+        git(self.repo, "config", "user.email", "test@example.com")
+        git(self.repo, "config", "user.name", "test")
+        (self.repo / ".planning").mkdir()
+        config = {"git": {"base": base}}
+        if protected_paths is not None:
+            config["protected_paths"] = protected_paths
+        (self.repo / ".planning" / "config.json").write_text(
+            json.dumps(config), encoding="utf-8")
+        (self.repo / "f.txt").write_text("hello\n", encoding="utf-8")
+        git(self.repo, "add", "f.txt", ".planning/config.json")
+        git(self.repo, "commit", "-q", "-m", "init")
+
+    def checkout(self, branch):
+        git(self.repo, "checkout", "-q", "-b", branch)
+
+    def append_and_stage(self, line):
+        with (self.repo / "f.txt").open("a", encoding="utf-8") as stream:
+            stream.write(line + "\n")
+        git(self.repo, "add", "f.txt")
+
+    def cleanup(self):
+        self.tempdir.cleanup()
+
+
+class BaseBranchGuardTests(unittest.TestCase):
+    def setUp(self):
+        self.fixture = GitFixture()
+        self.addCleanup(self.fixture.cleanup)
+
+    def test_blocks_commit_on_base_branch(self):
+        result = run_hook(BASE_BRANCH_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_blocks_push_on_base_branch(self):
+        result = run_hook(BASE_BRANCH_GUARD, {
+            "tool_input": {"command": "git push origin main"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_allows_commit_on_feature_branch(self):
+        self.fixture.checkout("flow/test")
+        result = run_hook(BASE_BRANCH_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(0, result.returncode)
+
+    def test_allows_non_git_command(self):
+        result = run_hook(BASE_BRANCH_GUARD, {
+            "tool_input": {"command": "ls -la"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(0, result.returncode)
+
+    def test_fails_open_when_not_a_git_repo(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            result = run_hook(BASE_BRANCH_GUARD, {
+                "tool_input": {"command": "git commit -m x"},
+                "cwd": scratch,
+            })
+            self.assertEqual(0, result.returncode)
+            self.assertTrue(result.stderr.strip())
+
+
+class ProtectedPathsGuardTests(unittest.TestCase):
+    def setUp(self):
+        self.fixture = GitFixture(protected_paths=["src/prod.env", "*.pem"])
+        self.addCleanup(self.fixture.cleanup)
+
+    def test_blocks_matching_path_without_env(self):
+        target = str(self.fixture.repo / "src" / "prod.env")
+        result = run_hook(PROTECTED_PATHS_GUARD, {
+            "tool_input": {"file_path": target},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_allows_matching_path_with_env_set(self):
+        target = str(self.fixture.repo / "src" / "prod.env")
+        result = run_hook(PROTECTED_PATHS_GUARD, {
+            "tool_input": {"file_path": target},
+            "cwd": str(self.fixture.repo),
+        }, env={"DEVFLOW_PROTECTED_PATH_OK": "1"})
+        self.assertEqual(0, result.returncode)
+
+    def test_allows_non_matching_path(self):
+        target = str(self.fixture.repo / "src" / "other.txt")
+        result = run_hook(PROTECTED_PATHS_GUARD, {
+            "tool_input": {"file_path": target},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(0, result.returncode)
+
+    def test_allows_when_no_protected_paths_configured(self):
+        fixture = GitFixture()
+        self.addCleanup(fixture.cleanup)
+        target = str(fixture.repo / "anything.txt")
+        result = run_hook(PROTECTED_PATHS_GUARD, {
+            "tool_input": {"file_path": target},
+            "cwd": str(fixture.repo),
+        })
+        self.assertEqual(0, result.returncode)
+
+
+class SecretScanGuardTests(unittest.TestCase):
+    def setUp(self):
+        self.fixture = GitFixture()
+        self.addCleanup(self.fixture.cleanup)
+
+    def test_blocks_staged_secret_pattern(self):
+        # Built at runtime (not a single-line literal) so this repo's own conventions.md
+        # secret scan doesn't flag the test fixture as a real hit when this file is committed.
+        fixture_line = "api_key" + ' = "' + "abcd1234efgh5678" + '"'
+        self.fixture.append_and_stage(fixture_line)
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+        self.assertNotIn("abcd1234efgh5678", result.stderr)
+
+    def test_blocks_added_env_file_regardless_of_content(self):
+        (self.fixture.repo / ".env").write_text("NOT_A_SECRET=1\n", encoding="utf-8")
+        git(self.fixture.repo, "add", ".env")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_allows_clean_diff(self):
+        self.fixture.append_and_stage("clean addition")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(0, result.returncode)
+
+    def test_allows_non_git_command(self):
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "ls -la"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(0, result.returncode)
+
+
+class SecretPatternDriftTest(unittest.TestCase):
+    """The regex embedded in secret-scan-guard.py must stay byte-identical to the one
+    documented in conventions.md's "Secret scan (fail-closed)" section — a test, not a
+    comment, so the two copies cannot drift silently."""
+
+    def test_embedded_pattern_matches_conventions_md(self):
+        text = CONVENTIONS.read_text(encoding="utf-8")
+        _, _, section = text.partition("## Secret scan (fail-closed)")
+        self.assertTrue(section, "conventions.md: 'Secret scan (fail-closed)' section not found")
+        match = re.search(r"```\n(.+?)\n```", section, re.S)
+        self.assertIsNotNone(match, "conventions.md: fenced secret-scan pattern not found")
+        documented_pattern = match.group(1)
+
+        module = load_module(SECRET_SCAN_GUARD, "secret_scan_guard")
+        self.assertEqual(documented_pattern, module.SECRET_PATTERN)
+
+
+if __name__ == "__main__":
+    unittest.main()
