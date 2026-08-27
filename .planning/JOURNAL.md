@@ -3,6 +3,7 @@ to .planning/history/JOURNAL-<YYYY>.md (append, chronological, uncapped) — nev
 The cap bounds what loads into context each run; it is not permission to forget.
 One line per completed state-changing skill run. Warm-start + audit trail; context repos (docs/blitzos.md) index these lines verbatim. -->
 # Journal
+- 2026-08-27 | /flow-pr | PR #32 opened (github.com/jbrianfrancis-ir/devflow/pull/32) — quick 011, v0.18.0; external state is a cache, plus 'observation answers a fact, never an authorization' after a blocking finding on self-clearing release gates | CONTINUE
 - 2026-08-27 | quick 011 | PRs #30 and #31 merged to main (16:28-16:29Z); STATE.md had
   asserted both open with a live rule-10 gate — the stale-external-state defect quick 011 fixes | CONTINUE
 - 2026-08-27 | /flow-pr | PR #30 opened (github.com/jbrianfrancis-ir/devflow/pull/30) — /flow-hooks skill (base-branch/protected-paths/secret-scan guards), v0.17.0; 3 review rounds, 6 blocking (all live-verified bypasses) fixed | CONTINUE
