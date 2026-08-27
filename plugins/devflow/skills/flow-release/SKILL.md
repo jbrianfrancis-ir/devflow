@@ -19,7 +19,10 @@ Context rules: read `.planning/STATE.md` first. Production is not the place to i
 
 2. **Confirm** with the user: releasing SHA {sha}, signed off by {approver} on {date}, to prod. Explicit yes required — this is a permanent human gate: even under `/goal`, `/loop`, or auto mode, stop with a GATE status line and wait.
 
-3. **Deploy**: `azd env list` first — provisioning state is Azure's fact, and the PIPELINE prod row is a cache of it (`autonomy.md` → External state is a cache, never evidence); `/flow-uat` step 3 already reads it live. `azd env list` or PIPELINE says prod unprovisioned → `azd env new prod`, `azd env select prod`, `azd up` (user answers parameter prompts — prod values, not uat). Else `azd env select prod`; `azd provision` only if the infra model changed since the last release; `azd deploy`.
+3. **Deploy**: `azd env list` first — provisioning state is Azure's fact, and the PIPELINE prod row is only a cache of it (`autonomy.md` → External state is a cache, never evidence). **The live answer decides, alone**: a prod env in `azd env list` means provisioned no matter what PIPELINE's row says, and the row gets corrected in step 5. Never OR the two — a stale row reading "unprovisioned" against a prod env that exists would send a live production environment through `azd env new` + `azd up`, re-prompting and re-applying prod parameters over a running system.
+   - prod env **absent** → `azd env new prod`, `azd env select prod`, `azd up` (user answers parameter prompts — prod values, not uat).
+   - prod env **present** → `azd env select prod`; `azd provision` only if the infra model changed since the last release; `azd deploy`.
+   - `azd env list` **failed** → stop: `FLOW: BLOCKED | cannot read prod provisioning state ({reason}) | next: azd auth login or restore network, then /flow-release`. Do not fall back to the PIPELINE row: guessing "unprovisioned" here is the `azd up`-over-production case, and this is the one skill where a wrong guess is not recoverable.
 
 4. **Smoke**: curl prod health endpoints; capture URLs. Failure → present options: rollback (`git checkout <last release tag>` + `azd deploy` from it, or Azure portal revision rollback), retry after fix, or investigate (`/flow-debug`). Do not mark released until smoke is green.
 
