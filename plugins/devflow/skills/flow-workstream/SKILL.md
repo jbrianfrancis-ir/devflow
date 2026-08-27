@@ -33,7 +33,7 @@ One workstream = one git worktree = one `flow/<slug>` branch = one PR. Run this 
 ## drop `<slug>`
 Destructive and outward-adjacent — always a human gate, even in `--auto`.
 
-**Pre-flight, all reported before asking**: uncommitted changes in the worktree (`git status --porcelain`), commits not pushed to origin (`git log origin/flow/<slug>..flow/<slug>`), and whether the branch is merged into the base (`git branch --merged <base>`). Unmerged or unpushed work is named explicitly — this is the one place DevFlow can destroy work that was never written down.
+**Pre-flight, all reported before asking**: `git fetch` first when there's a remote — pushed-ness and merged-ness are the remote's facts, and a stale `origin/*` ref answers both from cache (`autonomy.md` → External state is a cache, never evidence). Then: uncommitted changes in the worktree (`git status --porcelain`), commits not pushed to origin (`git log origin/flow/<slug>..flow/<slug>`), and whether the branch is merged into the base (`git branch --merged <base>`). Fetch failed → report the check as not run and treat the branch as unmerged and unpushed, never as clean. Unmerged or unpushed work is named explicitly — this is the one place DevFlow can destroy work that was never written down.
 
 Also run the **scope-conformance** check before dropping a merged stream: `git diff --name-only <base>...flow/<slug>` against the union of `files_modified` across the phase's plans. Paths outside it are advisory, but they are the last cheap chance to notice that a stream reached beyond its brief into shared state — report them, then proceed. Base unavailable → report the check as not run, never as clean.
 

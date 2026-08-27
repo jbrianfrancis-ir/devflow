@@ -7,4 +7,4 @@
 - 007 | 2026-08-22 | revert /flow-handsoff after 4 review rounds failed to converge; settings check made advisory | (this commit)
 - 008 | 2026-08-23 | surface stale DevFlow builds and a stale marketplace cache in /flow-status | 33c3bce..517a81a
 - 010 | 2026-08-27 | flow-pr's PR-creation gate only pauses for autonomous runs, not direct invocation | 329a487
-- 011 | 2026-08-27 | external state is a cache: flow-next/flow-status re-read PR state live before routing | 1a33720..16e09b9
+- 011 | 2026-08-27 | external state is a cache: flow-next/flow-status re-read PR state live before routing | 1a33720..b57fd5e
