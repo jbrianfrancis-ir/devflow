@@ -19,6 +19,7 @@ Iteration: 1 | Started: 2026-08-27T18:54Z | Repeats: 0
 Signature: none
 
 ## Decisions
+- init: no deployable surface — harden/uat/release N/A (D-06)
 - init: link checker is stdlib-only scripts/check-links.py (D-04)
 - phase 3: SC-04 confirmed PASS by human read-through (2026-08-19)
 - quick 001: Aspire refs at 13.5.0; auto-apply policy left unchanged — minors now
