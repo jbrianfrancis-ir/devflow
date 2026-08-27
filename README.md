@@ -74,6 +74,7 @@ the complete gate list: [docs/autonomy.md](docs/autonomy.md).
 | ad-hoc | `/flow-todo <idea>` | Capture without derailing |
 | memory | `/flow-map` | Codebase memory for planners/executors (`--docs`, `--refresh`) |
 | design | `/flow-design` | Link + pull a Claude Design (claude.ai/design) design system as hard UI constraints (`--refresh`) |
+| guardrails | `/flow-hooks` | Scaffold deterministic base-branch, protected-paths, and secret-scan hooks into `.claude/settings.json` |
 | integrate | `/flow-pr` | Independent lens review of the outgoing diff, push to origin, open a PR (narrative recap + reviewer's guide) against upstream (`--adversarial` reviews through the peer provider and adjudicates into a ledger) |
 | integrate | `/flow-ci` | Drive the open PR to green — watch checks, fix failures, answer bot review threads |
 | deploy | `/flow-harden` | Production audit vs Aspire checklist; fix findings |
