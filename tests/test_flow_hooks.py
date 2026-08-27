@@ -371,16 +371,65 @@ class SecretScanGuardTests(unittest.TestCase):
         self.assertEqual(2, result.returncode)
         self.assertIn("Blocked", result.stderr)
 
-    def test_allows_unrelated_untracked_file_not_targeted_by_add(self):
-        # An untracked file that this command's `git add` does not name should not block an
-        # unrelated commit of already-staged, clean content.
-        (self.fixture.repo / "id_rsa").write_text("secret key material\n", encoding="utf-8")
+    def test_blocks_unrelated_untracked_credential_file_whenever_git_add_present(self):
+        # Deliberate over-blocking, by design: scanning is intentionally conservative
+        # (whenever `git add` appears anywhere in the command, every untracked file is a
+        # candidate) rather than trying to compute exactly which files this invocation
+        # targets — see scan_new_untracked_files's docstring for why the narrower version
+        # was unsafe.
+        (self.fixture.repo / "id_rsa").write_text("not a real key, just a name\n", encoding="utf-8")
         self.fixture.append_and_stage("clean addition")
         result = run_hook(SECRET_SCAN_GUARD, {
             "tool_input": {"command": "git add f.txt && git commit -m x"},
             "cwd": str(self.fixture.repo),
         })
-        self.assertEqual(0, result.returncode)
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_blocks_glob_expanded_add_target(self):
+        # Regression: a literal-token match on `git add` args can't see through a shell glob
+        # — verified live to bypass an earlier version of this check.
+        (self.fixture.repo / "secret1.pem").write_text("not a real key\n", encoding="utf-8")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git add secret*.pem && git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_blocks_variable_expanded_add_target(self):
+        # Regression: same bypass class as the glob case, via a shell variable instead.
+        (self.fixture.repo / "id_rsa").write_text("not a real key\n", encoding="utf-8")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "F=id_rsa; git add $F && git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_blocks_newline_separated_add_and_commit(self):
+        # Regression: an earlier version only split chained statements on &&/;/||, so an
+        # add and commit on separate lines of the same Bash command evaded it entirely.
+        (self.fixture.repo / "id_rsa").write_text("not a real key\n", encoding="utf-8")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "echo preparing\ngit add id_rsa\ngit commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_blocks_empty_credential_shaped_file(self):
+        # Regression: a 0-byte credential-shaped file emits only a `diff --git`/`new file
+        # mode` header — no `+++`/`+`/binary-differ line at all — so detection must not
+        # depend on any content-bearing line existing.
+        (self.fixture.repo / "id_rsa").touch()
+        git(self.fixture.repo, "add", "id_rsa")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
 
     def test_allows_deleting_a_text_credential_file(self):
         (self.fixture.repo / ".env").write_text("NOT_A_SECRET=1\n", encoding="utf-8")

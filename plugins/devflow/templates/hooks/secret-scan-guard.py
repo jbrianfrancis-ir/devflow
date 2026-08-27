@@ -12,7 +12,6 @@ import fnmatch
 import json
 import os
 import re
-import shlex
 import subprocess
 import sys
 
@@ -30,19 +29,16 @@ SECRET_RE = re.compile(SECRET_PATTERN)
 CREDENTIAL_FILE_GLOBS = (".env*", "*.pem", "*.pfx", "*.key", "id_rsa*")
 CREDENTIAL_FILE_EXCEPTIONS = {".env.example", ".env.template"}
 
-# Present for every file in a diff, text or binary — unlike `+++ `/`+` lines, which binary
-# files never emit. Used only to track the current file; the credential-filename rule for
-# binary content fires on BINARY_DIFFER_RE below, not on this header alone (a header alone
-# also introduces a deleted/renamed file, which shouldn't trip the "content was added" rule).
+# Splits a `git diff` into per-file sections — the delimiter git emits for every file in a
+# diff, text or binary, added, modified, renamed, or deleted.
 DIFF_GIT_HEADER_RE = re.compile(r"^diff --git a/.* b/(.*)$")
 
-# "Binary files <old> and <new> differ" — <new> is /dev/null for a pure deletion (nothing
-# added, must not trip the credential-filename rule) and the real path otherwise (a binary
-# file being added or modified, which is exactly the case `+++ `/`+` lines can't catch).
-BINARY_DIFFER_RE = re.compile(r"^Binary files (.+) and (.+) differ$")
+# Git always emits this line for a deletion (text or binary) — used to tell "this file's
+# content is going away" apart from "this file's content is arriving", so a credential-shaped
+# file's deletion (remediation) never trips the same rule that catches its arrival.
+DELETED_FILE_RE = re.compile(r"^deleted file mode\b")
 
-# Tokens that mean "stage everything", not a specific path — seen after `git add`.
-GIT_ADD_ALL_TOKENS = {".", "-A", "--all", "-u", "--update"}
+GIT_ADD_RE = re.compile(r"\bgit\s+add\b")
 
 
 def warn(message):
@@ -89,51 +85,44 @@ def diff_for(command, cwd, warn):
     return None
 
 
-def scan(diff_text):
-    """Return (file, pattern_class) for the first hit, or None if the diff is clean."""
-    current_file = None
+def iter_file_chunks(diff_text):
+    """Yield (file_path, chunk_lines) per file section of a `git diff` — everything from one
+    `diff --git` header up to (not including) the next, or EOF. One pass over line-tracking
+    state, so the per-file rules below don't have to reconstruct it themselves."""
+    chunk_path = None
+    chunk_lines = []
     for line in diff_text.splitlines():
         header = DIFF_GIT_HEADER_RE.match(line)
         if header:
-            current_file = header.group(1)
+            if chunk_path is not None:
+                yield chunk_path, chunk_lines
+            chunk_path = header.group(1)
+            chunk_lines = []
             continue
-        binary = BINARY_DIFFER_RE.match(line)
-        if binary:
-            new_side = binary.group(2)
-            if new_side != "/dev/null" and current_file and is_credential_file(current_file):
-                return current_file, "credential-shaped filename"
-            continue
-        if line.startswith("+++ "):
-            path = line[4:].strip()
-            if path != "/dev/null":
-                current_file = re.sub(r"^b/", "", path)
-            continue
-        if not line.startswith("+"):
-            continue
-        content = line[1:]
-        if current_file and is_credential_file(current_file):
-            return current_file, "credential-shaped filename"
-        if SECRET_RE.search(content):
-            return current_file or "<unknown file>", "secret pattern"
+        chunk_lines.append(line)
+    if chunk_path is not None:
+        yield chunk_path, chunk_lines
+
+
+def scan(diff_text):
+    """Return (file, pattern_class) for the first hit, or None if the diff is clean.
+
+    The credential-filename rule ("any added line in one of these is a hit regardless of
+    content") is evaluated per file, not per line: a credential-shaped file being added or
+    modified is a hit even with zero `+`/`+++` lines to inspect (a binary file, or a newly
+    added empty one) — but a credential-shaped file being *deleted* is remediation, not a
+    hit, regardless of how its removal happens to render in the diff.
+    """
+    for file_path, lines in iter_file_chunks(diff_text):
+        is_deletion = any(DELETED_FILE_RE.match(line) for line in lines)
+        if not is_deletion and is_credential_file(file_path):
+            return file_path, "credential-shaped filename"
+        for line in lines:
+            if not line.startswith("+") or line.startswith("+++"):
+                continue
+            if SECRET_RE.search(line[1:]):
+                return file_path, "secret pattern"
     return None
-
-
-def added_paths(command):
-    """Paths passed to `git add` in this same chained Bash command, or None if `git add`
-    targets everything (`.`, `-A`, `--all`, `-u`) or the command can't be tokenized safely —
-    both mean the caller should treat every untracked file as a candidate, not just named ones."""
-    paths = []
-    for statement in re.split(r"&&|\|\||;", command):
-        try:
-            tokens = shlex.split(statement)
-        except ValueError:
-            return None
-        if len(tokens) >= 2 and tokens[0] == "git" and tokens[1] == "add":
-            args = tokens[2:]
-            if not args or GIT_ADD_ALL_TOKENS & set(args):
-                return None
-            paths.extend(a for a in args if not a.startswith("-"))
-    return paths
 
 
 def untracked_files(cwd):
@@ -163,19 +152,26 @@ def scan_untracked_candidate(cwd, rel_path):
 
 
 def scan_new_untracked_files(command, cwd, warn):
-    """Hit for a not-yet-tracked file this exact chained command is about to stage and
-    commit in one Bash call (`git add newfile && git commit ...`) — a diff against HEAD or
-    the index can never see this, since the file has no history to diff against yet."""
-    if "git add" not in command:
+    """Hit for a not-yet-tracked file this exact chained command might stage and commit in
+    one Bash call (`git add newfile && git commit ...`) — a diff against HEAD or the index
+    can never see this, since the file has no history to diff against yet.
+
+    Deliberately conservative: rather than compute exactly which untracked files a `git add`
+    invocation would stage — defeated, verified live, by a glob (`git add *.pem`), a shell
+    variable (`git add $F`), `-C`/an env-var prefix, or the add and commit landing in separate
+    newline-separated statements of the same command — scan every currently untracked file
+    whenever the command contains `git add` at all. A false positive (flagging an untracked
+    file this particular add wouldn't actually stage) costs less than the bypass a narrower,
+    cleverer match kept reopening.
+    """
+    if not GIT_ADD_RE.search(command):
         return None
-    targets = added_paths(command)
     try:
-        untracked = set(untracked_files(cwd))
+        untracked = untracked_files(cwd)
     except Exception as exc:
         warn(f"could not list untracked files in {cwd}: {exc}")
         return None
-    candidates = untracked if targets is None else {t for t in targets if t in untracked}
-    for rel_path in sorted(candidates):
+    for rel_path in sorted(untracked):
         hit = scan_untracked_candidate(cwd, rel_path)
         if hit:
             return hit
