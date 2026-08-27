@@ -3,9 +3,9 @@
 
 ## Position
 Phase: 4 of 4 (complete) | Plans: 4/4 | Status: verified
-Last: 2026-08-27 — PR #30 (v0.17.0, /flow-hooks) and PR #31 (flow-pr direct-invocation
-  gate) both merged to main; no open PRs
-Next: quick 011 (stale PR state) in flight on flow/stale-pr-state
+Last: 2026-08-27 — quick 011 (stale PR state) done: autonomy.md live-read rule,
+  flow-next rules 8-11 + flow-status PR rows re-read gh live, STATE.md repaired
+Next: /flow-pr for flow/stale-pr-state
 
 ## Gate
 type: none
@@ -32,7 +32,6 @@ Signature: none
 - none
 
 ## Session
-Stopped: PRs #30 and #31 both merged to main 2026-08-27 (16:28-16:29Z); rule-10 gate
-  on #31 answered by the merge itself
-Resume: continue quick 011 (stale-pr-state) on flow/stale-pr-state; no /flow-ci owed
-  to either PR
+Stopped: quick 011 all 4 tasks committed on flow/stale-pr-state; smoke green
+  (validate-plugin OK, 161 tests OK/2 skipped, check-links 0 failures/212 refs)
+Resume: /flow-pr to open the PR for flow/stale-pr-state
