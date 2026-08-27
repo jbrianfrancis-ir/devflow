@@ -19,6 +19,15 @@ No `.planning/` → point to `/flow-new` (except `--all`, which needs no project
 - PR open but not green (failing/pending checks, unresolved bot threads) → `/flow-ci`
 - PR merged to base → `/flow-uat`, then sign-off, `/flow-release` (see `.planning/deploy/PIPELINE.md` if present)
 
+The two PR rows above come from a live `gh pr view`, never from the line STATE has recorded
+(autonomy.md → External state is a cache, never evidence): a merge or a review happens outside
+this session, so the recorded line is stale from the moment a gate is raised on it. When the live
+state contradicts STATE, report the live state, say plainly that STATE was stale and what it had
+claimed, and correct STATE in this pass. When `gh` cannot answer, say the PR check did not run and
+report the recorded line as a recorded line with its date — never as current. That is weaker than
+`/flow-next`'s `BLOCKED` on purpose: `flow-status` only reports, it does not advance the project,
+and a status command that refuses to print anything is worse than one that labels its uncertainty.
+
 When `.planning/config.json` → `deploy.tool` is `null` the project has no deployable surface (autonomy.md): drop the harden/uat/release rows, route *all phases verified, not yet PR'd* straight to `/flow-pr`, and report a verified-and-merged roadmap as `DONE` rather than pointing at a deploy step it will never take. Only an explicit `null` — missing or unreadable config means the project deploys.
 
 A populated `## Gate` block outranks the routing: print `asked` and the numbered `options` verbatim, note who has to answer, and route to that instead. Report a non-zero `## Run` `Repeats` as "the loop has not moved in K iterations at `{signature}`" — the run is in trouble before the rail trips, and this is where a human notices. A malformed `## Run` block is `BLOCKED`, not a shrug.
