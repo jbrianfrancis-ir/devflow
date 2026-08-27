@@ -45,3 +45,9 @@ user.email — never a guess at who was at the keyboard. -->
 - **why it is recorded**: `D-21` was approved earlier in this same session and is being reversed unshipped. The approval was real and so is the reversal; a log that kept only the first would misrepresent what happened. The reversal is not a judgement that skill-declared hooks are wrong — it is that a hand-rolled parser for an untyped format has unbounded bypass surface, and three consecutive rounds each closed one class of malformation and left the next.
 - **by**: jbrianfrancis-ir <brianf@informativeresearch.com>
 - **at**: 2417d36 · /flow-pr review round 4
+
+## 2026-08-27 16:29 · pr-merge
+- **asked**: PR #31 (flow-pr direct-invocation gate) is green — required checks pass, no open bot threads, no human review yet. Merge it? (rule-10 gate raised by `/flow-next`)
+- **answered**: Merged on GitHub, outside this session, at 2026-08-27T16:28:21Z. PR #30 (v0.17.0, `/flow-hooks`) merged in the same window, at 2026-08-27T16:29:33Z — both answering the same standing gate. STATE.md had not been re-read live and still asserted both PRs open; that drift is the defect quick 011 fixes.
+- **by**: jbrianfrancis-ir <brianf@informativeresearch.com>
+- **at**: bf6f9c1 · PR #31 / PR #30

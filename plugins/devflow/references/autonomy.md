@@ -48,6 +48,40 @@ Every gate in that list writes the `## Gate` block when it is raised, and **a `.
 
 Stopping at a gate and leaving no trace proves nothing later — the decision lived in a conversation that no longer exists, which is exactly the hole an auditor finds. A secret-scan hit is the one exception to verbatim detail: record file, line, and pattern class, never the matched value (`conventions.md`).
 
+## External state is a cache, never evidence
+`.planning/` records what a skill observed at a moment in time. For state DevFlow itself owns
+— phase status, plans, verification — the file *is* the truth. For state another system owns —
+PR open/merged/closed, check results, review decisions, remote branch position, deployment
+status — the file is a cache written by a past invocation, and nothing invalidates it.
+
+The hazard is specific to the gate list above: every human gate is an action taken *outside this
+session*. The moment a skill emits `GATE | PR #N awaiting review/merge`, the state it just wrote
+is the state it is asking a human to change. A later invocation that reads that line and repeats
+the gate is not observing the world, it is quoting itself.
+
+The rule: **before asserting or routing on state another system owns, re-read it live in the
+current invocation.** One command — `gh pr view <n> --json state,mergedAt,mergeStateStatus,reviewDecision`
+— is the whole cost. This is `CLAUDE.md`'s evidence-over-assertion rule applied to the one class
+of fact that changes while nobody is looking.
+
+Fail-closed (`conventions.md` → Fail-closed guards): if the live read cannot run — `gh` missing,
+unauthenticated, network down — that is `BLOCKED`, not licence to fall back to the cached line. A
+cache that cannot be checked is not a cache that is current.
+
+When live and recorded disagree, the live read wins and the skill corrects STATE in the same
+pass, so the next invocation does not rediscover the same drift.
+
+**Observation answers a fact, never an authorization.** This rule licenses re-reading the world;
+it does not license answering a gate by looking at it. "Has PR #31 been merged?" is a fact, and
+`gh pr view` settles it — so finding it merged closes that gate. "May I release to production?"
+is an authorization, and no observation settles it: a deployment appearing in Azure is not a human
+saying yes, it is a thing that happened. The distinction is the whole safety margin here, because
+the same live read that correctly retires a stale PR gate would, applied one category wider, let a
+run clear its own release gate by noticing a deploy. Exactly one gate in the list above may be
+retired by observation: the one that asks *whether a PR has already been merged* (`/flow-next`
+rule 10's gate). The gates that **authorize** opening a PR, replying to a human reviewer, or
+merging one stay human — those ask permission, and the list above still binds them in full.
+
 ## Under /loop (dynamic mode)
 After emitting the status line: `CONTINUE` → reschedule soon and keep going next iteration. `GATE`/`BLOCKED`/`DONE` → stop the loop (ScheduleWakeup `stop: true`) and state plainly why it stopped and what the human should do.
 
