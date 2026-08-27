@@ -37,16 +37,21 @@ glob list, from the same file. Full script contracts live in
 
 ## Known limitations
 
-These guards match on the literal `Bash` command string and a computed diff — they are not a
-sandbox and cannot see through indirection:
+These guards match on the literal `Bash` command string and a computed diff/file listing — they
+are not a sandbox and cannot see through indirection:
 
 - **Wrapper scripts and indirection.** A command like `bash release.sh` or a Makefile/npm target
   that internally runs `git commit`/`git push` never contains that literal substring in
-  `tool_input.command`, so neither `base-branch-guard.py` nor `secret-scan-guard.py` sees it.
-- **A brand-new untracked file added and committed in one chained command** (`git add
-  newfile.pem && git commit`) is not scanned by `secret-scan-guard.py`: the hook fires before
-  `git add` runs, and an untracked file has no entry in `git diff HEAD` to catch it. A secret
-  added to an already-tracked file is covered regardless of staging state.
+  `tool_input.command`, so neither `base-branch-guard.py` nor `secret-scan-guard.py` sees it. This
+  is the residual gap — everything else below is handled.
 
-Treat these as the reason the underlying agent-instruction rules in `conventions.md` stay primary
-— the hook is a backstop for the case an agent ignores them, not a substitute for following them.
+`secret-scan-guard.py` also covers, not just an already-staged diff: `git commit -a`/`-am`/`--all`
+(scanned via a working-tree-vs-HEAD diff, not `--cached` alone); a brand-new untracked file staged
+and committed in one chained command (`git add newfile.pem && git commit`, scanned directly since
+it has no diff history yet); and a binary credential file (`.pfx`/`.pem`/etc.) added or modified,
+which emits no `+++`/`+` lines to scan. A pure deletion of a credential-shaped file is not blocked
+— removing a leaked secret is remediation, not a new hit.
+
+Treat the wrapper-script gap as the reason the underlying agent-instruction rules in
+`conventions.md` stay primary — the hook is a backstop for the case an agent ignores them, not a
+substitute for following them.

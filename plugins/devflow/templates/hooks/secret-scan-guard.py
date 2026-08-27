@@ -12,6 +12,7 @@ import fnmatch
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 
@@ -30,9 +31,18 @@ CREDENTIAL_FILE_GLOBS = (".env*", "*.pem", "*.pfx", "*.key", "id_rsa*")
 CREDENTIAL_FILE_EXCEPTIONS = {".env.example", ".env.template"}
 
 # Present for every file in a diff, text or binary — unlike `+++ `/`+` lines, which binary
-# files never emit (`Binary files a/x and b/x differ`, no hunk). Matching this first is what
-# lets a binary credential file (a real .pfx/.pem, not text) still trip the filename rule.
+# files never emit. Used only to track the current file; the credential-filename rule for
+# binary content fires on BINARY_DIFFER_RE below, not on this header alone (a header alone
+# also introduces a deleted/renamed file, which shouldn't trip the "content was added" rule).
 DIFF_GIT_HEADER_RE = re.compile(r"^diff --git a/.* b/(.*)$")
+
+# "Binary files <old> and <new> differ" — <new> is /dev/null for a pure deletion (nothing
+# added, must not trip the credential-filename rule) and the real path otherwise (a binary
+# file being added or modified, which is exactly the case `+++ `/`+` lines can't catch).
+BINARY_DIFFER_RE = re.compile(r"^Binary files (.+) and (.+) differ$")
+
+# Tokens that mean "stage everything", not a specific path — seen after `git add`.
+GIT_ADD_ALL_TOKENS = {".", "-A", "--all", "-u", "--update"}
 
 
 def warn(message):
@@ -86,7 +96,11 @@ def scan(diff_text):
         header = DIFF_GIT_HEADER_RE.match(line)
         if header:
             current_file = header.group(1)
-            if is_credential_file(current_file):
+            continue
+        binary = BINARY_DIFFER_RE.match(line)
+        if binary:
+            new_side = binary.group(2)
+            if new_side != "/dev/null" and current_file and is_credential_file(current_file):
                 return current_file, "credential-shaped filename"
             continue
         if line.startswith("+++ "):
@@ -104,6 +118,70 @@ def scan(diff_text):
     return None
 
 
+def added_paths(command):
+    """Paths passed to `git add` in this same chained Bash command, or None if `git add`
+    targets everything (`.`, `-A`, `--all`, `-u`) or the command can't be tokenized safely —
+    both mean the caller should treat every untracked file as a candidate, not just named ones."""
+    paths = []
+    for statement in re.split(r"&&|\|\||;", command):
+        try:
+            tokens = shlex.split(statement)
+        except ValueError:
+            return None
+        if len(tokens) >= 2 and tokens[0] == "git" and tokens[1] == "add":
+            args = tokens[2:]
+            if not args or GIT_ADD_ALL_TOKENS & set(args):
+                return None
+            paths.extend(a for a in args if not a.startswith("-"))
+    return paths
+
+
+def untracked_files(cwd):
+    result = subprocess.run(
+        ["git", "-C", cwd, "ls-files", "--others", "--exclude-standard"],
+        capture_output=True, text=True, timeout=30,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "git ls-files failed")
+    return [line for line in result.stdout.splitlines() if line]
+
+
+def scan_untracked_candidate(cwd, rel_path):
+    if is_credential_file(rel_path):
+        return rel_path, "credential-shaped filename"
+    try:
+        with open(os.path.join(cwd, rel_path), "rb") as stream:
+            data = stream.read(1_000_000)  # cap — a secret worth catching is near the top
+    except OSError:
+        return None
+    if b"\x00" in data:
+        return None  # binary content with no credential-shaped name; nothing safe to regex
+    for line in data.decode("utf-8", errors="ignore").splitlines():
+        if SECRET_RE.search(line):
+            return rel_path, "secret pattern"
+    return None
+
+
+def scan_new_untracked_files(command, cwd, warn):
+    """Hit for a not-yet-tracked file this exact chained command is about to stage and
+    commit in one Bash call (`git add newfile && git commit ...`) — a diff against HEAD or
+    the index can never see this, since the file has no history to diff against yet."""
+    if "git add" not in command:
+        return None
+    targets = added_paths(command)
+    try:
+        untracked = set(untracked_files(cwd))
+    except Exception as exc:
+        warn(f"could not list untracked files in {cwd}: {exc}")
+        return None
+    candidates = untracked if targets is None else {t for t in targets if t in untracked}
+    for rel_path in sorted(candidates):
+        hit = scan_untracked_candidate(cwd, rel_path)
+        if hit:
+            return hit
+    return None
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -117,16 +195,26 @@ def main():
 
     cwd = payload.get("cwd") or os.getcwd()
 
-    try:
-        diff_text = diff_for(command, cwd, warn)
-    except Exception as exc:
-        warn(f"could not compute diff in {cwd}: {exc}")
-        return 0
+    hit = None
+    if re.search(r"\bgit\s+commit\b", command):
+        try:
+            hit = scan_new_untracked_files(command, cwd, warn)
+        except Exception as exc:
+            warn(f"could not scan untracked files in {cwd}: {exc}")
+            hit = None
 
-    if diff_text is None:
-        return 0
+    if hit is None:
+        try:
+            diff_text = diff_for(command, cwd, warn)
+        except Exception as exc:
+            warn(f"could not compute diff in {cwd}: {exc}")
+            return 0
 
-    hit = scan(diff_text)
+        if diff_text is None:
+            return 0
+
+        hit = scan(diff_text)
+
     if hit is None:
         return 0
 

@@ -32,14 +32,14 @@ def read_protected_paths(cwd):
     return paths if isinstance(paths, list) else []
 
 
-def matching_glob(path, relative, patterns):
+def matching_glob(forms, patterns):
     # Normalize first: an un-normalized path (`sub/../secret`, `./secret`) can match the
     # literal file on disk while evading a glob written against its canonical form.
-    norm_path = os.path.normpath(path)
-    norm_relative = os.path.normpath(relative)
-    for pattern in patterns:
-        if fnmatch.fnmatch(norm_path, pattern) or fnmatch.fnmatch(norm_relative, pattern):
-            return pattern
+    for form in forms:
+        normalized = os.path.normpath(form)
+        for pattern in patterns:
+            if fnmatch.fnmatch(normalized, pattern):
+                return pattern
     return None
 
 
@@ -60,6 +60,7 @@ def main():
     if not protected:
         return 0
 
+    absolute = file_path if os.path.isabs(file_path) else os.path.join(cwd, file_path)
     relative = file_path
     if os.path.isabs(file_path):
         try:
@@ -67,7 +68,17 @@ def main():
         except ValueError:
             relative = file_path
 
-    pattern = matching_glob(file_path, relative, protected)
+    forms = [file_path, relative]
+    try:
+        # A symlink whose literal path doesn't match a protected glob but whose resolved
+        # target does (e.g. a symlink into .planning/ from elsewhere) must still be caught —
+        # the write follows the link and changes the protected file's real content.
+        real_relative = os.path.relpath(os.path.realpath(absolute), cwd)
+        forms.append(real_relative)
+    except (OSError, ValueError):
+        pass
+
+    pattern = matching_glob(forms, protected)
     if pattern is None:
         return 0
 

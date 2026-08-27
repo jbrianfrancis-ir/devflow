@@ -207,6 +207,19 @@ class ProtectedPathsGuardTests(unittest.TestCase):
         self.assertEqual(0, result.returncode)
         self.assertTrue(result.stderr.strip())
 
+    def test_blocks_symlink_resolving_to_a_protected_path(self):
+        # Regression: a symlink whose literal path doesn't match a protected glob but whose
+        # resolved target does must still be caught — the write follows the link.
+        real_target = self.fixture.repo / "src" / "prod.env"
+        link = self.fixture.repo / "link_to_prod_env"
+        link.symlink_to(real_target)
+        result = run_hook(PROTECTED_PATHS_GUARD, {
+            "tool_input": {"file_path": str(link)},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
 
 class SecretScanGuardTests(unittest.TestCase):
     def setUp(self):
@@ -310,7 +323,7 @@ class SecretScanGuardTests(unittest.TestCase):
 
     def test_blocks_binary_credential_file(self):
         # Regression: a real binary .pfx/.pem emits no `+++`/`+` hunk lines at all (just
-        # "Binary files ... differ"), so detection must key off the `diff --git` header.
+        # "Binary files ... differ"), so detection must key off that line, not `+++`/`+`.
         (self.fixture.repo / "cert.pfx").write_bytes(bytes(range(256)))
         git(self.fixture.repo, "add", "cert.pfx")
         result = run_hook(SECRET_SCAN_GUARD, {
@@ -319,6 +332,66 @@ class SecretScanGuardTests(unittest.TestCase):
         })
         self.assertEqual(2, result.returncode)
         self.assertIn("Blocked", result.stderr)
+
+    def test_allows_deleting_a_binary_credential_file(self):
+        # Regression: the binary-file fix above must not fire on a pure deletion (the
+        # "Binary files a/x and /dev/null differ" case) — removing a leaked credential file
+        # is remediation, not a new hit, and must not be blocked.
+        (self.fixture.repo / "cert.pfx").write_bytes(bytes(range(256)))
+        git(self.fixture.repo, "add", "cert.pfx")
+        git(self.fixture.repo, "commit", "-q", "-m", "add cert")
+        git(self.fixture.repo, "rm", "-q", "cert.pfx")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(0, result.returncode)
+
+    def test_blocks_new_untracked_file_added_and_committed_in_one_command(self):
+        # Regression: `git add x && git commit` in a single Bash call stages and commits x
+        # before the hook's own diff-against-HEAD would ever see it (x has no tracked
+        # history yet) — must be caught by scanning untracked candidates directly.
+        # Blocked on filename alone (id_rsa* is a credential-shaped glob) — content doesn't
+        # need to look like a real key, so no fixture string can trip this repo's own
+        # conventions.md secret scan when this test file itself is committed.
+        (self.fixture.repo / "id_rsa").write_text("not a real key, just a name\n", encoding="utf-8")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git add id_rsa && git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_blocks_new_untracked_file_added_with_add_all(self):
+        (self.fixture.repo / "id_rsa").write_text("secret key material\n", encoding="utf-8")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git add -A && git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_allows_unrelated_untracked_file_not_targeted_by_add(self):
+        # An untracked file that this command's `git add` does not name should not block an
+        # unrelated commit of already-staged, clean content.
+        (self.fixture.repo / "id_rsa").write_text("secret key material\n", encoding="utf-8")
+        self.fixture.append_and_stage("clean addition")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git add f.txt && git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(0, result.returncode)
+
+    def test_allows_deleting_a_text_credential_file(self):
+        (self.fixture.repo / ".env").write_text("NOT_A_SECRET=1\n", encoding="utf-8")
+        git(self.fixture.repo, "add", ".env")
+        git(self.fixture.repo, "commit", "-q", "-m", "add env")
+        git(self.fixture.repo, "rm", "-q", ".env")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(0, result.returncode)
 
 
 class SecretPatternDriftTest(unittest.TestCase):
