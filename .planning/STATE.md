@@ -3,9 +3,9 @@
 
 ## Position
 Phase: 4 of 4 (complete) | Plans: 4/4 | Status: verified
-Last: 2026-08-27 — PR #29 merged as v0.16.0; quick 009 adds /flow-hooks (deterministic
-  base-branch, protected-paths, secret-scan PreToolUse guards), version 0.17.0
-Next: /flow-pr on flow/flow-hooks-skill to push + open a PR for quick 009
+Last: 2026-08-27 — PR #30 opened (v0.17.0, quick 009 /flow-hooks); 3 review rounds, 6
+  live-verified bypasses fixed
+Next: /flow-ci — drive PR #30 to green
 
 ## Gate
 none
@@ -28,7 +28,7 @@ Signature: rule7:phase04:plans4/4:verifverified — superseded by D-06, terminal
 - none
 
 ## Session
-Stopped: quick 009 (flow-hooks skill) executed on flow/flow-hooks-skill — 4 commits, full
-  smoke green, not pushed/PR'd yet
-Resume: /flow-pr on flow/flow-hooks-skill to push + open the PR. /flow-handsoff is deferred
-  to its own branch — see DECISIONS 2026-08-22 for why
+Stopped: PR #30 opened (github.com/jbrianfrancis-ir/devflow/pull/30) — 8 commits, checks
+  running. quick 010 (flow-pr no-confirm gate) branched separately, not yet PR'd
+Resume: /flow-ci for PR #30. /flow-handsoff is deferred to its own branch — see DECISIONS
+  2026-08-22 for why
