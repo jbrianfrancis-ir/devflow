@@ -34,3 +34,19 @@ clears a hit, including false positives), are specified in
 (falling back to `main`/`master` if absent); `protected-paths-guard.py` reads `protected_paths`, a
 glob list, from the same file. Full script contracts live in
 `plugins/devflow/templates/hooks/*.py`.
+
+## Known limitations
+
+These guards match on the literal `Bash` command string and a computed diff — they are not a
+sandbox and cannot see through indirection:
+
+- **Wrapper scripts and indirection.** A command like `bash release.sh` or a Makefile/npm target
+  that internally runs `git commit`/`git push` never contains that literal substring in
+  `tool_input.command`, so neither `base-branch-guard.py` nor `secret-scan-guard.py` sees it.
+- **A brand-new untracked file added and committed in one chained command** (`git add
+  newfile.pem && git commit`) is not scanned by `secret-scan-guard.py`: the hook fires before
+  `git add` runs, and an untracked file has no entry in `git diff HEAD` to catch it. A secret
+  added to an already-tracked file is covered regardless of staging state.
+
+Treat these as the reason the underlying agent-instruction rules in `conventions.md` stay primary
+— the hook is a backstop for the case an agent ignores them, not a substitute for following them.

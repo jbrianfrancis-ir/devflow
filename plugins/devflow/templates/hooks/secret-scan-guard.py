@@ -15,6 +15,9 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _hook_common as common  # noqa: E402
+
 # Kept byte-identical to the pattern in conventions.md's "Secret scan (fail-closed)" section —
 # tests/test_flow_hooks.py asserts this constant matches that file's fenced pattern, so the two
 # copies cannot drift silently.
@@ -25,6 +28,11 @@ SECRET_RE = re.compile(SECRET_PATTERN)
 # Any added line in one of these is a hit regardless of content (except the two named exceptions).
 CREDENTIAL_FILE_GLOBS = (".env*", "*.pem", "*.pfx", "*.key", "id_rsa*")
 CREDENTIAL_FILE_EXCEPTIONS = {".env.example", ".env.template"}
+
+# Present for every file in a diff, text or binary — unlike `+++ `/`+` lines, which binary
+# files never emit (`Binary files a/x and b/x differ`, no hunk). Matching this first is what
+# lets a binary credential file (a real .pfx/.pem, not text) still trip the filename rule.
+DIFF_GIT_HEADER_RE = re.compile(r"^diff --git a/.* b/(.*)$")
 
 
 def warn(message):
@@ -38,41 +46,53 @@ def is_credential_file(path):
     return any(fnmatch.fnmatch(name, pattern) for pattern in CREDENTIAL_FILE_GLOBS)
 
 
-def read_base(cwd):
-    config_path = os.path.join(cwd, ".planning", "config.json")
-    try:
-        with open(config_path, encoding="utf-8") as stream:
-            config = json.load(stream)
-    except FileNotFoundError:
-        return None
-    except (OSError, json.JSONDecodeError) as exc:
-        warn(f"could not read {config_path}: {exc}")
-        return None
-    base = (config.get("git") or {}).get("base")
-    return base or None
-
-
-def diff_for(command, cwd):
+def diff_for(command, cwd, warn):
     if re.search(r"\bgit\s+commit\b", command):
-        args = ["git", "-C", cwd, "diff", "--cached", "-U0"]
-    elif re.search(r"\bgit\s+push\b", command):
-        base = read_base(cwd) or "main"
-        args = ["git", "-C", cwd, "diff", f"{base}...HEAD", "-U0"]
-    else:
-        return None
-    result = subprocess.run(args, capture_output=True, text=True, timeout=30)
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or f"{' '.join(args)} failed")
-    return result.stdout
+        # `git diff HEAD` (working tree vs HEAD) covers staged AND unstaged changes to
+        # tracked files in one shot — unlike `--cached` alone, it still sees what `git
+        # commit -a`/`-am`/`--all` would commit even though nothing is staged yet.
+        result = subprocess.run(
+            ["git", "-C", cwd, "diff", "HEAD", "-U0"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode != 0:
+            # No HEAD yet (first commit in the repo) — HEAD doesn't exist, fall back to
+            # the index-vs-empty-tree diff, which works with zero commits.
+            result = subprocess.run(
+                ["git", "-C", cwd, "diff", "--cached", "-U0"],
+                capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr.strip() or "git diff failed")
+        return result.stdout
+    if re.search(r"\bgit\s+push\b", command):
+        base = common.resolve_diff_base(cwd, warn)
+        if base is None:
+            return None
+        result = subprocess.run(
+            ["git", "-C", cwd, "diff", f"{base}...HEAD", "-U0"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip() or "git diff failed")
+        return result.stdout
+    return None
 
 
 def scan(diff_text):
     """Return (file, pattern_class) for the first hit, or None if the diff is clean."""
     current_file = None
     for line in diff_text.splitlines():
+        header = DIFF_GIT_HEADER_RE.match(line)
+        if header:
+            current_file = header.group(1)
+            if is_credential_file(current_file):
+                return current_file, "credential-shaped filename"
+            continue
         if line.startswith("+++ "):
             path = line[4:].strip()
-            current_file = None if path == "/dev/null" else re.sub(r"^b/", "", path)
+            if path != "/dev/null":
+                current_file = re.sub(r"^b/", "", path)
             continue
         if not line.startswith("+"):
             continue
@@ -92,13 +112,13 @@ def main():
         return 0
 
     command = (payload.get("tool_input") or {}).get("command") or ""
-    if not re.search(r"\bgit\s+(commit|push)\b", command):
+    if not common.matches_git_commit_or_push(command):
         return 0
 
     cwd = payload.get("cwd") or os.getcwd()
 
     try:
-        diff_text = diff_for(command, cwd)
+        diff_text = diff_for(command, cwd, warn)
     except Exception as exc:
         warn(f"could not compute diff in {cwd}: {exc}")
         return 0

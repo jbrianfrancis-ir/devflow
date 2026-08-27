@@ -33,8 +33,12 @@ def read_protected_paths(cwd):
 
 
 def matching_glob(path, relative, patterns):
+    # Normalize first: an un-normalized path (`sub/../secret`, `./secret`) can match the
+    # literal file on disk while evading a glob written against its canonical form.
+    norm_path = os.path.normpath(path)
+    norm_relative = os.path.normpath(relative)
     for pattern in patterns:
-        if fnmatch.fnmatch(path, pattern) or fnmatch.fnmatch(relative, pattern):
+        if fnmatch.fnmatch(norm_path, pattern) or fnmatch.fnmatch(norm_relative, pattern):
             return pattern
     return None
 

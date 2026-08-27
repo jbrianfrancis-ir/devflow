@@ -9,29 +9,15 @@ fails) it fails open (exit 0) with a clear warning on stderr, never a silent pas
 """
 import json
 import os
-import re
 import subprocess
 import sys
 
-FALLBACK_BASES = {"main", "master"}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _hook_common as common  # noqa: E402
 
 
 def warn(message):
     print(f"base-branch-guard: {message}", file=sys.stderr)
-
-
-def read_base(cwd):
-    config_path = os.path.join(cwd, ".planning", "config.json")
-    try:
-        with open(config_path, encoding="utf-8") as stream:
-            config = json.load(stream)
-    except FileNotFoundError:
-        return None
-    except (OSError, json.JSONDecodeError) as exc:
-        warn(f"could not read {config_path}: {exc}")
-        return None
-    base = (config.get("git") or {}).get("base")
-    return base or None
 
 
 def current_branch(cwd):
@@ -52,7 +38,7 @@ def main():
         return 0
 
     command = (payload.get("tool_input") or {}).get("command") or ""
-    if not re.search(r"\bgit\s+(commit|push)\b", command):
+    if not common.matches_git_commit_or_push(command):
         return 0
 
     cwd = payload.get("cwd") or os.getcwd()
@@ -67,13 +53,13 @@ def main():
         warn(f"could not determine current branch in {cwd} (detached HEAD?)")
         return 0
 
-    configured = read_base(cwd)
-    base_hit = configured if configured else (branch if branch in FALLBACK_BASES else None)
+    configured = common.read_configured_base(cwd, warn)
+    base_hit = configured if configured else (branch if branch in common.FALLBACK_BASES else None)
 
     if configured is not None:
         matched = branch == configured
     else:
-        matched = branch in FALLBACK_BASES
+        matched = branch in common.FALLBACK_BASES
 
     if matched:
         print(

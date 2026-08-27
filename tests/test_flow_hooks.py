@@ -120,6 +120,23 @@ class BaseBranchGuardTests(unittest.TestCase):
             self.assertEqual(0, result.returncode)
             self.assertTrue(result.stderr.strip())
 
+    def test_blocks_on_fallback_base_when_no_config(self):
+        # No .planning/config.json at all — falls back to checking the branch name against
+        # {"main", "master"} directly.
+        with tempfile.TemporaryDirectory() as scratch:
+            git(scratch, "init", "-q", "-b", "main")
+            git(scratch, "config", "user.email", "test@example.com")
+            git(scratch, "config", "user.name", "test")
+            (Path(scratch) / "f.txt").write_text("hello\n", encoding="utf-8")
+            git(scratch, "add", "f.txt")
+            git(scratch, "commit", "-q", "-m", "init")
+            result = run_hook(BASE_BRANCH_GUARD, {
+                "tool_input": {"command": "git commit -m x"},
+                "cwd": scratch,
+            })
+            self.assertEqual(2, result.returncode)
+            self.assertIn("Blocked", result.stderr)
+
 
 class ProtectedPathsGuardTests(unittest.TestCase):
     def setUp(self):
@@ -160,6 +177,35 @@ class ProtectedPathsGuardTests(unittest.TestCase):
             "cwd": str(fixture.repo),
         })
         self.assertEqual(0, result.returncode)
+
+    def test_blocks_glob_matching_path(self):
+        target = str(self.fixture.repo / "certs" / "server.pem")
+        result = run_hook(PROTECTED_PATHS_GUARD, {
+            "tool_input": {"file_path": target},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_blocks_unnormalized_path_that_matches_after_normalization(self):
+        target = str(self.fixture.repo / "sub" / ".." / "src" / "prod.env")
+        result = run_hook(PROTECTED_PATHS_GUARD, {
+            "tool_input": {"file_path": target},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_fails_open_on_malformed_config(self):
+        (self.fixture.repo / ".planning" / "config.json").write_text(
+            "{not json", encoding="utf-8")
+        target = str(self.fixture.repo / "src" / "prod.env")
+        result = run_hook(PROTECTED_PATHS_GUARD, {
+            "tool_input": {"file_path": target},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(0, result.returncode)
+        self.assertTrue(result.stderr.strip())
 
 
 class SecretScanGuardTests(unittest.TestCase):
@@ -204,6 +250,75 @@ class SecretScanGuardTests(unittest.TestCase):
             "cwd": str(self.fixture.repo),
         })
         self.assertEqual(0, result.returncode)
+
+    def test_fails_open_when_not_a_git_repo(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            result = run_hook(SECRET_SCAN_GUARD, {
+                "tool_input": {"command": "git commit -m x"},
+                "cwd": scratch,
+            })
+            self.assertEqual(0, result.returncode)
+            self.assertTrue(result.stderr.strip())
+
+    def test_blocks_secret_on_push(self):
+        self.fixture.checkout("flow/test")
+        fixture_line = "api_key" + ' = "' + "abcd1234efgh5678" + '"'
+        self.fixture.append_and_stage(fixture_line)
+        git(self.fixture.repo, "commit", "-q", "-m", "wip")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git push origin flow/test"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_blocks_secret_on_push_with_master_fallback_when_no_config(self):
+        # No .planning/config.json at all — falls back through common.resolve_diff_base to
+        # whichever of {main, master} actually exists as a ref, not a hardcoded "main".
+        with tempfile.TemporaryDirectory() as scratch:
+            git(scratch, "init", "-q", "-b", "master")
+            git(scratch, "config", "user.email", "test@example.com")
+            git(scratch, "config", "user.name", "test")
+            (Path(scratch) / "f.txt").write_text("hello\n", encoding="utf-8")
+            git(scratch, "add", "f.txt")
+            git(scratch, "commit", "-q", "-m", "init")
+            git(scratch, "checkout", "-q", "-b", "flow/test")
+            fixture_line = "api_key" + ' = "' + "abcd1234efgh5678" + '"'
+            with (Path(scratch) / "f.txt").open("a", encoding="utf-8") as stream:
+                stream.write(fixture_line + "\n")
+            git(scratch, "add", "f.txt")
+            git(scratch, "commit", "-q", "-m", "wip")
+            result = run_hook(SECRET_SCAN_GUARD, {
+                "tool_input": {"command": "git push origin flow/test"},
+                "cwd": scratch,
+            })
+            self.assertEqual(2, result.returncode)
+            self.assertIn("Blocked", result.stderr)
+
+    def test_blocks_unstaged_secret_on_commit_dash_a(self):
+        # Regression: git commit -a/-am commits unstaged tracked-file changes, which a
+        # `--cached`-only diff never sees. Nothing is staged here on purpose.
+        fixture_line = "api_key" + ' = "' + "abcd1234efgh5678" + '"'
+        with (self.fixture.repo / "f.txt").open("a", encoding="utf-8") as stream:
+            stream.write(fixture_line + "\n")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -am x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+
+    def test_blocks_binary_credential_file(self):
+        # Regression: a real binary .pfx/.pem emits no `+++`/`+` hunk lines at all (just
+        # "Binary files ... differ"), so detection must key off the `diff --git` header.
+        (self.fixture.repo / "cert.pfx").write_bytes(bytes(range(256)))
+        git(self.fixture.repo, "add", "cert.pfx")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
 
 
 class SecretPatternDriftTest(unittest.TestCase):

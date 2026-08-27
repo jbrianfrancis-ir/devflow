@@ -37,7 +37,11 @@ unrecognized token is a bad-args stop, not a silent skip.
 ## Install, per selected guard
 
 1. Copy `{devflow_root}/templates/hooks/<name>.py` to `.claude/hooks/<name>.py` in the target repo
-   (create `.claude/hooks/` if it doesn't exist yet); `chmod +x` the copy.
+   (create `.claude/hooks/` if it doesn't exist yet); `chmod +x` the copy. `base-branch-guard.py`
+   and `secret-scan-guard.py` import a shared `_hook_common.py` from their own directory at
+   runtime — also copy `{devflow_root}/templates/hooks/_hook_common.py` into the same
+   `.claude/hooks/` directory whenever either is selected (once is enough even if both are;
+   `protected-paths-guard.py` does not need it).
 2. Merge into `.claude/settings.json` — read the existing file, or start from `{}` if absent; never
    touch unrelated keys (same discipline as the Plugin self-bootstrap merge in `conventions.md`):
    - ensure `hooks.PreToolUse` exists and is a list;
