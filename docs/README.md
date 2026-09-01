@@ -17,6 +17,10 @@ Reference pages for DevFlow that go beyond what the [repo README](../README.md) 
 - [provenance.md](provenance.md) — who made a change and who approved it: commit trailers and the decision log.
 - [hooks.md](hooks.md) — deterministic Claude Code hooks that back the base-branch, protected-paths, and secret-scan rules with an enforced backstop.
 
+## Incoming contributions
+
+- [triage.md](triage.md) — pre-screening incoming third-party PRs against ARCHITECTURE.md/REQUIREMENTS.md, and why it's per-PR rather than per-lens.
+
 ## Background
 
 - [acknowledgements.md](acknowledgements.md) — which external projects DevFlow's concepts are derived from.
