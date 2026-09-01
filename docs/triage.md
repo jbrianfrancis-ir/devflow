@@ -17,16 +17,11 @@ incoming contributions so a human's attention goes where it's earned.
 angles on the same outgoing change. `/flow-triage`'s `flow-triager` agents parallelize across
 **PRs** — one fresh-context pass per incoming pull request, holistic rather than lensed, because the
 axis that needs to scale here is the number of contributions arriving, not the number of angles on
-one of them. Each triager reads the PR's diff against `.planning/ARCHITECTURE.md` (pins,
-`## Principles`, Forbidden list), `.planning/REQUIREMENTS.md`, `conventions.md`, `CONTRIBUTING.md`,
-and `MAP.md` where each exists, and returns one verdict: `merge-candidate` (worth a first look),
-`needs-human-judgment` (a real ambiguity, named rather than resolved — the triager doesn't get to
-decide a Principle doesn't apply, the same way a refuted `blocking` review finding is a human gate
-rather than a reviewer's own call), `needs-changes` or `reject` (a mechanical gap or an outright
-conflict, with a drafted response), or `could-not-screen` (never dropped silently). Only
-`merge-candidate` and `needs-human-judgment` reach the flagged table by default — `--all` widens the
-report to every verdict tier, and explicit PR numbers as arguments are always screened regardless of
-author or the default cap.
+one of them. What each triager reads, the exact verdict vocabulary, and the default filtering and
+gating rules are specified in
+[`flow-triager.md`](../plugins/devflow/agents/flow-triager.md) and
+[`flow-triage/SKILL.md`](../plugins/devflow/skills/flow-triage/SKILL.md) — this doc stays the
+rationale, not a second copy of the contract.
 
 ## Never posts
 `/flow-triage` drafts; it doesn't send. A `draft_response` is output for a human to read, edit, and
@@ -39,6 +34,6 @@ not at any posting layer — if automation beyond drafting is what's needed next
 ## Report, or a persisted export
 By default `/flow-triage` is read-only and reports in the transcript, changing nothing the project
 owns — the same shape as `/flow-audit`'s default pass. `--export` persists the report under
-`.planning/triage/<date>.md` (secret-scanned before it's written, since it's an artifact meant to
+`.planning/triage/<timestamp>.md` (secret-scanned before it's written, since it's an artifact meant to
 leave the transcript) and is the one mode that commits and journals, mirroring `/flow-audit
 --export`'s evidence pack.
