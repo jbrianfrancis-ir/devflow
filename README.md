@@ -77,6 +77,7 @@ the complete gate list: [docs/autonomy.md](docs/autonomy.md).
 | guardrails | `/flow-hooks` | Scaffold deterministic base-branch, protected-paths, and secret-scan hooks into `.claude/settings.json` |
 | integrate | `/flow-pr` | Independent lens review of the outgoing diff, push to origin, open a PR (narrative recap + reviewer's guide) against upstream (`--adversarial` reviews through the peer provider and adjudicates into a ledger) |
 | integrate | `/flow-ci` | Drive the open PR to green — watch checks, fix failures, answer bot review threads |
+| triage | `/flow-triage` | Pre-screen incoming third-party PRs against ARCHITECTURE.md/REQUIREMENTS.md, flag only the promising ones for human review (`--all`, `--export`) |
 | deploy | `/flow-harden` | Production audit vs Aspire checklist; fix findings |
 | deploy | `/flow-uat` | Deploy to UAT (provision on first deploy), generate acceptance test plan |
 | deploy | `/flow-release` | Production deploy, gated on per-SHA UAT sign-off |

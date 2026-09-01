@@ -8,3 +8,4 @@
 - 008 | 2026-08-23 | surface stale DevFlow builds and a stale marketplace cache in /flow-status | 33c3bce..517a81a
 - 010 | 2026-08-27 | flow-pr's PR-creation gate only pauses for autonomous runs, not direct invocation | 329a487
 - 011 | 2026-08-27 | external state is a cache: flow-next/flow-status re-read PR state live before routing | 1a33720..b57fd5e
+- 012 | 2026-09-01 | add /flow-triage skill, incoming PR pre-screening, v0.19.0 | 3b80cd1..768a9fa

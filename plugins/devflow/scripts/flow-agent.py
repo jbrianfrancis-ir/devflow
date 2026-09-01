@@ -13,7 +13,7 @@ import sys
 import tempfile
 
 READ_ONLY_ROLES = {"adjudicator", "mapper", "researcher", "plan-checker", "plan-reviewer",
-                   "reviewer", "verifier"}
+                   "reviewer", "triager", "verifier"}
 WRITE_ROLES = {"planner", "executor", "migrator", "consultant"}
 ALL_ROLES = READ_ONLY_ROLES | WRITE_ROLES
 FIELDS = {"status", "summary", "artifacts", "completed", "checkpoint", "error"}
