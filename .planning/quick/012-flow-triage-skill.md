@@ -32,7 +32,7 @@ must_haves:
     - "validate-plugin.py's expected skill/agent counts, the two plugin manifests, and the root marketplace.json version all agree after the addition (22 skills, 12 agents, matching version)"
     - "flow-agent.py's READ_ONLY_ROLES, hosts.md's Read-only roles/Model tiers prose, and flow-triager.md's frontmatter all name the same role (triager) consistently, per validate-plugin.py's cross-check"
   backstop_truths:
-    - "Default external-contributor filter (authorAssociation not in OWNER/MEMBER/COLLABORATOR) versus screening every open PR regardless of author is a policy choice REQUIREMENTS.md never settled for this project — recorded as a design decision below, not inferable from anything already in the repo"
+    - "Default external-contributor filter (author_association not in OWNER/MEMBER/COLLABORATOR) versus screening every open PR regardless of author is a policy choice REQUIREMENTS.md never settled for this project — recorded as a design decision below, not inferable from anything already in the repo"
   artifacts:
     - plugins/devflow/skills/flow-triage/SKILL.md
     - plugins/devflow/agents/flow-triager.md
@@ -86,11 +86,14 @@ ends at "here's what's worth your first look," not at grading the diff.
 `.planning/ARCHITECTURE.md` before touching any file — they are the law this skill screens against
 and the conventions it must itself follow):**
 
-1. **Inputs.** Default: `gh pr list --state open --json number,title,author,authorAssociation,isDraft,updatedAt`
-   on `origin` (and `upstream` when set), excluding drafts, capped to the 20 most recently updated
-   — an explicit `flow-triage 123 456` always screens exactly those PRs, uncapped, regardless of
-   author or draft state (an explicit ask is never rate-limited). Default author filter: skip
-   `authorAssociation` in `OWNER`/`MEMBER`/`COLLABORATOR` — this is a filter for *external*
+1. **Inputs.** Default: `gh pr list --state open --json number,title,author,isDraft,updatedAt` on
+   `origin` (and `upstream` when set), then `gh api repos/{owner}/{repo}/pulls/{n}` per candidate for
+   `author_association` — `gh pr list`/`gh pr view --json` don't expose that field (verified against
+   installed `gh` 2.46.0: `Unknown JSON field: "authorAssociation"`; the REST `pulls` endpoint carries
+   it as `author_association`). Drop drafts, capped to the 20 most recently updated — an explicit
+   `flow-triage 123 456` always screens exactly those PRs, uncapped, regardless of author or draft
+   state (an explicit ask is never rate-limited). Default author filter: skip
+   `author_association` in `OWNER`/`MEMBER`/`COLLABORATOR` — this is a filter for *external*
    contributions, named in the title; `--all` widens it to every open PR and prints full detail for
    every verdict tier, not only the flagged ones.
 2. **What each `flow-triager` reads**: the PR's diff (`gh pr diff <N>`), title/body/author,
