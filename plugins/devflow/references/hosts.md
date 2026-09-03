@@ -52,10 +52,13 @@ current host and must not start a second CLI.
 Read-only roles: adjudicator, mapper, researcher, plan-checker, plan-reviewer, reviewer, verifier. Write
 roles: planner, executor, migrator, consultant.
 
-Always tell a spawned write role its **resolved provider and model** — it needs
-both to write the commit attribution trailers in `conventions.md`, and it cannot
-observe them for itself. Pass the concrete provider (`claude`/`codex`), never
-`native`.
+Always tell a spawned role that **commits** — today only the executor — its
+**resolved provider and model**: it needs both to write the commit attribution
+trailers in `conventions.md`, and it cannot observe them for itself. Pass the
+concrete provider (`claude`/`codex`), never `native`. The other write roles
+(planner, migrator, consultant) produce files the orchestrator reviews and
+commits, so sending them an attribution they will never use is payload for
+nothing.
 
 ## Model tiers
 
