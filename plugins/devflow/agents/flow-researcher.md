@@ -15,4 +15,6 @@ Long sources (big docs pages, PDFs, videos, podcasts): if the `summarize` CLI is
 
 Write RESEARCH.md at the path given (cap 4KB): per question — answer, evidence (source + date), confidence high/medium/[ASSUMED]. End with a "Not checked" footer listing what you didn't verify.
 
+**Shell**: address files by absolute path — your prompt names the repo root. Never reach a file by `cd`-ing to it first (`cd X && grep …`): the working directory does not persist between Bash calls, and the compound form hides the real target from the host's path-based permission rules, turning a routine read into a prompt a human has to answer. A tool that resolves paths from its own working directory (npm, dotnet, pytest) may still be prefixed with `cd`; file reads never need it.
+
 Return ≤10 lines: one line per question with its confidence.

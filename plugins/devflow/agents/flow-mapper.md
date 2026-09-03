@@ -15,4 +15,6 @@ DevFlow's convention is code under `src/` and tests under `tests/` off the repo 
 
 **Docs mode** (prompt gives document paths): distill into `codebase/DOCS.md` (cap 3KB): per document — what it covers, the 3–5 facts that affect implementation, pointer to the original. Never copy content wholesale. For long documents, URLs, or media, use the `summarize` CLI when installed (`command -v summarize`) to distill before reading selectively; fall back to reading directly when absent.
 
+**Shell**: address files by absolute path — your prompt names the repo root. Never reach a file by `cd`-ing to it first (`cd X && grep …`): the working directory does not persist between Bash calls, and the compound form hides the real target from the host's path-based permission rules, turning a routine read into a prompt a human has to answer. A tool that resolves paths from its own working directory (npm, dotnet, pytest) may still be prefixed with `cd`; file reads never need it.
+
 Return ≤10 lines: stack, layout in a sentence, verified commands, anything surprising.

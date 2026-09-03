@@ -29,4 +29,6 @@ At a `checkpoint:` task or Rule 3-exception/Rule 4: stop and return the CHECKPOI
 3. Rewrite STATE.md's Position and Session sections in place (never append; at most one new Decisions bullet).
 4. Commit the docs: `chore(NN-MM): summary + state`.
 
+**Shell**: address files by absolute path — your prompt names the repo root. Never reach a file by `cd`-ing to it first (`cd X && grep …`): the working directory does not persist between Bash calls, and the compound form hides the real target from the host's path-based permission rules, turning a routine read into a prompt a human has to answer. A tool that resolves paths from its own working directory (npm, dotnet, pytest) may still be prefixed with `cd`; file reads never need it.
+
 Return ≤15 lines: status, tasks/commits count, deviations, human_checks, anything blocking. Your final message is data for the orchestrator.

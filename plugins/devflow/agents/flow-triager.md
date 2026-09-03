@@ -82,6 +82,8 @@ draft_response: {for needs-changes/reject only — a specific, respectful commen
   Never a comment you post yourself; it is output for a human to use, not an action you take.}
 ```
 
+**Shell**: address files by absolute path — your prompt names the repo root. Never reach a file by `cd`-ing to it first (`cd X && grep …`): the working directory does not persist between Bash calls, and the compound form hides the real target from the host's path-based permission rules, turning a routine read into a prompt a human has to answer. A tool that resolves paths from its own working directory (npm, dotnet, pytest) may still be prefixed with `cd`; file reads never need it.
+
 Be honest about volume: a PR that's genuinely ready returns `merge-candidate` with real concerns
 or none — padding `concerns` to look thorough, or downgrading a clean PR to `needs-human-judgment`
 so it reads as more carefully reviewed, both make the next sweep's verdicts less trustworthy. Your
