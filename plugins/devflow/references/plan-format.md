@@ -1,6 +1,6 @@
 # Plan format
 
-A plan is an executor prompt: complete, unambiguous, executable by an agent with no other context. File: `.planning/phases/NN-slug/NN-MM-PLAN.md`, cap 4KB, structure in `templates/plan.md`.
+A plan is an executor prompt: complete, unambiguous, executable by an agent with no other context. File: `.planning/phases/NN-slug/NN-MM-PLAN.md`, cap 4KB, structure in `templates/plan.md`. The cap is checked once with `wc -c` at the revision gate — a byte count is not a judgment call, and a planner that re-measures its own prose after every edit burns a top tier on arithmetic. The split signals below are what actually keep a plan under it.
 
 ## Frontmatter
 All required unless noted: `phase`, `plan`, `wave`, `depends_on`, `files_modified`, `autonomous`, `requirements` (REQ-IDs from the roadmap — never empty), `must_haves.{truths,artifacts,key_links}` plus optional `must_haves.backstop_truths`. Optional `user_setup`: external things the human must configure (accounts, secrets) — surfaced before execution starts.
