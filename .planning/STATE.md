@@ -3,17 +3,17 @@
 
 ## Position
 Phase: 4 of 4 (complete) | Plans: 4/4 | Status: verified
-Last: 2026-09-01 — PR #33 (quick 012, v0.19.0, /flow-triage skill) had Copilot
-  changes-requested; fixes pushed (89f603b), validate green
-Next: awaiting Brian's merge on GitHub (deploy N/A); /flow-next reports DONE after
+Last: 2026-09-04 — PR #36 (release 0.20.0 + version-bump CI gate); 3 review rounds,
+  3 fail-opens fixed (2 blocking, each found by 2 lenses), smoke green
+Next: /flow-ci 36; two human items in the PR body
 
 ## Gate
 type: approval
-asked: PR #33 fixes for Copilot's review are pushed (89f603b), validate is
-  green. Merge it?
+asked: PR #36 — make `validate` a required status check on main (without it the new
+  gate blocks nothing), and whether ARCHITECTURE.md names the 2nd CI gate + BASE_REF.
 options:
-  1. Review and merge on GitHub — deploy N/A, so the merge is terminal; /flow-next then reports DONE
-  2. Request further changes / leave open — /flow-ci keeps watching for new pushes or comments
+  1. Set branch protection, fold the ARCHITECTURE.md wording into this PR
+  2. Merge as-is — the gate reports but cannot enforce
 default: none
 plan: none | task: none
 
@@ -33,6 +33,5 @@ Signature: none
 - none
 
 ## Session
-Stopped: PR #33 fixes pushed (89f603b); validate green; awaiting merge
-Resume: after merge, /flow-next reports DONE; if new review comments land
-  first, /flow-ci keeps watching
+Stopped: PR #36 open — https://github.com/jbrianfrancis-ir/devflow/pull/36
+Resume: /flow-ci 36; the gate is PR-only, so #36 exercises it against itself

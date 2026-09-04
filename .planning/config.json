@@ -11,6 +11,6 @@
     "base": "main",
     "origin": "origin",
     "upstream": null,
-    "branch": "flow/stale-pr-state"
+    "branch": "flow/release-0-20-0"
   }
 }
