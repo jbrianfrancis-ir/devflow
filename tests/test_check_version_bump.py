@@ -116,6 +116,17 @@ class ShippedContentTests(CheckVersionBumpTestCase):
         self.assertEqual(len(result.failures), 1)
         self.assertIn("still 0.19.0", result.failures[0])
 
+    def test_shipped_file_moved_out_of_the_payload_fails(self):
+        """Regression: git reports a rename as its destination alone, so a shipped file
+        moved out of the payload would leave nothing matching the prefix — consumers
+        lose a skill and the guard sees only repo-internal churn. `--no-renames` is
+        what keeps this red."""
+        self.git("mv", "plugins/devflow/agents/flow-planner.md", "docs/moved.md")
+        self.commit_feature()
+        result = self.check()
+        self.assertEqual(len(result.failures), 1)
+        self.assertIn("still 0.19.0", result.failures[0])
+
     def test_uncommitted_bump_is_seen(self):
         """The working tree answers too, so the guard is usable before committing."""
         self.write("plugins/devflow/agents/flow-planner.md", "edited\n")
@@ -181,6 +192,16 @@ class FailClosedTests(CheckVersionBumpTestCase):
         self.assertEqual(len(result.failures), 1)
         self.assertIn("unreadable at main", result.failures[0])
 
+    def test_manifest_that_is_not_an_object_fails(self):
+        """Valid JSON that is not an object must return the UNREADABLE state, not raise
+        through `check()`'s contract."""
+        self.write(MANIFEST, "[]\n")
+        self.write("plugins/devflow/agents/flow-planner.md", "edited\n")
+        self.commit_feature()
+        result = self.check()
+        self.assertEqual(len(result.failures), 1)
+        self.assertIn("unreadable", result.failures[0])
+
     def test_manifest_without_version_key_fails(self):
         self.write(MANIFEST, json.dumps({"name": "devflow"}) + "\n")
         self.write("plugins/devflow/agents/flow-planner.md", "edited\n")
@@ -235,6 +256,15 @@ class ExitCodeTests(CheckVersionBumpTestCase):
     def test_wrong_arity_exits_2(self):
         code, _ = self.run_main()
         self.assertEqual(code, 2)
+
+    def test_outside_a_git_repository_exits_2(self):
+        outside = tempfile.mkdtemp(prefix="check-version-bump-nonrepo-")
+        self.addCleanup(shutil.rmtree, outside, ignore_errors=True)
+        cwd = os.getcwd()
+        os.chdir(outside)
+        self.addCleanup(os.chdir, cwd)
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(MODULE.main(["check-version-bump.py", "main"]), 2)
 
     def test_output_names_the_repo_it_checked(self):
         """Run by path from another directory, the guard answers about the tree you are

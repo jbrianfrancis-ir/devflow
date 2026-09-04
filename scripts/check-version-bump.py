@@ -55,8 +55,14 @@ def _changed_files(root, base_ref):
     non-ASCII or control byte (`"plugins/devflow/skills/na\\303\\257ve/SKILL.md"`), which
     no prefix match catches — the guard would then report green on precisely the change
     it exists to catch. Same trap ARCHITECTURE.md records for `check-links.py`.
+
+    `--no-renames` for the mirror-image hole: rename detection reports a move as its
+    destination alone, so a shipped file moved *out* of the payload leaves nothing
+    matching the prefix. The payload loses a skill, the guard sees repo-internal
+    churn. Suppressed, the move reads as a delete plus an add and the shipped
+    deletion is visible.
     """
-    ok, out = _git(root, "diff", "-z", "--name-only", f"{base_ref}...HEAD")
+    ok, out = _git(root, "diff", "-z", "--no-renames", "--name-only", f"{base_ref}...HEAD")
     if not ok:
         return None
     return [path for path in out.split("\0") if path]
@@ -68,9 +74,12 @@ def _version_from(text):
     """(state, version) for a manifest's contents. A manifest with no `version` key is
     unreadable for this purpose: something is there, and it is not a version."""
     try:
-        version = json.loads(text).get("version")
+        data = json.loads(text)
     except json.JSONDecodeError:
         return (UNREADABLE, None)
+    if not isinstance(data, dict):
+        return (UNREADABLE, None)
+    version = data.get("version")
     if not isinstance(version, str) or not version:
         return (UNREADABLE, None)
     return ("ok", version)
