@@ -20,7 +20,7 @@ plugins/devflow/          portable payload, shared by both hosts
   scripts/flow-fleet.py      fleet scanner (walks .planning/ across repos)
 .claude-plugin/, .agents/plugins/  repo-root marketplace.json files → ./plugins/devflow
 scripts/validate-plugin.py, scripts/check-links.py, scripts/check-fenced-paths.py, scripts/check-version-bump.py   repo-level CI validators (not shipped as plugin content)
-tests/*.py                  unittest suites: flow_agent, flow_fleet, check_links, check_fenced_paths, check_version_bump (182 tests)
+tests/*.py                  unittest suites: flow_agent, flow_fleet, check_links, check_fenced_paths, check_version_bump (183 tests)
 docs/                       11 pages: blitzos.md, status-contract.md (pre-existing) + 9 new (phase 02) —
                              acknowledgements, autonomy, execution-model, installation, parallel-work,
                              provenance, providers, requirements-clarity, review — each summarizing +
@@ -44,7 +44,7 @@ Not a running app — no runtime data flow. A user's project installs `plugins/d
 ## Commands
 Smoke (verified; `.planning/ARCHITECTURE.md ## Smoke`; CI `lint.yml` runs these 3 plus a PR-only version-bump gate):
 `python3 scripts/validate-plugin.py && python3 -m unittest discover -s tests -v && python3 scripts/check-links.py`
-build: none | test: unittest, 182 tests | lint: validate-plugin.py | links: check-links.py (`0 failures, 179 checked`; floor 140) | run: N/A — install via `/plugin marketplace add jbrianfrancis-ir/devflow` (Claude) or `codex plugin marketplace add …/devflow` (Codex).
+build: none | test: unittest, 183 tests | lint: validate-plugin.py | links: check-links.py (`0 failures, 179 checked`; floor 140) | run: N/A — install via `/plugin marketplace add jbrianfrancis-ir/devflow` (Claude) or `codex plugin marketplace add …/devflow` (Codex).
 
 ## Env vars
 - `DEVFLOW_SMOKE` — gates one live-CLI test, `tests/test_flow_agent.py:163`; unset in normal CI.

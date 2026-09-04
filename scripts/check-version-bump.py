@@ -112,7 +112,13 @@ def check(root, base_ref):
         # Fail closed: a comparison that did not run is never a clean one.
         return Result([f"could not resolve base ref '{base_ref}' — the check did not run"], notes, 0)
 
-    shipped = sorted(path for path in changed if path.startswith(SHIPPED_PREFIX))
+    # The payload root itself counts. Git reports it as a bare `plugins/devflow` with no
+    # trailing slash when it is a gitlink or a symlink rather than a real directory, and
+    # a prefix test alone would read a wholesale payload swap as nothing shipped.
+    shipped = sorted(
+        path for path in changed
+        if path.startswith(SHIPPED_PREFIX) or path == SHIPPED_PREFIX.rstrip("/")
+    )
     if not shipped:
         notes.append("no shipped content changed — no bump required")
         return Result(failures, notes, 0)

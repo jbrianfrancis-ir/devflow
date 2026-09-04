@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 
@@ -124,6 +125,19 @@ class ShippedContentTests(CheckVersionBumpTestCase):
         self.git("mv", "plugins/devflow/agents/flow-planner.md", "docs/moved.md")
         self.commit_feature()
         result = self.check()
+        self.assertEqual(len(result.failures), 1)
+        self.assertIn("still 0.19.0", result.failures[0])
+
+    def test_payload_root_itself_is_counted(self):
+        """Git names the payload root bare — `plugins/devflow`, no trailing slash — when
+        it is a gitlink or a symlink rather than a real directory, so a wholesale payload
+        swap arrives as that single entry. Driven through a patched enumeration rather
+        than a symlinked fixture: the topology needed to produce it naturally does not
+        exist in this repo, and building it would pin the fixture, not the predicate."""
+        with unittest.mock.patch.object(
+            MODULE, "_changed_files", return_value=["plugins/devflow"]
+        ):
+            result = self.check()
         self.assertEqual(len(result.failures), 1)
         self.assertIn("still 0.19.0", result.failures[0])
 
