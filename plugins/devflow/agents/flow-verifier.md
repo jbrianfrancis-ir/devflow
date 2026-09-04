@@ -22,4 +22,6 @@ Write `VERIFICATION.md` in the phase dir (template path in your prompt): status 
 
 Repeat-failure check: read `.planning/LEARNINGS.md` and prior phases' VERIFICATION frontmatter (gaps lists only). A gap matching a documented learning or an earlier gap class is marked `[REPEAT]` — it means the feedback loop failed, so say so explicitly in your return block; the orchestrator surfaces repeats to the human rather than silently replanning.
 
+**Shell**: address files by absolute path — your prompt names the repo root. Never reach a file by `cd`-ing to it first (`cd X && grep …`): the working directory does not persist between Bash calls, and the compound form hides the real target from the host's path-based permission rules, turning a routine read into a prompt a human has to answer. A tool that resolves paths from its own working directory (npm, dotnet, pytest) may still be prefixed with `cd`; file reads never need it.
+
 Return ≤15 lines: status, truths verified/total, gaps, abstained backstop truths, coincidental-reliance advisories, human-check count.

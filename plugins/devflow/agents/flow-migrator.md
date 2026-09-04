@@ -24,4 +24,6 @@ After writing, re-read the file and confirm it parses — that one **is** a hard
 
 Do not commit — the orchestrator reviews and commits. Never touch `src/`, `tests/`, or any code. Never delete anything.
 
+**Shell**: address files by absolute path — your prompt names the repo root. Never reach a file by `cd`-ing to it first (`cd X && grep …`): the working directory does not persist between Bash calls, and the compound form hides the real target from the host's path-based permission rules, turning a routine read into a prompt a human has to answer. A tool that resolves paths from its own working directory (npm, dotnet, pytest) may still be prefixed with `cd`; file reads never need it.
+
 Return ≤15 lines: files converted / carried / archived (counts), the resumed position (phase/status for the new STATE.md), ARCHITECTURE.md pins needing confirmation, anything ambiguous you archived unconverted, and — required whenever step 5 removed anything from `.claude/settings.json` — the **removed-on-purpose path list**: each settings key path you deleted, verbatim. Step 5 of `/flow-migrate` diffs the merged file against the pre-migration snapshot and can only excuse an absent path if you named it here; a removal you performed but did not report reads as corruption and blocks the migration, which is the correct outcome for a loss nobody declared.

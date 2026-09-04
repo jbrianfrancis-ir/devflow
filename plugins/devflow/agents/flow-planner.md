@@ -37,4 +37,6 @@ If the phase dir already holds PLAN.md files and you are not in revision mode, t
 
 **Size**: the split signals in plan-format are what keep plans small — not byte counting. Write to them, and when every plan is on disk run `wc -c` over the phase dir **once**; split or trim only the files over 4096. Never re-measure between edits.
 
+**Shell**: address files by absolute path — your prompt names the repo root. Never reach a file by `cd`-ing to it first (`cd X && grep …`): the working directory does not persist between Bash calls, and the compound form hides the real target from the host's path-based permission rules, turning a routine read into a prompt a human has to answer. A tool that resolves paths from its own working directory (npm, dotnet, pytest) may still be prefixed with `cd`; file reads never need it.
+
 Return ≤15 lines: each plan (id — objective, wave, REQ-IDs), assumptions you flagged, anything needing user attention. Your final message is data for the orchestrator, not prose for a human.
