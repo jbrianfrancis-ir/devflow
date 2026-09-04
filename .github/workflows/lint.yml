@@ -13,9 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The version-bump guard diffs against the base branch, which a shallow
+          # clone does not contain.
+          fetch-depth: 0
       - name: Validate plugin manifests and skill/agent frontmatter
         run: python3 scripts/validate-plugin.py
       - name: Run bridge and packaging tests
         run: python3 -m unittest discover -s tests -v
       - name: Check internal links
         run: python3 scripts/check-links.py
+      - name: Check version bump on shipped content
+        if: github.event_name == 'pull_request'
+        # Branch name via env, never interpolated into the shell command.
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python3 scripts/check-version-bump.py "origin/$BASE_REF"
