@@ -18,76 +18,110 @@ import os
 import re
 import subprocess
 import sys
+from typing import NamedTuple
 
 SHIPPED_PREFIX = "plugins/devflow/"
 MANIFEST = "plugins/devflow/.claude-plugin/plugin.json"
 SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
+# A manifest read resolves to one of three states, and they are not interchangeable:
+# ABSENT means there is nothing to advance (a plugin this diff introduces) and passes,
+# while UNREADABLE means the check could not be performed and must fail. Collapsing
+# them to None is a fail-open inside a guard whose whole contract is fail-closed.
+ABSENT = "absent"
+UNREADABLE = "unreadable"
 
-def git(root, *args):
+
+class Result(NamedTuple):
+    failures: list
+    notes: list
+    checked: int
+
+
+# --- git ---------------------------------------------------------------------
+
+def _git(root, *args):
     """Run git in `root`, returning (ok, stdout). Never raises on a git failure —
     the caller decides whether an unresolvable ref is fatal."""
-    proc = subprocess.run(
-        ["git", "-C", root, *args], capture_output=True, text=True
-    )
+    proc = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True)
     return proc.returncode == 0, proc.stdout
 
 
-def changed_files(root, base_ref):
-    """Paths changed on HEAD since it diverged from base_ref, or None if the ref
-    does not resolve. Three-dot: the PR's own changes, not the base's."""
-    ok, out = git(root, "diff", "--name-only", f"{base_ref}...HEAD")
+def _changed_files(root, base_ref):
+    """Paths changed on HEAD since it diverged from base_ref, or None if the ref does
+    not resolve. Three-dot: the PR's own changes, not the base's.
+
+    NUL-separated deliberately. Plain `--name-only` C-quotes any path holding a
+    non-ASCII or control byte (`"plugins/devflow/skills/na\\303\\257ve/SKILL.md"`), which
+    no prefix match catches — the guard would then report green on precisely the change
+    it exists to catch. Same trap ARCHITECTURE.md records for `check-links.py`.
+    """
+    ok, out = _git(root, "diff", "-z", "--name-only", f"{base_ref}...HEAD")
     if not ok:
         return None
-    return [line for line in out.splitlines() if line]
+    return [path for path in out.split("\0") if path]
 
 
-def version_at(root, ref):
-    """The manifest's version at `ref`, or None when the manifest does not exist
-    there — a plugin added by this diff has no earlier version to advance."""
-    ok, out = git(root, "show", f"{ref}:{MANIFEST}")
-    if not ok:
-        return None
+# --- manifest ----------------------------------------------------------------
+
+def _version_from(text):
+    """(state, version) for a manifest's contents. A manifest with no `version` key is
+    unreadable for this purpose: something is there, and it is not a version."""
     try:
-        return json.loads(out).get("version")
+        version = json.loads(text).get("version")
     except json.JSONDecodeError:
-        return None
+        return (UNREADABLE, None)
+    if not isinstance(version, str) or not version:
+        return (UNREADABLE, None)
+    return ("ok", version)
 
 
-def version_on_disk(root):
+def _version_at(root, ref):
+    ok, out = _git(root, "show", f"{ref}:{MANIFEST}")
+    if not ok:
+        return (ABSENT, None)
+    return _version_from(out)
+
+
+def _version_on_disk(root):
     """The working tree's version, so this also answers before the bump is committed."""
     path = os.path.join(root, MANIFEST)
     if not os.path.exists(path):
-        return None
+        return (ABSENT, None)
     with open(path, encoding="utf-8") as stream:
-        try:
-            return json.load(stream).get("version")
-        except json.JSONDecodeError:
-            return None
+        return _version_from(stream.read())
 
+
+# --- check -------------------------------------------------------------------
 
 def check(root, base_ref):
-    """Returns (failures, notes). Empty failures means the diff is clear to merge."""
+    """Empty `failures` means the diff is clear to merge."""
     failures, notes = [], []
 
-    changed = changed_files(root, base_ref)
+    changed = _changed_files(root, base_ref)
     if changed is None:
         # Fail closed: a comparison that did not run is never a clean one.
-        return ([f"could not resolve base ref '{base_ref}' — the check did not run"], notes)
+        return Result([f"could not resolve base ref '{base_ref}' — the check did not run"], notes, 0)
 
-    shipped = sorted(p for p in changed if p.startswith(SHIPPED_PREFIX))
+    shipped = sorted(path for path in changed if path.startswith(SHIPPED_PREFIX))
     if not shipped:
         notes.append("no shipped content changed — no bump required")
-        return (failures, notes)
+        return Result(failures, notes, 0)
 
-    head_version = version_on_disk(root)
-    if head_version is None:
-        return ([f"{MANIFEST} is missing or unreadable — cannot verify the version"], notes)
+    head_state, head_version = _version_on_disk(root)
+    if head_state != "ok":
+        return Result([f"{MANIFEST} is {head_state} — cannot verify the version"], notes, len(shipped))
 
-    base_version = version_at(root, base_ref)
-    if base_version is None:
+    base_state, base_version = _version_at(root, base_ref)
+    if base_state == UNREADABLE:
+        return Result(
+            [f"{MANIFEST} is unreadable at {base_ref} — cannot verify the version advanced"],
+            notes,
+            len(shipped),
+        )
+    if base_state == ABSENT:
         notes.append(f"no manifest at {base_ref} — treating {head_version} as the first version")
-        return (failures, notes)
+        return Result(failures, notes, len(shipped))
 
     if head_version == base_version:
         sample = ", ".join(shipped[:3]) + (f", +{len(shipped) - 3} more" if len(shipped) > 3 else "")
@@ -95,22 +129,20 @@ def check(root, base_ref):
             f"{len(shipped)} shipped file(s) changed but the version is still {head_version} "
             f"— bump {MANIFEST} (and the Codex manifest and marketplace entry with it): {sample}"
         )
-        return (failures, notes)
+        return Result(failures, notes, len(shipped))
 
     head_parts, base_parts = SEMVER_RE.match(head_version), SEMVER_RE.match(base_version)
     if head_parts and base_parts:
         if tuple(map(int, head_parts.groups())) <= tuple(map(int, base_parts.groups())):
-            failures.append(
-                f"version moves backwards: {base_version} -> {head_version}"
-            )
+            failures.append(f"version moves backwards: {base_version} -> {head_version}")
     else:
         notes.append(
             f"version changed {base_version} -> {head_version}; ordering unverified "
             "(not a plain X.Y.Z on one side)"
         )
 
-    notes.append(f"{len(shipped)} shipped file(s) changed, version {base_version} -> {head_version}")
-    return (failures, notes)
+    notes.append(f"version {base_version} -> {head_version}")
+    return Result(failures, notes, len(shipped))
 
 
 def main(argv):
@@ -124,13 +156,17 @@ def main(argv):
         print("not inside a git repository", file=sys.stderr)
         return 2
 
-    failures, notes = check(root, argv[1])
-    for note in notes:
+    # The root comes from the working directory, not from this file's location, so name
+    # it: run by path from elsewhere, the guard answers about the repo you are standing
+    # in, and a verdict about the wrong tree is the failure this script exists to prevent.
+    print(f"repo: {root}")
+    result = check(root, argv[1])
+    for note in result.notes:
         print(note)
-    for failure in failures:
+    for failure in result.failures:
         print(f"FAIL: {failure}")
-    print(f"{len(failures)} failures")
-    return 1 if failures else 0
+    print(f"{len(result.failures)} failure(s), {result.checked} shipped file(s) checked")
+    return 1 if result.failures else 0
 
 
 if __name__ == "__main__":
