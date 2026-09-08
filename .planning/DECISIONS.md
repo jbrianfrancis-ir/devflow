@@ -51,3 +51,10 @@ user.email — never a guess at who was at the keyboard. -->
 - **answered**: Merged on GitHub, outside this session, at 2026-08-27T16:28:21Z. PR #30 (v0.17.0, `/flow-hooks`) merged in the same window, at 2026-08-27T16:29:33Z — both answering the same standing gate. STATE.md had not been re-read live and still asserted both PRs open; that drift is the defect quick 011 fixes.
 - **by**: jbrianfrancis-ir <brianf@informativeresearch.com>
 - **at**: bf6f9c1 · PR #31 / PR #30
+
+## 2026-09-08 · checkpoint-decision
+- **asked**: PR #36's version-bump gate shipped but `main` had no branch protection and no rulesets (verified live), so `validate` could report and never block. Option 1: protect main, require the `validate` check. Option 2: leave it advisory — the gate informs, never enforces.
+- **answered**: Option 1. Applied as: required status check `validate`; pull request required with 0 approving reviews (1 would deadlock a solo repo); `strict` left false, so a PR need not be up to date with main; admin bypass **retained** (`enforce_admins: false`) as a deliberate escape hatch.
+- **why it is recorded**: the admin exemption means the protection is a stop, not a wall — an admin push to main still skips both the required check and the PR-only version gate. That limit was chosen knowingly rather than overlooked, and a later reader finding the hole should meet the reasoning here rather than assume an oversight. Review of quick 013 caught ARCHITECTURE.md asserting the opposite ("direct pushes are closed off") and it was corrected before merge.
+- **by**: jbrianfrancis-ir <brianf@informativeresearch.com>
+- **at**: cbe508b · main branch protection

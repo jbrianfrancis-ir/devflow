@@ -44,7 +44,7 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 ## Frameworks & libraries
 | Library | Version | Use for |
 |---------|---------|---------|
-| {e.g. EF Core} | {9.0.x} | {data access} |
+| {e.g. EF Core} | {10.0.x} | {data access} |
 | {e.g. xUnit} | {2.9.x} | {tests} |
 
 ## Architecture & patterns

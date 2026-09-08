@@ -8,11 +8,7 @@ Last: 2026-09-08 — quick 013 on flow/quick-013-ci-gates-and-versions (0e2369f,
 Next: /flow-pr — this is the first PR under the new protection, so it also proves it
 
 ## Gate
-type: none
-asked: none — branch protection resolved 2026-09-08 (option 1)
-options: none
-default: none
-plan: none | task: none
+none
 
 ## Run
 Iteration: 1 | Started: 2026-08-27T18:54Z | Repeats: 0
