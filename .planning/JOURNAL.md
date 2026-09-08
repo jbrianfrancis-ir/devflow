@@ -3,6 +3,10 @@ to .planning/history/JOURNAL-<YYYY>.md (append, chronological, uncapped) — nev
 The cap bounds what loads into context each run; it is not permission to forget.
 One line per completed state-changing skill run. Warm-start + audit trail; context repos (docs/blitzos.md) index these lines verbatim. -->
 # Journal
+- 2026-09-08 | /flow-quick | quick 013 (0e2369f, v0.20.1): ARCHITECTURE's `## CI gates` now names
+  all four lint.yml steps and the version gate's PR-only scope, replacing the false "the standing
+  CI gate" claim; template stack examples → .NET 10 / C# 14 with the feed rule generalized to the
+  whole table. Smoke green; version gate verified locally against origin/main | CONTINUE
 - 2026-09-08 | /flow-ci | main protected (human decision, option 1): `validate` required,
   PR required at 0 approvals (1 would deadlock a solo repo), admin bypass kept, strict=false.
   #36's version-bump gate now blocks the merge path it previously only reported on | CONTINUE

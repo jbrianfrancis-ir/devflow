@@ -3,10 +3,9 @@
 
 ## Position
 Phase: 4 of 4 (complete) | Plans: 4/4 | Status: merged
-Last: 2026-09-08 — PR #36 merged 2026-09-04 (e665a01): release 0.20.0 + version-bump
-  CI gate; `validate` green, zero review threads. Milestone complete
-Next: no roadmap work remains (D-06: no uat/release). /flow-quick the TODOS items on a
-  fresh branch, or open the next milestone
+Last: 2026-09-08 — quick 013 on flow/quick-013-ci-gates-and-versions (0e2369f, v0.20.1):
+  ARCHITECTURE names both CI gates, template stack → .NET 10 / C# 14. Smoke green
+Next: /flow-pr — this is the first PR under the new protection, so it also proves it
 
 ## Gate
 type: none
@@ -33,6 +32,5 @@ Signature: none
 - none
 
 ## Session
-Stopped: PR #36 merged; .planning/ edits (TODOS, STATE, JOURNAL) uncommitted on the
-  merged branch flow/release-0-20-0 — they need a fresh branch to reach main
-Resume: answer the branch-protection gate; carry the .planning/ edits onto a new branch
+Stopped: quick 013 committed on flow/quick-013-ci-gates-and-versions, not yet pushed
+Resume: /flow-pr — main now requires a PR, so this is the only route in
