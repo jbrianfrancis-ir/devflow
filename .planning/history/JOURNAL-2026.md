@@ -20,3 +20,9 @@ Append-only, chronological (oldest first), uncapped. Never dropped, only moved. 
 - 2026-08-27 | quick 011 | PRs #30 and #31 merged to main (16:28-16:29Z); STATE.md had
   asserted both open with a live rule-10 gate — the stale-external-state defect quick 011 fixes | CONTINUE
 - 2026-08-27 | /flow-pr | PR #32 opened (github.com/jbrianfrancis-ir/devflow/pull/32) — quick 011, v0.18.0; external state is a cache, plus 'observation answers a fact, never an authorization' after a blocking finding on self-clearing release gates | CONTINUE
+- 2026-09-01 | /flow-pr | PR #33 opened (github.com/jbrianfrancis-ir/devflow/pull/33) — quick 012,
+  /flow-triage skill (incoming PR pre-screening), v0.19.0; 1 blocking (gh JSON field) fixed pre-push | CONTINUE
+- 2026-09-04 | /flow-pr | PR #36 opened (github.com/jbrianfrancis-ir/devflow/pull/36) — release
+  0.20.0 (covers #34/#35, which merged untagged) + a CI gate failing any PR that changes
+  plugins/devflow/** without a bump; 3 review rounds found 3 fail-opens in the gate itself,
+  2 blocking, each raised by 2 lenses independently | CONTINUE

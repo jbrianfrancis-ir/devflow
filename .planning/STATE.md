@@ -29,6 +29,6 @@ Signature: none
 - none
 
 ## Session
-Stopped: quick 013 pushed to origin; /flow-pr review rounds complete, opening the PR
-Resume: /flow-ci once the PR is open — validate is now a required check
+Stopped: PR #37 open — https://github.com/jbrianfrancis-ir/devflow/pull/37
+Resume: /flow-ci 37 — first PR under the new protection; validate is a required check
 
