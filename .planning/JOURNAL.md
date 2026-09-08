@@ -3,6 +3,13 @@ to .planning/history/JOURNAL-<YYYY>.md (append, chronological, uncapped) — nev
 The cap bounds what loads into context each run; it is not permission to forget.
 One line per completed state-changing skill run. Warm-start + audit trail; context repos (docs/blitzos.md) index these lines verbatim. -->
 # Journal
+- 2026-09-08 | /flow-ci | main protected (human decision, option 1): `validate` required,
+  PR required at 0 approvals (1 would deadlock a solo repo), admin bypass kept, strict=false.
+  #36's version-bump gate now blocks the merge path it previously only reported on | CONTINUE
+- 2026-09-08 | /flow-ci | PR #36 found already merged (e665a01, 2026-09-04) — `validate` green,
+  zero review threads, nothing to fix; milestone 'Documentation Restructure' complete. Live check
+  showed main still has no branch protection or rulesets, so the version-bump gate #36 shipped
+  reports without enforcing — the gate merging deferred is still open | GATE
 - 2026-09-04 | /flow-pr | PR #36 opened (github.com/jbrianfrancis-ir/devflow/pull/36) — release
   0.20.0 (covers #34/#35, which merged untagged) + a CI gate failing any PR that changes
   plugins/devflow/** without a bump; 3 review rounds found 3 fail-opens in the gate itself,
