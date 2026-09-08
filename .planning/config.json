@@ -11,6 +11,6 @@
     "base": "main",
     "origin": "origin",
     "upstream": null,
-    "branch": "flow/release-0-20-0"
+    "branch": "flow/quick-013-ci-gates-and-versions"
   }
 }

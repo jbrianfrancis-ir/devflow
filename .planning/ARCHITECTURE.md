@@ -1,4 +1,6 @@
-<!-- .planning/ARCHITECTURE.md — cap 3KB; this file is ~7.5KB, over deliberately (D-11).
+<!-- .planning/ARCHITECTURE.md — cap 3KB, over deliberately (D-11). No byte count is recorded
+     here on purpose: it was wrong twice in the commit that added it, and a file misreporting
+     its own size is the defect class quick 013 existed to fix. Measure it if you need it.
      HARD constraints, owned by the human. The `## Link checking` section carries most of the
      excess: it is the contract for this repo's only real guard, and three review rounds showed
      that every clause it was missing was a place the guard could go wrong while reporting green.
@@ -21,15 +23,29 @@ build step, no runtime dependency, no deployable artifact. Nothing may introduce
 - **Docs are pointers, never copies.** A fact belongs in exactly one file. If a doc restates what `references/` or a skill defines, link instead — a stale duplicate is worse than none.
 - **No dependencies.** Python stays stdlib-only; CI actions stay pinned. A proposed dependency — including a docs generator or a link-checker needing `pip install` — is a `checkpoint:decision`.
 - **Every internal reference resolves.** A path that 404s is a defect, not a nit. Splitting a document is complete only when every inbound reference is repointed — including prose mentions, which no checker catches.
-- **Manifests are the version source of truth.** `plugins/devflow/.claude-plugin/plugin.json` `version` drives releases; the Codex manifest must match. Documentation work never touches either.
+- **Manifests are the version source of truth.** `plugins/devflow/.claude-plugin/plugin.json` `version` drives releases; the Codex manifest and `.claude-plugin/marketplace.json`'s entry must match, and all three move in one commit. The dividing line is *shipped* vs *repo-internal*, not code vs prose: anything under `plugins/devflow/**` is content a consumer installs, so editing it — **including its markdown** — requires a bump, which `check-version-bump.py` enforces. Work confined to `docs/`, `.planning/`, `tests/`, `scripts/`, or the root pointer files never touches a version field.
 
 ## Smoke
 - **Command**: `python3 scripts/validate-plugin.py && python3 -m unittest discover -s tests -v && python3 scripts/check-links.py`
 - **Pass looks like**: exit 0 from all three; validator prints no error lines; unittest reports `OK`, 0 failures, 0 errors; checker prints no failure lines.
 
+## CI gates
+`lint.yml`'s single job `validate` is the merge gate. Step composition lives in that file, not
+here — three things about it are binding and belong in law:
+
+- **main must require `validate`, with a pull request required.** That state lives on GitHub, not
+  in this tree — a requirement to hold, not a fact to read: verify with
+  `gh api repos/<owner>/<repo>/branches/main/protection`. Admin bypass is retained by decision
+  (`.planning/DECISIONS.md`, 2026-09-08), so protection is a stop, not a wall; what closes the
+  admin push path is the base-branch rule in `CLAUDE.md`/`AGENTS.md`, by convention.
+- **The job needs full history** (`fetch-depth: 0`) because the version gate resolves `origin/$BASE_REF`.
+- **The version gate is pull-request-only** (`github.base_ref` is empty on a push, so there is no
+  base to diff). A scope limit, not a fail-open — but it means shipped content reaching main
+  outside a PR is unchecked. The bump rule itself is the Principle on manifests.
+
 ## Link checking
-`scripts/check-links.py` — **stdlib only, no network, no allowlist file**. It is the standing CI gate
-(`lint.yml` → `Check internal links`) and the third step of `## Smoke`.
+`scripts/check-links.py` — **stdlib only, no network, no allowlist file**. Run by `lint.yml` →
+`Check internal links`, and part of `## Smoke`.
 
 **Scope.** Tracked `.md`, enumerated with `git ls-files -z` (NUL-split: plain `ls-files` C-quotes odd
 filenames, which silently drops them from the scan), except `plugins/devflow/templates/**` and
@@ -65,7 +81,7 @@ look at frontmatter lines, since a YAML literal block may legitimately contain a
 stopped being checked.
 
 **Coverage is reported, not assumed.** Output is `N failures, M references checked`, and a test asserts
-a floor of 140 against this repo (currently 162). `0 failures` from a checker that examined nothing is
+a floor of 140 against this repo (currently 225). `0 failures` from a checker that examined nothing is
 precisely the failure this guard exists to prevent, so a collapse turns CI red instead of printing a
 smaller number.
 
@@ -102,6 +118,7 @@ integration ends at `/flow-pr` + `/flow-ci` and merge to `main`. `config.json` s
 |-----------------|--------|---------|
 | `GH_TOKEN` | Actions `github.token` (CI only) | `.github/workflows/release.yml` |
 | `DEVFLOW_SMOKE` | unset in CI; gates one live-CLI test | `tests/test_flow_agent.py` |
+| `BASE_REF` | Actions `github.base_ref` (PR runs only; empty on push) | `.github/workflows/lint.yml` |
 
 No local environment variables are required to work on this repo.
 
@@ -112,4 +129,4 @@ No local environment variables are required to work on this repo.
 - A docs build system (MkDocs, Docusaurus, Sphinx, Jekyll).
 - `src/` at the repo root.
 - Restating requirements, versions, or roadmap content in `CLAUDE.md`/`AGENTS.md` — pointers only.
-- Editing manifest version fields as part of documentation work.
+- Editing manifest version fields for work that touches no shipped content under `plugins/devflow/**` — see the Principle on manifests for the boundary.

@@ -6,11 +6,17 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 ## Stack
 | What | Exactly | Version |
 |------|---------|---------|
-| Runtime | {e.g. .NET} | {e.g. 9.0} |
-| Language | {e.g. C#} | {13} |
+| Runtime | {e.g. .NET} | {e.g. 10.0} |
+| Language | {e.g. C#} | {14} |
 | Orchestration | Aspire | {13.5.x} |
-<!-- Aspire: within-major updates auto-apply (13.5.0→13.5.1, 13.4→13.5); a major bump (13→14) needs approval.
-     Pin what the feed actually has — `dotnet package search Aspire.Hosting.AppHost --exact-match` — not the example above. -->
+<!-- EVERY version in this file — this table AND `## Frameworks & libraries` below — is an
+     illustrative example and goes stale between DevFlow releases. Resolve each from its own
+     source before pinning: `dotnet --list-sdks` / the vendor's release page for a runtime or
+     language, `dotnet package search <id> --exact-match` for a package. Never copy a number out
+     of this template into a real pin — this file is not a feed, and ARCHITECTURE.md is law, so a
+     stale example here becomes a binding constraint there.
+     Aspire additionally: within-major updates auto-apply (13.5.0→13.5.1, 13.4→13.5); a major
+     bump (13→14) needs approval. -->
 
 
 
@@ -39,7 +45,7 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 ## Frameworks & libraries
 | Library | Version | Use for |
 |---------|---------|---------|
-| {e.g. EF Core} | {9.0.x} | {data access} |
+| {e.g. EF Core} | {10.0.x} | {data access} |
 | {e.g. xUnit} | {2.9.x} | {tests} |
 
 ## Architecture & patterns
