@@ -3,9 +3,10 @@
 
 ## Position
 Phase: 4 of 4 (complete) | Plans: 4/4 | Status: merged
-Last: 2026-09-08 — quick 013 on flow/quick-013-ci-gates-and-versions (0e2369f, v0.20.1):
-  ARCHITECTURE names both CI gates, template stack → .NET 10 / C# 14. Smoke green
-Next: /flow-pr — this is the first PR under the new protection, so it also proves it
+Last: 2026-09-08 — quick 013 on flow/quick-013-ci-gates-and-versions (v0.21.0): ARCHITECTURE
+  `## CI gates`, template stack → .NET 10 / C# 14. 2 review rounds, 1 blocking fixed (a false
+  "direct pushes are closed off" — admins are exempt); round 2 clean. Smoke green
+Next: /flow-pr — first PR under the new protection, so it also proves it
 
 ## Gate
 none
@@ -22,11 +23,12 @@ Signature: none
 - quick 011: external state (PR/CI/deploy) is a cache, never evidence — re-read
   live before routing or asserting on it (autonomy.md)
 - 2026-09-08: main is protected — `validate` required, PR required (0 approvals),
-  admin bypass kept, strict=false. #36's version gate now enforces on the merge path
+  admin bypass kept, strict=false. Gates the merge path; an admin push still bypasses
 
 ## Blockers
 - none
 
 ## Session
-Stopped: quick 013 committed on flow/quick-013-ci-gates-and-versions, not yet pushed
-Resume: /flow-pr — main now requires a PR, so this is the only route in
+Stopped: quick 013 pushed to origin; /flow-pr review rounds complete, opening the PR
+Resume: /flow-ci once the PR is open — validate is now a required check
+

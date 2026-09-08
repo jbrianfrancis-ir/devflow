@@ -16,7 +16,6 @@ Append-only, chronological (oldest first), uncapped. Never dropped, only moved. 
 - 2026-08-23 | /flow-pr | PR #28 opened (github.com/jbrianfrancis-ir/devflow/pull/28) — 15 commits, v0.15.0. 4 review rounds / 5 lenses / 13 blocking; /flow-handsoff + its validator reverted after findings rose 3→4→6 (D-21 approved then reversed) | CONTINUE
 - 2026-08-23 | /flow-pr | PR #29 opened (github.com/jbrianfrancis-ir/devflow/pull/29) — v0.16.0, build-staleness reporting; 3 lenses, 3 blocking (2 board-killing crashes, 1 machine-dependent test) all fixed | CONTINUE
 - 2026-08-27 | /flow-pr | PR #31 opened (github.com/jbrianfrancis-ir/devflow/pull/31) — quick 010, flow-pr's PR gate now pauses only for autonomous runs, not direct invocation | CONTINUE
-
 - 2026-08-27 | /flow-pr | PR #30 opened (github.com/jbrianfrancis-ir/devflow/pull/30) — /flow-hooks skill (base-branch/protected-paths/secret-scan guards), v0.17.0; 3 review rounds, 6 blocking (all live-verified bypasses) fixed | CONTINUE
 - 2026-08-27 | quick 011 | PRs #30 and #31 merged to main (16:28-16:29Z); STATE.md had
   asserted both open with a live rule-10 gate — the stale-external-state defect quick 011 fixes | CONTINUE
