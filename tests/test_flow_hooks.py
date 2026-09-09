@@ -442,6 +442,56 @@ class SecretScanGuardTests(unittest.TestCase):
         })
         self.assertEqual(0, result.returncode)
 
+    def test_blocks_staged_secret_with_mnemonic_prefix_config(self):
+        # Regression for the live fail-open: diff.mnemonicPrefix=true makes git emit
+        # `diff --git c/file w/file` instead of `a/`/`b/`. DIFF_GIT_HEADER_RE only matched
+        # the default shape, iter_file_chunks yielded zero chunks, and the guard exited 0
+        # (allow) on a staged secret with no warning. The guard must pin the prefixes so
+        # this config can't change the diff shape it depends on.
+        git(self.fixture.repo, "config", "diff.mnemonicPrefix", "true")
+        fixture_line = "api_key" + ' = "' + "abcd1234efgh5678" + '"'
+        self.fixture.append_and_stage(fixture_line)
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+        self.assertNotIn("abcd1234efgh5678", result.stderr)
+        # Must be the real hit (the diff was parsed and the pattern matched), not the
+        # could-not-parse fallback also exiting 2 for an unrelated reason — a guard that
+        # merely fails closed on every unparseable diff would pass this test without the
+        # prefix pinning actually working.
+        self.assertIn("pattern:", result.stderr)
+        self.assertNotIn("could not parse", result.stderr)
+
+    def test_blocks_staged_secret_with_noprefix_config(self):
+        # Same bypass class as mnemonicPrefix, via diff.noprefix=true instead
+        # (`diff --git file file`, no prefixes at all).
+        git(self.fixture.repo, "config", "diff.noprefix", "true")
+        fixture_line = "api_key" + ' = "' + "abcd1234efgh5678" + '"'
+        self.fixture.append_and_stage(fixture_line)
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+        self.assertNotIn("abcd1234efgh5678", result.stderr)
+        # Same distinction as the mnemonicPrefix test above: must be the real parsed hit,
+        # not the could-not-parse fallback exiting 2 for an unrelated reason.
+        self.assertIn("pattern:", result.stderr)
+        self.assertNotIn("could not parse", result.stderr)
+
+    def test_unparseable_diff_is_could_not_check_not_clean(self):
+        # A non-empty diff that iter_file_chunks can't split into file sections (no
+        # recognisable `diff --git` header at all) must be reported as could-not-check, per
+        # conventions.md's fail-closed-guards rule — never collapsed into "nothing found".
+        module = load_module(SECRET_SCAN_GUARD, "secret_scan_guard_for_unparseable_test")
+        result = module.scan("this diff has no recognisable header line at all\n+still no header\n")
+        self.assertIsNotNone(result)
+        self.assertIs(result, module.COULD_NOT_PARSE)
+
 
 class SecretPatternDriftTest(unittest.TestCase):
     """The regex embedded in secret-scan-guard.py must stay byte-identical to the one
