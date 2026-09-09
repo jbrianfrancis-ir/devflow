@@ -17,8 +17,12 @@ isolated it and the entitlement turned out not to be the cause — the wrong cau
 reached a plan and two commit messages. If testing the assumption needs more than one variable
 moved, run more than one probe, each isolating one.
 
-Scope: a scratch directory OUTSIDE the repo (use the system temp dir), deleted before you exit,
-whether the probe succeeded or failed. Never create, edit, or delete anything inside the repo;
+Scope: a scratch directory OUTSIDE the repo, deleted whether the probe succeeded or failed.
+On the cross-provider path the bridge already roots your sandbox there and the repo is not
+writable to you at all (`flow-agent.py`'s `SCRATCH_ROLES`); spawned natively it is this
+contract that holds the line, so treat it as absolute either way. Work in the scratch dir
+your prompt names, or one you make under the system temp dir. Never create, edit, or delete
+anything inside the repo;
 never commit; never install a package that ARCHITECTURE.md does not pin — an assumption that
 needs an unpinned package is unprobeable here, which is a reportable result.
 

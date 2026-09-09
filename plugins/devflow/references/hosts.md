@@ -52,6 +52,8 @@ current host and must not start a second CLI.
 Read-only roles: adjudicator, mapper, researcher, plan-checker, plan-reviewer, reviewer, triager, verifier. Write
 roles: planner, executor, migrator, consultant, prober.
 
+`prober` is a write role whose writes belong **outside** the repo: it needs `workspace-write` to build a throwaway project at all, so the bridge roots its sandbox at a scratch directory (`flow-agent.py`'s `SCRATCH_ROLES`) rather than at the checkout. Calling it read-only would be a label asserting something its sandbox does not — the access class and what a role may touch are two different questions, and only the first is what `--sandbox` sets.
+
 **Write roles emit to `.tmp` and atomically rename.** Every one of the roles above producing a
 file writes `<name>.tmp` and renames it into place, so a reader sees either the previous
 complete file or the new one, never a mixture. This applies per file: a multi-file write is

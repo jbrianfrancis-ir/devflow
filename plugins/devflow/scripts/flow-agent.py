@@ -15,6 +15,13 @@ import tempfile
 READ_ONLY_ROLES = {"adjudicator", "mapper", "researcher", "plan-checker", "plan-reviewer",
                    "reviewer", "triager", "verifier"}
 WRITE_ROLES = {"planner", "executor", "migrator", "consultant", "prober"}
+# Write roles whose writes belong OUTSIDE the repo. A prober builds a throwaway project to
+# test one assumption; it needs workspace-write to build at all, but the repo is not what it
+# may write to. Rooting its sandbox at a scratch dir makes "never touches the repo" a
+# property of the sandbox rather than a promise in its prompt — an unenforced rule that
+# reads as enforced is the defect class this guard family exists to close. Must be a subset
+# of WRITE_ROLES (validate-plugin.py checks): a read-only sandbox cannot build anything.
+SCRATCH_ROLES = {"prober"}
 ALL_ROLES = READ_ONLY_ROLES | WRITE_ROLES
 FIELDS = {"status", "summary", "artifacts", "completed", "checkpoint", "error"}
 RESULT_SCHEMA = {
@@ -89,16 +96,25 @@ def validate_result(value: object) -> dict | None:
 
 
 def build_command(provider: str, role: str, repo: Path, prompt: str,
-                  schema_path: Path, model: str | None = None) -> list[str]:
+                  schema_path: Path, model: str | None = None,
+                  workdir: Path | None = None) -> list[str]:
     access = "read-only" if role in READ_ONLY_ROLES else "workspace-write"
-    instruction = (f"You are the DevFlow {role} peer. Work only in {repo}. "
-                   f"Access class: {access}. Do not start another provider CLI. "
+    # A scratch role is sandboxed to `workdir`, so the repo is not writable for it at all.
+    root = workdir if workdir is not None else repo
+    if workdir is not None:
+        boundary = (f"You are the DevFlow {role} peer. Work only in {root} — a scratch "
+                    "directory deleted when you exit. The repository is off-limits: never "
+                    "create, modify or delete anything inside it, and never commit. ")
+    else:
+        boundary = f"You are the DevFlow {role} peer. Work only in {root}. "
+    instruction = (boundary
+                   + f"Access class: {access}. Do not start another provider CLI. "
                    "Never bypass permissions. Return only the requested structured result.\n\n"
                    + prompt)
     # Model names are provider-specific, so the caller passes one it knows is
     # valid for `provider`; absent, the peer CLI picks its own default.
     if provider == "codex":
-        return (["codex", "exec", "--cd", str(repo), "--sandbox", access,
+        return (["codex", "exec", "--cd", str(root), "--sandbox", access,
                  "--output-schema", str(schema_path), "--color", "never"]
                 + (["--model", model] if model else []) + [instruction])
     permission = "plan" if access == "read-only" else "acceptEdits"
@@ -143,13 +159,18 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="devflow-agent-") as temporary:
         schema_path = Path(temporary) / "result.schema.json"
         schema_path.write_text(json.dumps(RESULT_SCHEMA), encoding="utf-8")
+        # Scratch roles run rooted outside the repo; the dir dies with `temporary`.
+        scratch = None
+        if args.role in SCRATCH_ROLES:
+            scratch = Path(temporary) / "scratch"
+            scratch.mkdir()
         command = build_command(provider, args.role, repo,
                                 prompt_path.read_text(encoding="utf-8"), schema_path,
-                                args.model)
+                                args.model, scratch)
         try:
             # stdin must be closed: codex exec reads a non-TTY stdin and would
             # otherwise block on an inherited pipe until --timeout expires.
-            run = subprocess.run(command, cwd=repo, text=True, capture_output=True,
+            run = subprocess.run(command, cwd=scratch or repo, text=True, capture_output=True,
                                  stdin=subprocess.DEVNULL, timeout=args.timeout,
                                  env=os.environ.copy())
         except subprocess.TimeoutExpired:

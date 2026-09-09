@@ -1,4 +1,4 @@
-<!-- .planning/phases/NN-slug/NN-MM-PLAN.md — cap 4KB. A plan is an executor prompt: complete, unambiguous. -->
+<!-- .planning/phases/NN-slug/NN-MM-PLAN.md — 4KB soft target, not a gate. A plan is an executor prompt: complete, unambiguous. -->
 ---
 phase: NN-slug
 plan: MM
