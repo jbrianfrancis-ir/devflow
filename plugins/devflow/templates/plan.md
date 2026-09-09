@@ -27,6 +27,7 @@ Reference a prior plan's SUMMARY only if this plan genuinely uses its outputs.}
   <files>{paths}</files>
   <action>{specific implementation — what to build and how}</action>
   <verify>{command or observable check; human verification goes in <human-check> for end-of-phase batching}</verify>
+  <falsify>{concrete mutation that makes the verify command fail — executor applies it, confirms failure, reverts. Omit only when verify is a human-check.}</falsify>
   <done>{acceptance criteria}</done>
 </task>
 <!-- type="checkpoint:decision" or "checkpoint:human-action" for human gates -->
