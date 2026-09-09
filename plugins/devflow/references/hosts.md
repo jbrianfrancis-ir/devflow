@@ -52,6 +52,20 @@ current host and must not start a second CLI.
 Read-only roles: adjudicator, mapper, researcher, plan-checker, plan-reviewer, reviewer, triager, verifier. Write
 roles: planner, executor, migrator, consultant, prober.
 
+**Write roles emit to `.tmp` and atomically rename.** Every one of the roles above producing a
+file writes `<name>.tmp` and renames it into place, so a reader sees either the previous
+complete file or the new one, never a mixture. This applies per file: a multi-file write is
+still a sequence of atomic single-file appearances, not one atomic transaction across the whole
+set — which is why the next rule is also needed and this one does not subsume it.
+
+**Never diff or audit a phase directory while its write role is running.** Wait for completion.
+The trap reads as safe and is not: *a quiet directory is not a finished one* — polling for
+stability cannot distinguish a finished write from a pause between two files. A watcher polling
+for a "stable" directory reported stable during a write lull, twice, and four of thirteen
+reported issues in one phase were stale — filed against a snapshot taken mid-write, describing
+defects already fixed. The orchestrator has no way to know a role is partway through a
+multi-file write except by waiting for it to finish.
+
 Always tell a spawned role that **commits** — today only the executor — its
 **resolved provider and model**: it needs both to write the commit attribution
 trailers in `conventions.md`, and it cannot observe them for itself. Pass the
