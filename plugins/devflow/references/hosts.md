@@ -52,7 +52,7 @@ current host and must not start a second CLI.
 Read-only roles: adjudicator, mapper, researcher, plan-checker, plan-reviewer, reviewer, triager, verifier. Write
 roles: planner, executor, migrator, consultant, prober.
 
-`prober` is a write role whose writes belong **outside** the repo: it needs `workspace-write` to build a throwaway project at all, so the bridge roots its sandbox at a scratch directory (`flow-agent.py`'s `SCRATCH_ROLES`) rather than at the checkout. Calling it read-only would be a label asserting something its sandbox does not — the access class and what a role may touch are two different questions, and only the first is what `--sandbox` sets.
+`prober` is a write role whose writes belong **outside** the repo: it needs `workspace-write` to build a throwaway project at all, so the bridge roots it at a scratch directory (`flow-agent.py`'s `SCRATCH_ROLES`) rather than at the checkout — but the two peers enforce that differently. The codex peer sandboxes it there for real (`--sandbox`/`--cd`): the repo is not writable to it at all. The claude CLI has no directory-scoping flag that would confine it the same way without also removing the Bash access a prober needs to build anything, so there the scratch root is only the process's working directory, held by the prompt contract rather than the sandbox. Calling it read-only would be a label asserting something its sandbox does not — the access class and what a role may touch are two different questions, and only the first is what `--sandbox` sets.
 
 **Write roles emit to `.tmp` and atomically rename.** Every one of the roles above producing a
 file writes `<name>.tmp` and renames it into place, so a reader sees either the previous

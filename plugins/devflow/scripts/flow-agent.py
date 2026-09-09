@@ -17,10 +17,16 @@ READ_ONLY_ROLES = {"adjudicator", "mapper", "researcher", "plan-checker", "plan-
 WRITE_ROLES = {"planner", "executor", "migrator", "consultant", "prober"}
 # Write roles whose writes belong OUTSIDE the repo. A prober builds a throwaway project to
 # test one assumption; it needs workspace-write to build at all, but the repo is not what it
-# may write to. Rooting its sandbox at a scratch dir makes "never touches the repo" a
-# property of the sandbox rather than a promise in its prompt — an unenforced rule that
-# reads as enforced is the defect class this guard family exists to close. Must be a subset
-# of WRITE_ROLES (validate-plugin.py checks): a read-only sandbox cannot build anything.
+# may write to. Rooting its sandbox at a scratch dir makes "never touches the repo" a real
+# sandbox property for the codex peer (`--sandbox`/`--cd` below, OS-enforced). The claude CLI
+# has no directory-scoping flag for arbitrary tool use — `--add-dir` only ADDS allowed
+# directories and does not confine the Bash tool at all, which a prober needs to build
+# anything (checked: `claude --help`, no `--sandbox`/equivalent exists) — so on that peer the
+# boundary is only the process cwd plus the prompt contract, same as the natively-spawned
+# case. Keep hosts.md/flow-prober.md's wording matched to this per provider; a guarantee
+# stated more strongly than the code delivers is the defect this guard family exists to
+# close. Must be a subset of WRITE_ROLES (validate-plugin.py checks): a read-only sandbox
+# cannot build anything.
 SCRATCH_ROLES = {"prober"}
 ALL_ROLES = READ_ONLY_ROLES | WRITE_ROLES
 FIELDS = {"status", "summary", "artifacts", "completed", "checkpoint", "error"}
@@ -99,7 +105,10 @@ def build_command(provider: str, role: str, repo: Path, prompt: str,
                   schema_path: Path, model: str | None = None,
                   workdir: Path | None = None) -> list[str]:
     access = "read-only" if role in READ_ONLY_ROLES else "workspace-write"
-    # A scratch role is sandboxed to `workdir`, so the repo is not writable for it at all.
+    # A scratch role's `root` becomes cwd for both peers. The codex branch below additionally
+    # sandboxes writes to it with `--sandbox`/`--cd` — real, OS-enforced isolation. The claude
+    # branch has no equivalent flag (see SCRATCH_ROLES above), so there `root` is only the
+    # process cwd plus the prompt's boundary text; nothing stops an absolute-path write.
     root = workdir if workdir is not None else repo
     if workdir is not None:
         boundary = (f"You are the DevFlow {role} peer. Work only in {root} — a scratch "
