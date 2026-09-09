@@ -178,6 +178,8 @@ def discover_plans(phase_dir: Path) -> tuple[str, int, dict[int, Path]]:
     prefixes: set[str] = set()
     widths: set[int] = set()
     for path in sorted(phase_dir.iterdir()):
+        if not path.is_file():
+            continue
         m = PLAN_FILENAME_RE.match(path.name)
         if not m:
             continue
@@ -432,6 +434,34 @@ def main() -> int:
         new_tasks_section = build_tasks_section(new_task_texts)
         kept_tasks_section = build_tasks_section([t["text"] for t in staying_tasks])
 
+        # B3: a real edge back to the source, not a verbatim copy of its wave/depends_on.
+        # plan-format.md's fake-edge test: an edge is real only when this plan consumes
+        # something the dependency produces. When the moved tasks' files intersect the
+        # staying tasks' files, the new plan's tasks build on something the source's
+        # staying tasks left behind — a real edge — so same-wave parallel execution would
+        # be wrong (plan-format.md: same-wave plans must have disjoint files_modified).
+        # When the two sides are genuinely disjoint, forcing an edge would be the
+        # over-constraining case plan-format.md's fake-edge test tells us to avoid, so the
+        # new plan keeps the source's own upstream depends_on/wave unchanged instead.
+        src_wave = src_data.get("wave", "1")
+        if moving_files & staying_files:
+            new_depends_on = [src_id]
+            new_wave = str(int(src_wave) + 1)
+        else:
+            new_depends_on = src_data.get("depends_on", [])
+            new_wave = src_wave
+
+        # Both should-fix items: autonomous is recomputed per side from whether THAT
+        # side's own tasks contain a checkpoint task, rather than both sides inheriting
+        # the source's single value — otherwise the side that kept the only checkpoint
+        # task could ship autonomous: true, or the side that lost it could stay
+        # autonomous: false with no checkpoint task to justify it.
+        def has_checkpoint(task_texts: list[str]) -> bool:
+            return any('type="checkpoint' in t for t in task_texts)
+
+        new_autonomous = "false" if has_checkpoint([t["text"] for t in moving_tasks]) else "true"
+        kept_autonomous = "false" if has_checkpoint([t["text"] for t in staying_tasks]) else "true"
+
         obj_m = OBJECTIVE_RE.search(src_body)
         ctx_m = CONTEXT_RE.search(src_body)
         objective = obj_m.group(0) if obj_m else "<objective>Split from " + src_id + ".</objective>"
@@ -439,9 +469,9 @@ def main() -> int:
 
         new_body = "\n" + objective + "\n\n" + context + "\n\n" + new_tasks_section + "\n"
         new_fm = format_frontmatter(
-            phase=src_data.get("phase", ""), plan_num=fmt(new_num), wave=src_data.get("wave", "1"),
-            depends_on=src_data.get("depends_on", []), files_modified=new_files,
-            autonomous=src_data.get("autonomous", "true"),
+            phase=src_data.get("phase", ""), plan_num=fmt(new_num), wave=new_wave,
+            depends_on=new_depends_on, files_modified=new_files,
+            autonomous=new_autonomous,
             requirements=src_data.get("requirements", []), must_haves=new_mh,
             extra=extra_fields)
         new_path = phase_dir / f"{prefix}-{fmt(new_num)}-PLAN.md"
@@ -454,9 +484,9 @@ def main() -> int:
         src_body_out = src_body[:TASKS_BLOCK_RE.search(src_body).start()] + kept_tasks_section + \
             src_body[TASKS_BLOCK_RE.search(src_body).end():]
         src_fm_out = format_frontmatter(
-            phase=src_data.get("phase", ""), plan_num=fmt(src_num), wave=src_data.get("wave", "1"),
+            phase=src_data.get("phase", ""), plan_num=fmt(src_num), wave=src_wave,
             depends_on=src_data.get("depends_on", []), files_modified=kept_files,
-            autonomous=src_data.get("autonomous", "true"),
+            autonomous=kept_autonomous,
             requirements=src_data.get("requirements", []), must_haves=kept_mh,
             extra=extra_fields)
         src_text_out = src_preamble + src_fm_out + src_body_out
@@ -519,6 +549,14 @@ def main() -> int:
         # THIS file is tracked — falling back to a plain rename otherwise.
         renamed: list[tuple[Path, Path, bool]] = []  # (old_path, target_path, used_git)
         in_git = is_git_repo(phase_dir)
+
+        def rollback_renames() -> None:
+            for old_path, target_path, used_git in reversed(renamed):
+                if used_git:
+                    git_mv(phase_dir, target_path, old_path)
+                else:
+                    target_path.rename(old_path)
+
         try:
             for num in sorted((n for n in plans if n > src_num), reverse=True):
                 old_path = plans[num]
@@ -529,18 +567,35 @@ def main() -> int:
                 else:
                     old_path.rename(target_path)
                 renamed.append((old_path, target_path, used_git))
-        except PlanError:
-            for old_path, target_path, used_git in reversed(renamed):
-                if used_git:
-                    git_mv(phase_dir, target_path, old_path)
-                else:
-                    target_path.rename(old_path)
-            raise
+        except (PlanError, OSError) as exc:
+            rollback_renames()
+            raise (exc if isinstance(exc, PlanError)
+                   else PlanError(f"rename phase failed, all changes rolled back: {exc}")) from exc
 
-        for pid, data in sorted(final.items()):
-            tmp = data["write_path"].with_suffix(data["write_path"].suffix + ".tmp")
-            tmp.write_text(data["text"], encoding="utf-8")
-            tmp.replace(data["write_path"])
+        # Write phase: capture every target's pre-image first, write each to a `.tmp`
+        # sibling, then replace. On ANY OSError here — including one raised while
+        # capturing pre-images, e.g. a target path that turns out to be a directory —
+        # restore every pre-image gathered so far AND undo the renames above. The module
+        # docstring promises all-or-nothing, so a mid-write failure must leave the phase
+        # dir byte-identical to before the split ran, not half-renumbered.
+        pre_images: list[tuple[Path, str | None]] = []
+        try:
+            for data in final.values():
+                path = data["write_path"]
+                pre_images.append((path, path.read_text(encoding="utf-8") if path.exists() else None))
+            for pid, data in sorted(final.items()):
+                tmp = data["write_path"].with_suffix(data["write_path"].suffix + ".tmp")
+                tmp.write_text(data["text"], encoding="utf-8")
+                tmp.replace(data["write_path"])
+        except OSError as exc:
+            for path, pre_text in pre_images:
+                path.with_suffix(path.suffix + ".tmp").unlink(missing_ok=True)
+                if pre_text is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    path.write_text(pre_text, encoding="utf-8")
+            rollback_renames()
+            raise PlanError(f"write phase failed, all changes rolled back: {exc}") from exc
 
         print(f"split {src_id} after task {args.after}: {src_id} + {new_id} written")
         for pid, data in sorted(final.items()):
