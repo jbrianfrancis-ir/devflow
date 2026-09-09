@@ -2,11 +2,12 @@
 # State
 
 ## Position
-Phase: 4 of 4 (complete) | Plans: 4/4 | Status: merged
-Last: 2026-09-08 — quick 013 on flow/quick-013-ci-gates-and-versions (v0.21.0): ARCHITECTURE
-  `## CI gates`, template stack → .NET 10 / C# 14. 2 review rounds, 1 blocking fixed (a false
-  "direct pushes are closed off" — admins are exempt); round 2 clean. Smoke green
-Next: /flow-pr — first PR under the new protection, so it also proves it
+Phase: 4 of 4 (complete) | Plans: 4/4 | Status: committed, not yet PR'd
+Last: 2026-09-09 — quick 014 (v0.22.0): closed False Green P0 (R1-R3) — falsify negative
+  control + execution-only assertion in plan-format.md, checker check 5b, executor
+  falsify-then-verify flow, revision deletion diff. Falsify clauses run for real.
+  5 pre-existing test_flow_hooks failures deferred.
+Next: /flow-pr — open PR for quick 014
 
 ## Gate
 none
@@ -24,11 +25,13 @@ Signature: none
   live before routing or asserting on it (autonomy.md)
 - 2026-09-08: main is protected — `validate` required, PR required (0 approvals),
   admin bypass kept, strict=false. Gates the merge path; an admin push still bypasses
+- quick 014: falsify negative controls + execution-only test assertions bind plan-format.md;
+  revision rounds diff must_haves/files_modified for silent deletion (v0.22.0)
 
 ## Blockers
 - none
 
 ## Session
-Stopped: PR #37 open — https://github.com/jbrianfrancis-ir/devflow/pull/37
-Resume: /flow-ci 37 — first PR under the new protection; validate is a required check
+Stopped: quick 014 done, 5 tasks committed (687a27d..c0f6212), SUMMARY written; not pushed
+Resume: /flow-pr
 
