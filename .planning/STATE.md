@@ -2,10 +2,10 @@
 # State
 
 ## Position
-Phase: quick-016 (in progress) | Plans: 1/4 | Status: 016-01 committed, 3 siblings pending
-Last: 2026-09-09 — quick 016-01: flow-split-plan.py repair, B3/B5-B8 + 2 should-fix
-  items; tests rewritten 7->21, both review mutations now caught by name.
-Next: 016-02 (R8 hook), 016-03 (contract fixes), 016-04 (bridge+validator)
+Phase: quick-016 (in progress) | Plans: 2/4 | Status: 016-01, 016-02 committed, 2 siblings pending
+Last: 2026-09-09 — quick 016-02: secret-scan-guard now enforces ARCHITECTURE.md Forbidden
+  regexes (R8); pre-fix guard falsified exiting 0 on the literal; tests 40->46.
+Next: 016-03 (contract fixes), 016-04 (bridge+validator)
 
 ## Gate
 none
@@ -30,6 +30,6 @@ Signature: none
 - none
 
 ## Session
-Stopped: quick 016 plan 01 done, 4 tasks committed (7698063..bd26c29), SUMMARY written
-Resume: run 016-02, 016-03, 016-04 (sibling repair plans: hook, contracts, bridge)
+Stopped: quick 016 plan 02 done, 3 tasks committed (989b9b6..c00544c), SUMMARY written
+Resume: run 016-03 (contracts), 016-04 (bridge+validator) — sibling repair plans
 
