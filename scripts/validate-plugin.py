@@ -82,8 +82,8 @@ skills = sorted(glob.glob(os.path.join(PLUGIN, "skills", "*", "SKILL.md")))
 agents = sorted(glob.glob(os.path.join(PLUGIN, "agents", "*.md")))
 if len(skills) != 22:
     err(f"expected 22 skills, found {len(skills)}")
-if len(agents) != 12:
-    err(f"expected 12 Claude role agents, found {len(agents)}")
+if len(agents) != 13:
+    err(f"expected 13 Claude role agents, found {len(agents)}")
 for path in skills:
     name = os.path.basename(os.path.dirname(path))
     fm = frontmatter(path)

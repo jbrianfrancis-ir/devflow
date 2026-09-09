@@ -14,7 +14,7 @@ import tempfile
 
 READ_ONLY_ROLES = {"adjudicator", "mapper", "researcher", "plan-checker", "plan-reviewer",
                    "reviewer", "triager", "verifier"}
-WRITE_ROLES = {"planner", "executor", "migrator", "consultant"}
+WRITE_ROLES = {"planner", "executor", "migrator", "consultant", "prober"}
 ALL_ROLES = READ_ONLY_ROLES | WRITE_ROLES
 FIELDS = {"status", "summary", "artifacts", "completed", "checkpoint", "error"}
 RESULT_SCHEMA = {

@@ -50,7 +50,7 @@ current host and must not start a second CLI.
   orchestrator waits for and counts every result.
 
 Read-only roles: adjudicator, mapper, researcher, plan-checker, plan-reviewer, reviewer, triager, verifier. Write
-roles: planner, executor, migrator, consultant.
+roles: planner, executor, migrator, consultant, prober.
 
 Always tell a spawned role that **commits** — today only the executor — its
 **resolved provider and model**: it needs both to write the commit attribution
