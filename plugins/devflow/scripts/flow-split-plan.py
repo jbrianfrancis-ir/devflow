@@ -20,7 +20,6 @@ import sys
 from pathlib import Path
 
 PLAN_FILENAME_RE = re.compile(r"^(\d+)-(\d+)-PLAN\.md$")
-NN_MM_RE = re.compile(r"\b(\d{2,})-(\d{2,})\b")
 LIST_ITEM_RE = re.compile(r"^(\s*)-\s?(.*)$")
 KEY_RE = re.compile(r"^(\s*)([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$")
 PLAN_FIELD_RE = re.compile(r"(?m)^plan:\s*\d+\s*$")
@@ -239,8 +238,20 @@ def compute_rename_map(prefix: str, numbers: list[int], src_num: int, width: int
     return mapping
 
 
-def rewrite_refs(text: str, rename_map: dict[str, str]) -> str:
-    return NN_MM_RE.sub(lambda m: rename_map.get(m.group(0), m.group(0)), text)
+def build_ref_pattern(prefix: str) -> re.Pattern:
+    """A plan reference is exactly `<phase-prefix>-<MM>` as a standalone token — never an
+    ISO date, a line range, or digits embedded in a larger hyphenated/dotted token like a
+    ticket id (`AB-01-03`) or a version string (`5.01-04.x`). Anchoring to the phase's own
+    prefix (already computed for compute_rename_map) rules out dates and bare ranges;
+    the lookaround rules out the embedded-in-a-bigger-token cases, since those are never
+    preceded/followed by a hard boundary the way a genuine reference is."""
+    esc = re.escape(prefix)
+    return re.compile(
+        rf"(?<!\w)(?<!-)(?<!\d\.){esc}-(\d{{2,}})(?!\w)(?!-)(?!\.\w)")
+
+
+def rewrite_refs(text: str, rename_map: dict[str, str], ref_re: re.Pattern) -> str:
+    return ref_re.sub(lambda m: rename_map.get(m.group(0), m.group(0)), text)
 
 
 def rewrite_header_comment(text: str, old_name: str, new_name: str) -> str:
@@ -252,13 +263,15 @@ def rewrite_header_comment(text: str, old_name: str, new_name: str) -> str:
 
 # --- validation (all-or-nothing gate) ---------------------------------------------------
 
-def validate(final: dict[str, dict]) -> list[str]:
+def validate(final: dict[str, dict], ref_re: re.Pattern) -> list[str]:
     """final: id -> {"text": str, "wave": int, "depends_on": [ids]}. Returns problems;
-    empty list means the result is safe to write."""
+    empty list means the result is safe to write. `ref_re` is the SAME anchored pattern
+    rewrite_refs used, so validation and rewriting can never disagree about what counts
+    as a plan reference."""
     problems = []
     ids = set(final)
     for pid, data in final.items():
-        for token in {m.group(0) for m in NN_MM_RE.finditer(data["text"])}:
+        for token in {m.group(0) for m in ref_re.finditer(data["text"])}:
             if token not in ids:
                 problems.append(f"{pid}: dangling reference to nonexistent plan {token}")
         for dep in data["depends_on"]:
@@ -304,6 +317,15 @@ def git_mv(repo_dir: Path, src: Path, dst: Path) -> None:
         raise PlanError(f"git mv {src} -> {dst} failed: {result.stderr.strip()}")
 
 
+def is_tracked(repo_dir: Path, path: Path) -> bool:
+    """`git mv` fails with 'not under version control' on an untracked file — and plans
+    are untracked at /flow-plan step 4, the split's only call site (they commit at step
+    6) — so the mover must be chosen per file, not once for the whole phase dir."""
+    result = subprocess.run(["git", "-C", str(repo_dir), "ls-files", "--error-unmatch", str(path)],
+                             capture_output=True, text=True)
+    return result.returncode == 0
+
+
 # --- main ----------------------------------------------------------------------------------
 
 def parse_args() -> argparse.Namespace:
@@ -332,6 +354,7 @@ def main() -> int:
 
     try:
         prefix, width, plans = discover_plans(phase_dir)
+        ref_re = build_ref_pattern(prefix)
         src_num = resolve_plan_arg(args.plan)
         if src_num not in plans:
             raise PlanError(f"plan {src_num} not found among {sorted(plans)}")
@@ -443,12 +466,12 @@ def main() -> int:
         # final[id] -> {"text", "wave", "depends_on", "write_path", "old_path"}
         final: dict[str, dict] = {}
 
-        src_text_out = rewrite_refs(src_text_out, rename_map)
+        src_text_out = rewrite_refs(src_text_out, rename_map, ref_re)
         final[src_id] = {"text": src_text_out, "wave": extract_wave(src_text_out),
                           "depends_on": extract_depends_on(src_text_out),
                           "write_path": src_path, "old_path": src_path}
 
-        new_text = rewrite_refs(new_text, rename_map)
+        new_text = rewrite_refs(new_text, rename_map, ref_re)
         final[new_id] = {"text": new_text, "wave": extract_wave(new_text),
                           "depends_on": extract_depends_on(new_text),
                           "write_path": new_path, "old_path": None}
@@ -464,13 +487,13 @@ def main() -> int:
                 text = rewrite_header_comment(text, path.name, target_path.name)
             else:
                 target_path = path
-            text = rewrite_refs(text, rename_map)
+            text = rewrite_refs(text, rename_map, ref_re)
             pid = f"{prefix}-{fmt(num if num <= src_num else num + 1)}"
             final[pid] = {"text": text, "wave": extract_wave(text),
                           "depends_on": extract_depends_on(text),
                           "write_path": target_path, "old_path": path}
 
-        problems = validate(final)
+        problems = validate(final, ref_re)
         if problems:
             print("refusing to write: split would leave dangling references", file=sys.stderr)
             for p in problems:
@@ -491,20 +514,24 @@ def main() -> int:
             return 0
 
         # Rename existing tail files highest-number-first so targets never collide.
-        renamed: list[tuple[Path, Path]] = []
+        # Mover is chosen per file: a mixed phase dir (some plans committed, the new
+        # split target still fresh from /flow-plan) must work, so `git mv` only when
+        # THIS file is tracked — falling back to a plain rename otherwise.
+        renamed: list[tuple[Path, Path, bool]] = []  # (old_path, target_path, used_git)
         in_git = is_git_repo(phase_dir)
         try:
             for num in sorted((n for n in plans if n > src_num), reverse=True):
                 old_path = plans[num]
                 target_path = phase_dir / f"{prefix}-{fmt(num + 1)}-PLAN.md"
-                if in_git:
+                used_git = in_git and is_tracked(phase_dir, old_path)
+                if used_git:
                     git_mv(phase_dir, old_path, target_path)
                 else:
                     old_path.rename(target_path)
-                renamed.append((old_path, target_path))
+                renamed.append((old_path, target_path, used_git))
         except PlanError:
-            for old_path, target_path in reversed(renamed):
-                if in_git:
+            for old_path, target_path, used_git in reversed(renamed):
+                if used_git:
                     git_mv(phase_dir, target_path, old_path)
                 else:
                     target_path.rename(old_path)
