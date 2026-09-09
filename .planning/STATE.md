@@ -2,10 +2,10 @@
 # State
 
 ## Position
-Phase: quick-015 (in progress) | Plans: 4/4 | Status: committed, not yet PR'd
-Last: 2026-09-09 — quick 015-04: R9 flow-split-plan.py implemented + tested;
-  plan-format.md/flow-plan SKILL.md point the 4KB cap at it, split-don't-trim.
-Next: one manifest bump (0.21.0 -> next), then /flow-pr
+Phase: quick-016 (in progress) | Plans: 1/4 | Status: 016-01 committed, 3 siblings pending
+Last: 2026-09-09 — quick 016-01: flow-split-plan.py repair, B3/B5-B8 + 2 should-fix
+  items; tests rewritten 7->21, both review mutations now caught by name.
+Next: 016-02 (R8 hook), 016-03 (contract fixes), 016-04 (bridge+validator)
 
 ## Gate
 none
@@ -15,24 +15,21 @@ Iteration: 1 | Started: 2026-08-27T18:54Z | Repeats: 0
 Signature: none
 
 ## Decisions
-- init: no deployable surface (D-06); link checker stdlib-only check-links.py (D-04)
-- quick 011: external state (PR/CI/deploy) is a cache, not evidence — re-read live
+- init: no deployable surface (D-06); link checker stdlib-only (D-04)
+- quick 011: external state (PR/CI/deploy) is a cache, not evidence
 - 2026-09-08: main protected — validate+PR required, admin bypass kept
 - quick 014: falsify negative controls + execution-only assertions bind
-  plan-format.md; revision rounds diff for silent deletion (v0.22.0)
-- quick 015-01: secret-scan-guard pins diff prefixes, fails closed on unparseable
-  diff; Forbidden entries may carry a regex (R8)
-- quick 015-02: flow-prober is WRITE_ROLE (13 agents); hosts.md states atomic
-  .tmp+rename (R7)
-- quick 015-03: backstop resolution -> truths entry (R5); checker 6b cross-plan
-  refs (R6)
-- quick 015-04: flow-split-plan.py is the 4KB-cap remedy (R9); split don't trim;
-  size re-checks after hand edits
+  plan-format.md (v0.22.0)
+- quick 015-01/02/03: secret-scan diff-prefix pins (R8); flow-prober WRITE_ROLE
+  (R7); backstop resolution -> truths entry (R5); checker cross-plan refs (R6)
+- quick 015-04: flow-split-plan.py is the 4KB-cap remedy (R9); split don't trim
+- quick 016-01: plan-ref regex anchors to phase prefix + boundary lookaround;
+  new-plan depends_on/wave only edges back to source when files overlap
 
 ## Blockers
 - none
 
 ## Session
-Stopped: quick 015 plan 04 done, 3 tasks committed (f0975b1..8caa7ae), SUMMARY written
-Resume: bump manifests once (last step of quick-015), then /flow-pr
+Stopped: quick 016 plan 01 done, 4 tasks committed (7698063..bd26c29), SUMMARY written
+Resume: run 016-02, 016-03, 016-04 (sibling repair plans: hook, contracts, bridge)
 
