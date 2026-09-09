@@ -4,9 +4,19 @@ matching conventions.md's secret-pattern class, hardening the "secret scan every
 push" hard rule so it holds even if an agent ignores its written instructions.
 
 This is a best-effort backstop layered on top of the still-primary agent-instruction control,
-not the sole safety net — so on any internal error (no git repo, unreadable config, git call
-fails) it fails open (exit 0) with a clear warning on stderr, never a silent pass. Only a human
-clears a real hit; this script never does more than block and name the pattern class.
+not the sole safety net — so it follows two different rules depending on WHY a check didn't
+happen:
+
+- Environmental failure (no git repo, no HEAD, unreadable config, the `git` call itself
+  failed) — the guard could not run at all, and the primary agent-instruction control still
+  stands. These cases fail open (exit 0) with a clear warning on stderr, never a silent pass.
+- A diff git DID produce but this parser could NOT read into file chunks — the guard ran,
+  examined the outgoing change, and understood none of it. That is different in kind: it is
+  "could not check", and conventions.md's fail-closed guard rule means could-not-check must
+  never read as clean. This case fails CLOSED (exit 2/BLOCK), same as a real hit.
+
+Only a human clears a real hit or a could-not-check block; this script never does more than
+block and name the pattern class (or the parse failure).
 """
 import fnmatch
 import json
@@ -33,6 +43,41 @@ CREDENTIAL_FILE_EXCEPTIONS = {".env.example", ".env.template"}
 # diff, text or binary, added, modified, renamed, or deleted.
 DIFF_GIT_HEADER_RE = re.compile(r"^diff --git a/.* b/(.*)$")
 
+# Config overrides and diff-shape flags applied to EVERY `git diff` invocation in this file
+# (there are three: HEAD, --cached fallback, and the push range), via run_git_diff() below —
+# the only way any of them should ever be invoked. Without this, a user's
+# `diff.mnemonicPrefix`/`diff.noprefix` config (or an external diff driver) silently changes
+# the output shape DIFF_GIT_HEADER_RE depends on, iter_file_chunks yields zero chunks, and the
+# guard used to exit 0 (allow) with no warning — reproduced live, this was the actual bug.
+# Belt and braces, deliberately: the `-c` overrides neutralise the config regardless of what
+# set it, and the explicit `--src-prefix`/`--dst-prefix` pin the output shape independent of
+# any future git default change. `--no-ext-diff` closes the same hole by another route — an
+# external diff driver replaces the output wholesale.
+GIT_DIFF_FORMAT_ARGS = (
+    "-c", "diff.mnemonicPrefix=false",
+    "-c", "diff.noprefix=false",
+    "diff",
+    "--no-ext-diff",
+    "--src-prefix=a/",
+    "--dst-prefix=b/",
+)
+
+# Sentinel distinct from None: diff_text was non-empty but iter_file_chunks() found no file
+# chunks in it — the guard could not read what git gave it. main() must treat this as
+# could-not-check (BLOCK), never collapse it into "nothing found" (clean).
+COULD_NOT_PARSE = object()
+
+
+def run_git_diff(cwd, *extra_args):
+    """Run `git diff` with GIT_DIFF_FORMAT_ARGS pinned ahead of whatever this call site needs
+    (a revision range, -U0, --cached, ...). The only way any `git diff` call in this file
+    should be built — a fourth call site that assembles its own argv reopens the
+    config-dependent-output bug GIT_DIFF_FORMAT_ARGS exists to close."""
+    return subprocess.run(
+        ["git", "-C", cwd, *GIT_DIFF_FORMAT_ARGS, *extra_args],
+        capture_output=True, text=True, timeout=30,
+    )
+
 # Git always emits this line for a deletion (text or binary) — used to tell "this file's
 # content is going away" apart from "this file's content is arriving", so a credential-shaped
 # file's deletion (remediation) never trips the same rule that catches its arrival.
@@ -57,17 +102,11 @@ def diff_for(command, cwd, warn):
         # `git diff HEAD` (working tree vs HEAD) covers staged AND unstaged changes to
         # tracked files in one shot — unlike `--cached` alone, it still sees what `git
         # commit -a`/`-am`/`--all` would commit even though nothing is staged yet.
-        result = subprocess.run(
-            ["git", "-C", cwd, "diff", "HEAD", "-U0"],
-            capture_output=True, text=True, timeout=30,
-        )
+        result = run_git_diff(cwd, "HEAD", "-U0")
         if result.returncode != 0:
             # No HEAD yet (first commit in the repo) — HEAD doesn't exist, fall back to
             # the index-vs-empty-tree diff, which works with zero commits.
-            result = subprocess.run(
-                ["git", "-C", cwd, "diff", "--cached", "-U0"],
-                capture_output=True, text=True, timeout=30,
-            )
+            result = run_git_diff(cwd, "--cached", "-U0")
             if result.returncode != 0:
                 raise RuntimeError(result.stderr.strip() or "git diff failed")
         return result.stdout
@@ -75,10 +114,7 @@ def diff_for(command, cwd, warn):
         base = common.resolve_diff_base(cwd, warn)
         if base is None:
             return None
-        result = subprocess.run(
-            ["git", "-C", cwd, "diff", f"{base}...HEAD", "-U0"],
-            capture_output=True, text=True, timeout=30,
-        )
+        result = run_git_diff(cwd, f"{base}...HEAD", "-U0")
         if result.returncode != 0:
             raise RuntimeError(result.stderr.strip() or "git diff failed")
         return result.stdout
@@ -105,7 +141,8 @@ def iter_file_chunks(diff_text):
 
 
 def scan(diff_text):
-    """Return (file, pattern_class) for the first hit, or None if the diff is clean.
+    """Return (file, pattern_class) for the first hit, COULD_NOT_PARSE if diff_text is
+    non-empty but yielded no file chunks, or None if the diff is genuinely clean.
 
     The credential-filename rule ("any added line in one of these is a hit regardless of
     content") is evaluated per file, not per line: a credential-shaped file being added or
@@ -113,7 +150,13 @@ def scan(diff_text):
     added empty one) — but a credential-shaped file being *deleted* is remediation, not a
     hit, regardless of how its removal happens to render in the diff.
     """
-    for file_path, lines in iter_file_chunks(diff_text):
+    chunks = list(iter_file_chunks(diff_text))
+    if not chunks:
+        # A non-empty diff that produced zero file chunks means this parser did not
+        # understand what git gave it — could-not-check, never clean. An actually-empty
+        # diff (nothing changed) has no chunks either, and IS genuinely clean.
+        return COULD_NOT_PARSE if diff_text.strip() else None
+    for file_path, lines in chunks:
         is_deletion = any(DELETED_FILE_RE.match(line) for line in lines)
         if not is_deletion and is_credential_file(file_path):
             return file_path, "credential-shaped filename"
@@ -213,6 +256,17 @@ def main():
 
     if hit is None:
         return 0
+
+    if hit is COULD_NOT_PARSE:
+        print(
+            "Blocked: could not parse the outgoing diff into file chunks — this is "
+            "could-not-check, not clean, and could-not-check never reads as safe to commit "
+            "or push. Inspect `git diff` yourself before proceeding; if `diff.mnemonicPrefix`, "
+            "`diff.noprefix`, or an external diff driver (`diff.external`/`GIT_EXTERNAL_DIFF`) "
+            "is set, that is the likely cause even though this guard pins the prefixes itself.",
+            file=sys.stderr,
+        )
+        return 2
 
     file_name, pattern_class = hit
     print(
