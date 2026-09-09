@@ -54,9 +54,11 @@ roles: planner, executor, migrator, consultant, prober.
 
 `prober` is a write role whose writes belong **outside** the repo: it needs `workspace-write` to build a throwaway project at all, so the bridge roots it at a scratch directory (`flow-agent.py`'s `SCRATCH_ROLES`) rather than at the checkout — but the two peers enforce that differently. The codex peer sandboxes it there for real (`--sandbox`/`--cd`): the repo is not writable to it at all. The claude CLI has no directory-scoping flag that would confine it the same way without also removing the Bash access a prober needs to build anything, so there the scratch root is only the process's working directory, held by the prompt contract rather than the sandbox. Calling it read-only would be a label asserting something its sandbox does not — the access class and what a role may touch are two different questions, and only the first is what `--sandbox` sets.
 
-**Write roles emit to `.tmp` and atomically rename.** Every one of the roles above producing a
-file writes `<name>.tmp` and renames it into place, so a reader sees either the previous
-complete file or the new one, never a mixture. This applies per file: a multi-file write is
+**Write roles emit to `.tmp` and atomically rename — for the artifacts a reader polls.** Every
+write role above that produces a `.planning/` file writes `<name>.tmp` and renames it into
+place, so a reader sees either the previous complete file or the new one, never a mixture.
+`prober` is the exception: its files are throwaway scratch outside the repo that no reader
+ever polls, so this rule does not bind it. This applies per file: a multi-file write is
 still a sequence of atomic single-file appearances, not one atomic transaction across the whole
 set — which is why the next rule is also needed and this one does not subsume it.
 
