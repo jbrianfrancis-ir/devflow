@@ -110,12 +110,15 @@ if os.path.isfile(bridge):
     with open(bridge, encoding="utf-8") as stream:
         source = stream.read()
     # Match the whole brace literal, not the first line of it: these sets wrap as they
-    # grow, and a line-based read would silently see a truncated set.
-    for key in ("READ_ONLY_ROLES", "WRITE_ROLES"):
+    # grow, and a line-based read would silently see a truncated set. SCRATCH_ROLES parses
+    # here too now, one way for all three sets, instead of a copy-pasted regex below.
+    for key in ("READ_ONLY_ROLES", "WRITE_ROLES", "SCRATCH_ROLES"):
         m = re.search(rf"^{key}\s*=\s*\{{([^}}]*)\}}", source, re.M | re.S)
         if m:
             role_sets[key] = {chunk.strip().strip('"\'') for chunk in m.group(1).split(",")
                               if chunk.strip()}
+    # roles/expected intentionally union only READ_ONLY_ROLES and WRITE_ROLES: SCRATCH_ROLES
+    # is not a third role category, it is a subset marker checked below.
     roles = role_sets.get("READ_ONLY_ROLES", set()) | role_sets.get("WRITE_ROLES", set())
     expected = {os.path.splitext(os.path.basename(p))[0].removeprefix("flow-") for p in agents}
     if roles != expected:
@@ -128,12 +131,16 @@ if os.path.isfile(bridge):
     # role missing from WRITE_ROLES would be handed a read-only sandbox and could not build
     # the throwaway project it exists to build — failing as a permissions error nobody reads
     # as a registration bug. Pin the subset relation rather than trusting the two literals.
-    m = re.search(r"^SCRATCH_ROLES\s*=\s*\{([^}]*)\}", source, re.M | re.S)
-    scratch_roles = ({chunk.strip().strip('"\'') for chunk in m.group(1).split(",")
-                      if chunk.strip()} if m else set())
-    stray = sorted(scratch_roles - role_sets.get("WRITE_ROLES", set()))
-    if stray:
-        err(f"SCRATCH_ROLES not also in WRITE_ROLES: {stray}")
+    # Unlike READ_ONLY_ROLES/WRITE_ROLES above, a miss here has no `roles != expected`
+    # mismatch to surface it: falling back to an empty set would make the subset check
+    # vacuously true and report clean while having checked nothing, so a missing or
+    # unparseable literal is its own error instead of a silent empty default.
+    if "SCRATCH_ROLES" not in role_sets:
+        err("flow-agent.py: SCRATCH_ROLES not found, or its literal could not be parsed")
+    else:
+        stray = sorted(role_sets["SCRATCH_ROLES"] - role_sets.get("WRITE_ROLES", set()))
+        if stray:
+            err(f"SCRATCH_ROLES not also in WRITE_ROLES: {stray}")
 
     # A read-only role that can Write or Edit is read-only in name only. The bridge
     # sandboxes it on the cross-provider path (`--sandbox read-only`), but a natively
