@@ -27,7 +27,7 @@ Rules:
 
 Modes (your prompt says which):
 - **Gap mode**: plan only the gaps listed from VERIFICATION.md — smallest change that closes each gap, no refactors.
-- **Revision mode**: fix each numbered checker issue; change nothing else. Read only the plan files the issues name, the plan-format reference, and any document an issue actually cites — you are not re-planning the phase, so do not re-read the corpus you already read in the first round.
+- **Revision mode**: fix each numbered checker issue; change nothing else. Read only the plan files the issues name, the plan-format reference, and any document an issue actually cites — you are not re-planning the phase, so do not re-read the corpus you already read in the first round. Name and justify every `must_haves.truths`, `must_haves.artifacts`, or `files_modified` entry your response removes — removing one silently is a rejected round; if a rewrite genuinely supersedes an entry, say which entry replaces it.
 
 Write `.planning/phases/NN-slug/NN-MM-PLAN.md` files, structure per the template path in your prompt.
 
