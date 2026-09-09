@@ -2,12 +2,13 @@
 # State
 
 ## Position
-Phase: quick-016 (in progress) | Plans: 3/4 | Status: 016-01, 016-02, 016-03 committed, 1 sibling pending
-Last: 2026-09-09 — quick 016-03: split-tool path -> {devflow_root} form (4 sites);
-  falsify protocol scoped to same-wave parallel execution (flow-executor.md,
-  flow-execute/SKILL.md agree); soft-target + verify-can-fail rule dedup collapsed
-  to plan-format.md as sole owner.
-Next: 016-04 (bridge+validator)
+Phase: quick-016 (complete) | Plans: 4/4 | Status: 016-01..016-04 all committed
+Last: 2026-09-09 — quick 016-04: prober scratch-root claim scoped to what each
+  peer enforces (codex --sandbox/--cd real; claude cwd+prompt only, no
+  confining flag exists); SCRATCH_ROLES validator check no longer fails open
+  on a regex miss; 3 offline rooting tests added (18 total, DEVFLOW_SMOKE
+  still gates the live-CLI pair); hosts.md .tmp rule scoped off prober.
+Next: quick-016 done — run /flow-status for the next roadmap item
 
 ## Gate
 none
@@ -27,11 +28,14 @@ Signature: none
 - quick 015-04: flow-split-plan.py is the 4KB-cap remedy (R9); split don't trim
 - quick 016-01: plan-ref regex anchors to phase prefix + boundary lookaround;
   new-plan depends_on/wave only edges back to source when files overlap
+- quick 016-04: no claude CLI flag confines writes to a directory without
+  removing Bash; prober's scratch-root guarantee is codex-only, claude relies
+  on cwd+prompt — docs and code now say so explicitly per peer
 
 ## Blockers
 - none
 
 ## Session
-Stopped: quick 016 plan 03 done, 3 tasks committed (fe2ccd3..1550d2a), SUMMARY written
-Resume: run 016-04 (bridge+validator) — sibling repair plan
+Stopped: quick 016 plan 04 done, 3 tasks committed (88edf73..6f589d4), SUMMARY written
+Resume: quick-016 complete — pick the next roadmap/quick item
 
