@@ -91,6 +91,76 @@ GIT_DIFF_FORMAT_ARGS = (
 # could-not-check (BLOCK), never collapse it into "nothing found" (clean).
 COULD_NOT_PARSE = object()
 
+# `.planning/ARCHITECTURE.md`'s `## Forbidden` section (syntax: templates/architecture.md) —
+# a bullet may end with " <dash> pattern: `<regex>`". Matched with a plain string for the
+# dash rather than a literal em-dash in source, so the character survives any editor/encoding
+# round-trip untouched.
+FORBIDDEN_DASH = "—"
+FORBIDDEN_SECTION_RE = re.compile(r"^##\s+Forbidden\s*$")
+FORBIDDEN_HEADER_RE = re.compile(r"^##\s+")
+FORBIDDEN_BULLET_RE = re.compile(r"^[-*]\s+(.*)$")
+FORBIDDEN_SUFFIX_RE = re.compile(
+    r"^(?P<prose>.*?)\s+" + re.escape(FORBIDDEN_DASH) + r"\s*pattern:\s*(?P<raw>.+)$"
+)
+
+
+def iter_forbidden_entries(text):
+    """Yield (prose, raw_pattern) for each bullet under ARCHITECTURE.md's `## Forbidden`
+    section. raw_pattern is None for a bullet with no `pattern:` suffix — prose-only, and
+    correctly left unenforced by the caller."""
+    in_section = False
+    for line in text.splitlines():
+        if FORBIDDEN_HEADER_RE.match(line):
+            in_section = bool(FORBIDDEN_SECTION_RE.match(line.strip()))
+            continue
+        if not in_section:
+            continue
+        bullet = FORBIDDEN_BULLET_RE.match(line)
+        if not bullet:
+            continue
+        body = bullet.group(1)
+        suffix = FORBIDDEN_SUFFIX_RE.match(body)
+        if not suffix:
+            yield body.strip(), None
+            continue
+        raw = suffix.group("raw").strip()
+        if len(raw) >= 2 and raw[0] == "`" and raw[-1] == "`":
+            raw = raw[1:-1]
+        yield suffix.group("prose").strip(), raw
+
+
+def load_forbidden_patterns(cwd):
+    """Read `.planning/ARCHITECTURE.md`'s Forbidden bullets and compile each declared regex
+    as DATA (`re.compile`) — never interpolated into a shell command.
+
+    Returns (patterns, could_not_check):
+    - patterns: [(prose, compiled_re), ...] for entries that carry a valid regex. A bullet
+      with no `pattern:` suffix is excluded here — silently, by design, since it stays
+      prose-only guidance and is not enforced.
+    - could_not_check: None on success. Otherwise a human-readable reason naming what could
+      not be read or compiled — the caller must BLOCK on this, never fall back to treating it
+      as "no patterns declared". A missing ARCHITECTURE.md is NOT this case: most repos have
+      none, and that means "no patterns declared", not "could not read the ones that exist".
+    """
+    path = os.path.join(cwd, ".planning", "ARCHITECTURE.md")
+    if not os.path.isfile(path):
+        return [], None
+    try:
+        with open(path, "r", encoding="utf-8") as stream:
+            text = stream.read()
+    except OSError as exc:
+        return [], f"could not read {path}: {exc}"
+
+    patterns = []
+    for prose, raw in iter_forbidden_entries(text):
+        if raw is None:
+            continue
+        try:
+            patterns.append((prose, re.compile(raw)))
+        except re.error as exc:
+            return [], f"malformed regex on Forbidden entry {prose!r} in {path}: {exc}"
+    return patterns, None
+
 
 def run_git_diff(cwd, *extra_args):
     """Run `git diff` with GIT_DIFF_FORMAT_ARGS pinned ahead of whatever this call site needs
@@ -164,9 +234,15 @@ def iter_file_chunks(diff_text):
         yield chunk_path, chunk_lines
 
 
-def scan(diff_text):
+def scan(diff_text, forbidden_patterns=()):
     """Return (file, pattern_class) for the first hit, COULD_NOT_PARSE if diff_text is
     non-empty but yielded no file chunks, or None if the diff is genuinely clean.
+
+    `forbidden_patterns` is the compiled `[(prose, regex), ...]` list from
+    load_forbidden_patterns() — applied to the same added lines the secret pattern already
+    scans, via the same per-line loop, so a Forbidden-regex hit is reported through the exact
+    same (file, pattern_class) hit path as a credential hit. pattern_class for a Forbidden
+    hit is the entry's prose text, never the matched literal.
 
     The credential-filename rule ("any added line in one of these is a hit regardless of
     content") is evaluated per file, not per line: a credential-shaped file being added or
@@ -187,8 +263,12 @@ def scan(diff_text):
         for line in lines:
             if not line.startswith("+") or line.startswith("+++"):
                 continue
-            if SECRET_RE.search(line[1:]):
+            content = line[1:]
+            if SECRET_RE.search(content):
                 return file_path, "secret pattern"
+            for prose, pattern in forbidden_patterns:
+                if pattern.search(content):
+                    return file_path, prose
     return None
 
 
@@ -258,6 +338,19 @@ def main():
 
     cwd = payload.get("cwd") or os.getcwd()
 
+    # ARCHITECTURE.md's Forbidden-regex entries are could-not-check, not clean, when they
+    # can't be read or compiled — checked before either scan path below, since neither one
+    # can prove the outgoing change is safe while a declared pattern is unknown.
+    forbidden_patterns, forbidden_could_not_check = load_forbidden_patterns(cwd)
+    if forbidden_could_not_check is not None:
+        print(
+            "Blocked: could-not-check — .planning/ARCHITECTURE.md's Forbidden entries could "
+            f"not be read: {forbidden_could_not_check}. could-not-check never reads as safe "
+            "to commit or push; fix the entry (or the file's readability) and rerun.",
+            file=sys.stderr,
+        )
+        return 2
+
     hit = None
     if re.search(r"\bgit\s+commit\b", command):
         try:
@@ -276,7 +369,7 @@ def main():
         if diff_text is None:
             return 0
 
-        hit = scan(diff_text)
+        hit = scan(diff_text, forbidden_patterns)
 
     if hit is None:
         return 0
