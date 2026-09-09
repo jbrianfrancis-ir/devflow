@@ -2,10 +2,12 @@
 # State
 
 ## Position
-Phase: quick-016 (in progress) | Plans: 2/4 | Status: 016-01, 016-02 committed, 2 siblings pending
-Last: 2026-09-09 — quick 016-02: secret-scan-guard now enforces ARCHITECTURE.md Forbidden
-  regexes (R8); pre-fix guard falsified exiting 0 on the literal; tests 40->46.
-Next: 016-03 (contract fixes), 016-04 (bridge+validator)
+Phase: quick-016 (in progress) | Plans: 3/4 | Status: 016-01, 016-02, 016-03 committed, 1 sibling pending
+Last: 2026-09-09 — quick 016-03: split-tool path -> {devflow_root} form (4 sites);
+  falsify protocol scoped to same-wave parallel execution (flow-executor.md,
+  flow-execute/SKILL.md agree); soft-target + verify-can-fail rule dedup collapsed
+  to plan-format.md as sole owner.
+Next: 016-04 (bridge+validator)
 
 ## Gate
 none
@@ -30,6 +32,6 @@ Signature: none
 - none
 
 ## Session
-Stopped: quick 016 plan 02 done, 3 tasks committed (989b9b6..c00544c), SUMMARY written
-Resume: run 016-03 (contracts), 016-04 (bridge+validator) — sibling repair plans
+Stopped: quick 016 plan 03 done, 3 tasks committed (fe2ccd3..1550d2a), SUMMARY written
+Resume: run 016-04 (bridge+validator) — sibling repair plan
 
