@@ -51,13 +51,37 @@ DIFF_GIT_HEADER_RE = re.compile(r"^diff --git a/.* b/(.*)$")
 # guard used to exit 0 (allow) with no warning — reproduced live, this was the actual bug.
 # Belt and braces, deliberately: the `-c` overrides neutralise the config regardless of what
 # set it, and the explicit `--src-prefix`/`--dst-prefix` pin the output shape independent of
-# any future git default change. `--no-ext-diff` closes the same hole by another route — an
-# external diff driver replaces the output wholesale.
+# any future git default change.
+#
+# The rest close the *other* ways config and `.gitattributes` defeat this scan. They split
+# into two kinds that fail in opposite directions, both verified live:
+#   fail-OPEN (a real secret passes) — `--no-ext-diff` (an external driver replaces the
+#   output wholesale), `--text` (a path marked `-diff` renders as "Binary files differ", so
+#   the chunk parses fine and its added lines are simply never scanned), `--no-textconv` (a
+#   textconv filter rewrites content before the scan sees it), `--no-relative`
+#   (`diff.relative` with a subdirectory cwd hides files above it).
+#   fail-CLOSED-wrongly (every commit blocked) — `--no-color` (`color.ui=always` wraps the
+#   header in escapes, nothing matches, COULD_NOT_PARSE fires on a clean tree: this bricked
+#   commits outright), `--submodule=short` (`diff.submodule=log` renders a pointer bump with
+#   no `diff --git` header at all).
+# A guard that blocks everything is not safer than one that blocks nothing — it just gets
+# turned off. Both directions belong here.
+#
+# `--text` makes git emit raw bytes for a binary file, so every `git` call below decodes with
+# errors="replace": strict UTF-8 raised UnicodeDecodeError on any real .pfx/.pem, which landed
+# in the "could not compute diff" path and FAILED OPEN — a worse hole than the one --text
+# closes. Replacement characters cost nothing here: the credential-filename rule keys off the
+# path, and a credential worth catching is ASCII where it matters.
 GIT_DIFF_FORMAT_ARGS = (
     "-c", "diff.mnemonicPrefix=false",
     "-c", "diff.noprefix=false",
     "diff",
     "--no-ext-diff",
+    "--no-color",
+    "--no-textconv",
+    "--no-relative",
+    "--text",
+    "--submodule=short",
     "--src-prefix=a/",
     "--dst-prefix=b/",
 )
@@ -75,7 +99,7 @@ def run_git_diff(cwd, *extra_args):
     config-dependent-output bug GIT_DIFF_FORMAT_ARGS exists to close."""
     return subprocess.run(
         ["git", "-C", cwd, *GIT_DIFF_FORMAT_ARGS, *extra_args],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True, text=True, errors="replace", timeout=30,
     )
 
 # Git always emits this line for a deletion (text or binary) — used to tell "this file's
@@ -171,7 +195,7 @@ def scan(diff_text):
 def untracked_files(cwd):
     result = subprocess.run(
         ["git", "-C", cwd, "ls-files", "--others", "--exclude-standard"],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True, text=True, errors="replace", timeout=30,
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "git ls-files failed")
@@ -261,9 +285,10 @@ def main():
         print(
             "Blocked: could not parse the outgoing diff into file chunks — this is "
             "could-not-check, not clean, and could-not-check never reads as safe to commit "
-            "or push. Inspect `git diff` yourself before proceeding; if `diff.mnemonicPrefix`, "
-            "`diff.noprefix`, or an external diff driver (`diff.external`/`GIT_EXTERNAL_DIFF`) "
-            "is set, that is the likely cause even though this guard pins the prefixes itself.",
+            "or push. Inspect `git diff` yourself before proceeding. The prefix, color, "
+            "textconv, ext-diff and submodule config that used to cause this are all pinned "
+            "by this guard, so the likely remaining cause is a path git C-quotes in the "
+            "header (non-ASCII or control characters in a filename).",
             file=sys.stderr,
         )
         return 2

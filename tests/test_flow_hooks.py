@@ -465,6 +465,59 @@ class SecretScanGuardTests(unittest.TestCase):
         self.assertIn("pattern:", result.stderr)
         self.assertNotIn("could not parse", result.stderr)
 
+    def _assert_real_hit(self, result):
+        """Exit 2 via the pattern match, not via the could-not-parse fallback.
+
+        The fallback also exits 2, so asserting only the exit code would let a guard that
+        understands nothing pass every one of these tests — the vacuous negative control
+        this whole rule set exists to prevent.
+        """
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+        self.assertIn("pattern:", result.stderr)
+        self.assertNotIn("could not parse", result.stderr)
+        self.assertNotIn("abcd1234efgh5678", result.stderr)
+
+    def _stage_secret(self):
+        self.fixture.append_and_stage("api_key" + ' = "' + "abcd1234efgh5678" + '"')
+
+    def test_blocks_secret_in_a_path_marked_minus_diff(self):
+        # `-diff` renders the file as "Binary files ... differ": the chunk parses fine, so
+        # COULD_NOT_PARSE never fires, and the added lines are simply never scanned. Fail
+        # open, silently. `--text` closes it.
+        (self.fixture.repo / ".gitattributes").write_text("*.txt -diff\n", encoding="utf-8")
+        git(self.fixture.repo, "add", ".gitattributes")
+        self._stage_secret()
+        self._assert_real_hit(run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)}))
+
+    def test_blocks_secret_behind_a_textconv_filter(self):
+        # A textconv filter rewrites content before the scan sees it. `--no-textconv`.
+        (self.fixture.repo / ".gitattributes").write_text("*.txt diff=redact\n", encoding="utf-8")
+        git(self.fixture.repo, "add", ".gitattributes")
+        git(self.fixture.repo, "config", "diff.redact.textconv", "sed -e s/./X/g")
+        self._stage_secret()
+        self._assert_real_hit(run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)}))
+
+    def test_blocks_secret_with_color_ui_always(self):
+        # color.ui=always wraps the header in escapes so DIFF_GIT_HEADER_RE matches nothing.
+        # Without --no-color this exits 2 via COULD_NOT_PARSE, which looks like a block but
+        # is the guard understanding nothing — and on a clean tree it blocked every commit.
+        git(self.fixture.repo, "config", "color.ui", "always")
+        self._stage_secret()
+        self._assert_real_hit(run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)}))
+
+    def test_allows_a_clean_commit_with_color_ui_always(self):
+        # The other direction, and the one that actually bricked the workflow: a guard that
+        # blocks every commit is not safer than one that blocks none, it just gets removed.
+        git(self.fixture.repo, "config", "color.ui", "always")
+        self.fixture.append_and_stage("a harmless line with no credential in it")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)})
+        self.assertEqual(0, result.returncode)
+
     def test_blocks_staged_secret_with_noprefix_config(self):
         # Same bypass class as mnemonicPrefix, via diff.noprefix=true instead
         # (`diff --git file file`, no prefixes at all).
