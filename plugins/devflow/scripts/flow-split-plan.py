@@ -38,18 +38,26 @@ class PlanError(Exception):
 
 # --- frontmatter: small, known shape, line-oriented (no general YAML parser) ----------
 
-def split_frontmatter(text: str) -> tuple[str, str]:
+def split_frontmatter(text: str) -> tuple[str, str, str]:
+    """Return (preamble, frontmatter_text, body). `preamble` is everything before the
+    opening '---' — the HTML path comment templates/plan.md puts on line 1, blank lines,
+    anything — so a real plan's leading comment is never mistaken for a parse failure."""
     lines = text.splitlines(keepends=True)
-    if not lines or lines[0].strip() != "---":
+    start = None
+    for i, line in enumerate(lines):
+        if line.strip() == "---":
+            start = i
+            break
+    if start is None:
         raise PlanError("missing frontmatter opening '---'")
     end = None
-    for i in range(1, len(lines)):
+    for i in range(start + 1, len(lines)):
         if lines[i].strip() == "---":
             end = i
             break
     if end is None:
         raise PlanError("missing frontmatter closing '---'")
-    return "".join(lines[1:end]), "".join(lines[end + 1:])
+    return "".join(lines[:start]), "".join(lines[start + 1:end]), "".join(lines[end + 1:])
 
 
 def parse_yaml_lite(fm_text: str) -> dict:
@@ -129,15 +137,38 @@ def format_must_haves(mh: dict) -> str:
     return "".join(out)
 
 
+MODELLED_KEYS = {"phase", "plan", "wave", "depends_on", "files_modified", "autonomous",
+                  "requirements", "must_haves"}
+
+
+def format_extra_field(key: str, value, indent: str = "") -> str:
+    """Re-emit a key this tool does not model, in whatever shape parse_yaml_lite gave it
+    back (scalar / inline-or-block list / nested block), so nothing unmodelled is lost."""
+    if isinstance(value, dict):
+        out = [f"{indent}{key}:\n"]
+        for k, v in value.items():
+            out.append(format_extra_field(k, v, indent + "  "))
+        return "".join(out)
+    if isinstance(value, list):
+        return format_block(key, value, indent)
+    return f"{indent}{key}: {value}\n"
+
+
 def format_frontmatter(phase: str, plan_num: str, wave: str, depends_on: list[str],
                         files_modified: list[str], autonomous: str, requirements: list[str],
-                        must_haves: dict) -> str:
+                        must_haves: dict, extra: dict | None = None) -> str:
     parts = [f"phase: {phase}\n", f"plan: {plan_num}\n", f"wave: {wave}\n",
               format_inline("depends_on", depends_on),
               format_block("files_modified", files_modified),
               f"autonomous: {autonomous}\n",
               format_inline("requirements", requirements),
               format_must_haves(must_haves)]
+    # Unmodelled keys (e.g. `user_setup`: external setup — accounts, secrets — a human must
+    # do before execution) are carried through verbatim in their original order. Silently
+    # dropping user_setup would start a phase's execution without surfacing what the human
+    # still has to configure, so any key this tool does not model must survive the split.
+    for key, value in (extra or {}).items():
+        parts.append(format_extra_field(key, value))
     return "---\n" + "".join(parts) + "---\n"
 
 
@@ -306,8 +337,9 @@ def main() -> int:
             raise PlanError(f"plan {src_num} not found among {sorted(plans)}")
         src_path = plans[src_num]
         src_text = read_text(src_path)
-        src_fm_text, src_body = split_frontmatter(src_text)
+        src_preamble, src_fm_text, src_body = split_frontmatter(src_text)
         src_data = parse_yaml_lite(src_fm_text)
+        extra_fields = {k: v for k, v in src_data.items() if k not in MODELLED_KEYS}
 
         tasks_block, tasks = extract_tasks(src_body)
         if not (0 < args.after < len(tasks)):
@@ -387,8 +419,14 @@ def main() -> int:
             phase=src_data.get("phase", ""), plan_num=fmt(new_num), wave=src_data.get("wave", "1"),
             depends_on=src_data.get("depends_on", []), files_modified=new_files,
             autonomous=src_data.get("autonomous", "true"),
-            requirements=src_data.get("requirements", []), must_haves=new_mh)
-        new_text = new_fm + new_body
+            requirements=src_data.get("requirements", []), must_haves=new_mh,
+            extra=extra_fields)
+        new_path = phase_dir / f"{prefix}-{fmt(new_num)}-PLAN.md"
+        # The new plan is a fresh file: give it the source's own preamble (HTML path
+        # comment) rewritten to name its own filename, or no preamble if the source had
+        # none — a plan with no preamble must still split cleanly.
+        new_preamble = rewrite_header_comment(src_preamble, src_path.name, new_path.name)
+        new_text = new_preamble + new_fm + new_body
 
         src_body_out = src_body[:TASKS_BLOCK_RE.search(src_body).start()] + kept_tasks_section + \
             src_body[TASKS_BLOCK_RE.search(src_body).end():]
@@ -396,12 +434,11 @@ def main() -> int:
             phase=src_data.get("phase", ""), plan_num=fmt(src_num), wave=src_data.get("wave", "1"),
             depends_on=src_data.get("depends_on", []), files_modified=kept_files,
             autonomous=src_data.get("autonomous", "true"),
-            requirements=src_data.get("requirements", []), must_haves=kept_mh)
-        src_text_out = src_fm_out + src_body_out
+            requirements=src_data.get("requirements", []), must_haves=kept_mh,
+            extra=extra_fields)
+        src_text_out = src_preamble + src_fm_out + src_body_out
 
         rename_map = compute_rename_map(prefix, list(plans), src_num, width)
-
-        new_path = phase_dir / f"{prefix}-{fmt(new_num)}-PLAN.md"
 
         # final[id] -> {"text", "wave", "depends_on", "write_path", "old_path"}
         final: dict[str, dict] = {}
@@ -420,7 +457,7 @@ def main() -> int:
             if num == src_num:
                 continue
             text = read_text(path)
-            fm_text, _ = split_frontmatter(text)  # fail-closed on unparseable frontmatter
+            split_frontmatter(text)  # fail-closed on unparseable frontmatter; preamble kept as-is
             if num > src_num:
                 text = PLAN_FIELD_RE.sub(f"plan: {fmt(num + 1)}", text, count=1)
                 target_path = phase_dir / f"{prefix}-{fmt(num + 1)}-PLAN.md"
