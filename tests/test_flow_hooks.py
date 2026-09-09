@@ -517,6 +517,53 @@ class SecretScanGuardTests(unittest.TestCase):
         self._assert_real_hit(run_hook(SECRET_SCAN_GUARD, {
             "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)}))
 
+    def test_reports_the_line_number_of_a_hit(self):
+        # conventions.md's reporting rule has always said file + line + pattern class. The
+        # guard reported file and class only, so the stated contract ran ahead of the code.
+        self.fixture.append_and_stage("a harmless first line")
+        self.fixture.append_and_stage("api_key" + ' = "' + "abcd1234efgh5678" + '"')
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)})
+        self.assertEqual(2, result.returncode)
+        # f.txt starts with "hello", then the two appended lines -> the secret is line 3.
+        self.assertIn("f.txt:3", result.stderr)
+        self.assertNotIn("abcd1234efgh5678", result.stderr)
+
+    def test_push_sweep_catches_a_forbidden_literal_from_an_earlier_commit(self):
+        # The case R8 exists for and a diff-scoped scan structurally cannot see: the literal
+        # landed in an earlier commit, so nothing in the outgoing diff contains it.
+        literal = "TEAMID" + "1234"
+        self._write_forbidden_architecture(r"\b" + literal + r"\b",
+                                           "No team id may be committed")
+        leaked = self.fixture.repo / ".planning" / "DECISIONS.md"
+        leaked.write_text("one\ntwo\nteam = " + literal + "\n", encoding="utf-8")
+        git(self.fixture.repo, "add", "-A")
+        git(self.fixture.repo, "commit", "-q", "-m", "earlier leak")
+        self.fixture.checkout("flow/x")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git push origin flow/x"}, "cwd": str(self.fixture.repo)})
+        self.assertEqual(2, result.returncode)
+        self.assertIn("DECISIONS.md:3", result.stderr)
+        self.assertIn("No team id may be committed", result.stderr)
+        self.assertNotIn(literal, result.stderr)
+
+    def test_commit_path_does_not_run_the_tracked_sweep(self):
+        # The sweep is push-only on purpose: running a repo walk on every commit is the cost
+        # this scoping avoids. A commit whose own diff is clean must not be blocked by a
+        # pre-existing violation elsewhere in the tree.
+        literal = "TEAMID" + "1234"
+        self._write_forbidden_architecture(r"\b" + literal + r"\b",
+                                           "No team id may be committed")
+        leaked = self.fixture.repo / ".planning" / "DECISIONS.md"
+        leaked.write_text("team = " + literal + "\n", encoding="utf-8")
+        git(self.fixture.repo, "add", "-A")
+        git(self.fixture.repo, "commit", "-q", "-m", "earlier leak")
+        self.fixture.checkout("flow/x")
+        self.fixture.append_and_stage("a harmless line")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)})
+        self.assertEqual(0, result.returncode)
+
     def test_allows_a_clean_commit_with_color_ui_always(self):
         # The other direction, and the one that actually bricked the workflow: a guard that
         # blocks every commit is not safer than one that blocks none, it just gets removed.

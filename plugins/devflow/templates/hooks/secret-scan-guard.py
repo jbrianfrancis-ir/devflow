@@ -177,6 +177,10 @@ def run_git_diff(cwd, *extra_args):
 # file's deletion (remediation) never trips the same rule that catches its arrival.
 DELETED_FILE_RE = re.compile(r"^deleted file mode\b")
 
+# `@@ -a,b +c,d @@` — group 1 is the first line number in the NEW file, which is what a
+# reader needs to find the hit. Only the new-side number matters here.
+HUNK_HEADER_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+
 GIT_ADD_RE = re.compile(r"\bgit\s+add\b")
 
 
@@ -259,16 +263,31 @@ def scan(diff_text, forbidden_patterns=()):
     for file_path, lines in chunks:
         is_deletion = any(DELETED_FILE_RE.match(line) for line in lines)
         if not is_deletion and is_credential_file(file_path):
-            return file_path, "credential-shaped filename"
+            # No line number: the rule is about the path, not a line in it.
+            return file_path, None, "credential-shaped filename"
+        # Track the line number in the NEW file so a hit can be reported as file:line,
+        # which conventions.md's reporting rule has always specified. `@@ -a,b +c,d @@`
+        # gives the starting line; every `+` line advances it, every context line too.
+        line_no = 0
         for line in lines:
-            if not line.startswith("+") or line.startswith("+++"):
+            hunk = HUNK_HEADER_RE.match(line)
+            if hunk:
+                line_no = int(hunk.group(1))
+                continue
+            if line.startswith("-"):
+                continue
+            if not line.startswith("+"):
+                line_no += 1
+                continue
+            if line.startswith("+++"):
                 continue
             content = line[1:]
             if SECRET_RE.search(content):
-                return file_path, "secret pattern"
+                return file_path, line_no, "secret pattern"
             for prose, pattern in forbidden_patterns:
                 if pattern.search(content):
-                    return file_path, prose
+                    return file_path, line_no, prose
+            line_no += 1
     return None
 
 
@@ -282,9 +301,9 @@ def untracked_files(cwd):
     return [line for line in result.stdout.splitlines() if line]
 
 
-def scan_untracked_candidate(cwd, rel_path):
+def scan_untracked_candidate(cwd, rel_path, forbidden_patterns=()):
     if is_credential_file(rel_path):
-        return rel_path, "credential-shaped filename"
+        return rel_path, None, "credential-shaped filename"
     try:
         with open(os.path.join(cwd, rel_path), "rb") as stream:
             data = stream.read(1_000_000)  # cap — a secret worth catching is near the top
@@ -292,13 +311,65 @@ def scan_untracked_candidate(cwd, rel_path):
         return None
     if b"\x00" in data:
         return None  # binary content with no credential-shaped name; nothing safe to regex
-    for line in data.decode("utf-8", errors="ignore").splitlines():
+    for number, line in enumerate(data.decode("utf-8", errors="ignore").splitlines(), 1):
         if SECRET_RE.search(line):
-            return rel_path, "secret pattern"
+            return rel_path, number, "secret pattern"
+        for prose, pattern in forbidden_patterns:
+            if pattern.search(line):
+                return rel_path, number, prose
     return None
 
 
-def scan_new_untracked_files(command, cwd, warn):
+def tracked_files(cwd):
+    """Every tracked path, NUL-split — plain `ls-files` C-quotes odd filenames, which would
+    silently drop them from the sweep (the same trap check-links.py documents)."""
+    result = subprocess.run(
+        ["git", "-C", cwd, "ls-files", "-z"],
+        capture_output=True, text=True, errors="replace", timeout=30,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "git ls-files failed")
+    return [path for path in result.stdout.split("\0") if path]
+
+
+def sweep_tracked_for_forbidden(cwd, forbidden_patterns, warn):
+    """Apply the ARCHITECTURE.md Forbidden regexes to every tracked file.
+
+    Deliberately wider than the diff, and only on push. conventions.md states the reason: a
+    forbidden literal that reached `.planning/` in an EARLIER commit is exactly the case this
+    exists to catch, and a diff-scoped scan structurally cannot see it. Running it on every
+    commit would walk the repo for each one; running it on push — the moment work leaves the
+    machine — costs one walk and still catches history.
+
+    Returns a hit tuple, or None. A file that cannot be read is reported to `warn` and skipped:
+    unlike the diff, an unreadable working-tree file is not evidence either way, and failing
+    the whole push on one unreadable path would make the guard unusable.
+    """
+    if not forbidden_patterns:
+        return None
+    try:
+        paths = tracked_files(cwd)
+    except Exception as exc:
+        # Could-not-check: the caller turns this into a block, never a silent pass.
+        warn(f"could not list tracked files in {cwd}: {exc}")
+        return COULD_NOT_PARSE
+    for rel_path in paths:
+        try:
+            with open(os.path.join(cwd, rel_path), "rb") as stream:
+                data = stream.read(1_000_000)
+        except OSError as exc:
+            warn(f"could not read {rel_path}: {exc}")
+            continue
+        if b"\x00" in data:
+            continue  # binary: nothing a declared text regex can meaningfully match
+        for number, line in enumerate(data.decode("utf-8", errors="replace").splitlines(), 1):
+            for prose, pattern in forbidden_patterns:
+                if pattern.search(line):
+                    return rel_path, number, prose
+    return None
+
+
+def scan_new_untracked_files(command, cwd, warn, forbidden_patterns=()):
     """Hit for a not-yet-tracked file this exact chained command might stage and commit in
     one Bash call (`git add newfile && git commit ...`) — a diff against HEAD or the index
     can never see this, since the file has no history to diff against yet.
@@ -319,7 +390,7 @@ def scan_new_untracked_files(command, cwd, warn):
         warn(f"could not list untracked files in {cwd}: {exc}")
         return None
     for rel_path in sorted(untracked):
-        hit = scan_untracked_candidate(cwd, rel_path)
+        hit = scan_untracked_candidate(cwd, rel_path, forbidden_patterns)
         if hit:
             return hit
     return None
@@ -354,10 +425,21 @@ def main():
     hit = None
     if re.search(r"\bgit\s+commit\b", command):
         try:
-            hit = scan_new_untracked_files(command, cwd, warn)
+            hit = scan_new_untracked_files(command, cwd, warn, forbidden_patterns)
         except Exception as exc:
             warn(f"could not scan untracked files in {cwd}: {exc}")
             hit = None
+
+    if hit is None and re.search(r"\bgit\s+push\b", command):
+        # Push only — see sweep_tracked_for_forbidden's docstring for why not every commit.
+        hit = sweep_tracked_for_forbidden(cwd, forbidden_patterns, warn)
+        if hit is COULD_NOT_PARSE:
+            print(
+                "Blocked: could not sweep tracked files for ARCHITECTURE.md Forbidden "
+                "patterns — could-not-check, which never reads as safe to push.",
+                file=sys.stderr,
+            )
+            return 2
 
     if hit is None:
         try:
@@ -386,9 +468,10 @@ def main():
         )
         return 2
 
-    file_name, pattern_class = hit
+    file_name, line_no, pattern_class = hit
+    where = f"{file_name}:{line_no}" if line_no else file_name
     print(
-        f"Blocked: possible secret in {file_name} (pattern: {pattern_class}) — "
+        f"Blocked: possible secret in {where} (pattern: {pattern_class}) — "
         "remove/rotate before committing.",
         file=sys.stderr,
     )
