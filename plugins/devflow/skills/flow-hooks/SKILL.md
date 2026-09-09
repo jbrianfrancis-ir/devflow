@@ -22,7 +22,15 @@ the case where an agent doesn't follow them.
 |---|---|---|
 | `base-branch-guard.py` | `Bash` | `git commit`/`git push` while checked out on the project's base branch |
 | `protected-paths-guard.py` | `Edit\|Write` | an edit to a path matching `protected_paths`, unless `DEVFLOW_PROTECTED_PATH_OK` is set |
-| `secret-scan-guard.py` | `Bash` | `git commit`/`git push` whose diff matches conventions.md's secret pattern class |
+| `secret-scan-guard.py` | `Bash` | `git commit`/`git push` whose diff matches conventions.md's secret pattern class, plus any regex declared on `.planning/ARCHITECTURE.md`'s Forbidden entries |
+
+`secret-scan-guard.py` additionally reads `.planning/ARCHITECTURE.md`'s Forbidden entries and
+applies any regex a bullet declares (syntax and scope: `templates/architecture.md`,
+conventions.md's "Secret scan (fail-closed)" section), reporting file/line/pattern class only,
+same as a credential hit — this is the same guard doing one more check, not a fourth guard. A
+Forbidden entry with no regex stays unenforced by design. A malformed or unreadable
+`ARCHITECTURE.md` is **could not check**, per conventions.md's fail-closed-guards rule — reported,
+never silently skipped.
 
 Full script contracts — exact message text, exit codes, the config fields each one reads — live in
 the scripts themselves at `{devflow_root}/templates/hooks/*.py`; read them there rather than
