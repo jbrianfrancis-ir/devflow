@@ -68,6 +68,9 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 - {libraries, patterns, or shortcuts explicitly not allowed}
 <!-- An entry may end with an optional backticked regex, e.g. a bullet ending
 " — pattern: `\b[A-Z0-9]{10}\b`". Optional: a prose-only entry stays valid and stays
-unenforced — only entries that carry a regex are machine-checked. It's an ordinary extended
-regex (grep -E syntax), matched case-sensitively unless the entry itself says otherwise. See
-conventions.md's "Secret scan (fail-closed)" section for how the regex gets enforced. -->
+unenforced — only entries that carry a regex are machine-checked. **Python `re` syntax,
+matched case-sensitively** — that is what the guard compiles, so POSIX classes like
+`[[:digit:]]` are accepted by the parser and then silently never match. Write `[0-9]`, `\d`.
+Keep it simple: a pattern with nested quantifiers (`(a+)+`) backtracks catastrophically and is
+blocked as could-not-check rather than run. See conventions.md's "Secret scan (fail-closed)"
+section for how the regex gets enforced. -->

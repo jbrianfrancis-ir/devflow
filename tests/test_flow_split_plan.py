@@ -5,6 +5,7 @@ comment on line 1, real frontmatter, `<tasks>`/`<task>` elements) — never buil
 tool's own `format_frontmatter`, so the serializer under test is never compared only
 against itself. Every fixture lives under the system temp dir, never inside this repo.
 """
+import re
 import subprocess
 import sys
 import tempfile
@@ -284,6 +285,39 @@ class BasePhaseSplitTests(unittest.TestCase):
         self.addCleanup(self.fixture.cleanup)
         self.before = self.fixture.snapshot()
 
+    def test_refuses_when_a_dependent_would_share_the_new_wave(self):
+        """C5: the wave+1 edge is only sound when nothing already sits in that wave.
+
+        A plan that depended on the source keeps its old edge and wave, so the new plan would
+        land beside it declaring the same files: two executors on one file in parallel, and the
+        downstream plan starting before the plan that now produces its input. Re-deriving the
+        whole graph would be guessing at intent; refusing keeps the human in charge.
+        """
+        # Give 01-03 an edge onto 01-02 (the plan we split), and make 01-02's own tasks share
+        # a file so the intersect branch fires and the new plan needs wave+1.
+        # Make 01-02's own tasks share a file so the intersect branch fires and the new plan
+        # genuinely needs wave+1 — that is the only case where a dependent can collide.
+        src = self.fixture.read("01-02-PLAN.md")
+        files = re.findall(r"<files>([^<]*)</files>", src)
+        self.assertGreaterEqual(len(files), 2, "fixture must have >=2 tasks")
+        shared = files[0].split(",")[0].strip()
+        src = src.replace(f"<files>{files[1]}</files>",
+                          f"<files>{shared}, {files[1].strip()}</files>", 1)
+        self.fixture.write("01-02-PLAN.md", src)
+        # 01-03 already depends on 01-02 in the base fixture; give it the wave that the new
+        # plan would also take, which is exactly the collision.
+        text = self.fixture.read("01-03-PLAN.md")
+        text = re.sub(r"(?m)^wave:.*$", "wave: 2", text)
+        self.fixture.write("01-03-PLAN.md", text)
+        before = self.fixture.snapshot()
+        result = run(str(self.fixture.phase_dir), "02", "--after", "1")
+        self.assertNotEqual(0, result.returncode)
+        combined = result.stderr + result.stdout
+        self.assertIn("refusing to split 01-02", combined)
+        self.assertIn("01-03", combined)
+        self.assertEqual(before, self.fixture.snapshot(),
+                         "a refused split must write nothing")
+
     def test_preamble_preserved_on_both_outputs(self):
         result = run(str(self.fixture.phase_dir), "02", "--after", "1")
         self.assertEqual(0, result.returncode, result.stderr)
@@ -498,8 +532,6 @@ must_haves:
 
 </tasks>
 """
-
-
 class UntrackedGitSplitTests(unittest.TestCase):
     def test_untracked_plans_split_successfully(self):
         fixture = TempPhase()

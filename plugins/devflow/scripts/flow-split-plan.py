@@ -444,7 +444,33 @@ def main() -> int:
         # over-constraining case plan-format.md's fake-edge test tells us to avoid, so the
         # new plan keeps the source's own upstream depends_on/wave unchanged instead.
         src_wave = src_data.get("wave", "1")
+        # C5: bumping the new plan to src_wave+1 is only sound when nothing ELSE already sits
+        # there depending on the source. A plan that depended on the source keeps its old edge
+        # and wave, so the new plan can land in the same wave as a downstream plan declaring
+        # the same files — two executors editing one file in parallel, and the downstream plan
+        # starting before the plan that now produces its input. Re-deriving the whole graph
+        # here would be guessing at intent; refusing is honest and leaves the human in charge.
+        dependents = []
+        for other_num, other_path in sorted(plans.items()):
+            if other_num == src_num:
+                continue
+            try:
+                other_text = other_path.read_text(encoding="utf-8")
+            except OSError as exc:
+                raise PlanError(f"could not read {other_path}: {exc}") from exc
+            if src_id in extract_depends_on(other_text):
+                dependents.append(f"{prefix}-{fmt(other_num)}")
         if moving_files & staying_files:
+            if dependents:
+                raise PlanError(
+                    f"refusing to split {src_id}: its moved and staying tasks share files, so "
+                    f"the new plan needs a wave after {src_id} — but "
+                    f"{', '.join(dependents)} already "
+                    f"{'depends' if len(dependents) == 1 else 'depend'} on {src_id} and would "
+                    f"end up in that same wave with no "
+                    f"edge to the new plan. Re-point them at the new plan id by hand (or split "
+                    f"at a task boundary whose files are disjoint), then re-run."
+                )
             new_depends_on = [src_id]
             new_wave = str(int(src_wave) + 1)
         else:

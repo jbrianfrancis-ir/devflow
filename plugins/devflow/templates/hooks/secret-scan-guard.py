@@ -22,6 +22,7 @@ import fnmatch
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 
@@ -98,7 +99,7 @@ COULD_NOT_PARSE = object()
 FORBIDDEN_DASH = "—"
 FORBIDDEN_SECTION_RE = re.compile(r"^##\s+Forbidden\s*$")
 FORBIDDEN_HEADER_RE = re.compile(r"^##\s+")
-FORBIDDEN_BULLET_RE = re.compile(r"^[-*]\s+(.*)$")
+FORBIDDEN_BULLET_RE = re.compile(r"^\s*[-*]\s+(.*)$")  # indented sub-bullets count too
 FORBIDDEN_SUFFIX_RE = re.compile(
     r"^(?P<prose>.*?)\s+" + re.escape(FORBIDDEN_DASH) + r"\s*pattern:\s*(?P<raw>.+)$"
 )
@@ -129,7 +130,73 @@ def iter_forbidden_entries(text):
         yield suffix.group("prose").strip(), raw
 
 
-def load_forbidden_patterns(cwd):
+# The file that DECLARES the patterns. Its own Forbidden bullets contain the literals they
+# forbid, so matching declared patterns against it makes any plain-literal entry match its own
+# declaration and block every commit in the repo — verified, and the only escape is deleting
+# the entry, i.e. turning the control off. Excluded from the Forbidden pass only; the credential
+# scan still applies to it in full.
+FORBIDDEN_DECL_PATH = os.path.join(".planning", "ARCHITECTURE.md")
+
+# A declared regex is repo-controlled text and Python `re` has no timeout, so a nested-quantifier
+# pattern like `(a+)+$` hangs the guard on every commit forever. Bound the whole Forbidden pass
+# with a wall-clock deadline and treat expiry as could-not-check (BLOCK) — a guard that hangs is
+# not fail-closed, it is a guard nobody can commit past and therefore one that gets removed.
+FORBIDDEN_MATCH_BUDGET_SECONDS = 2.0
+
+
+class ForbiddenBudgetExceeded(Exception):
+    pass
+
+
+class forbidden_budget:
+    """SIGALRM-based deadline around the Forbidden matching. Unix-only by design: these hooks
+    run under a POSIX shell. Where setitimer is unavailable the budget is simply not applied —
+    reported to the caller so it is never mistaken for having been enforced."""
+
+    def __init__(self, seconds):
+        self.seconds = seconds
+        self.armed = False
+
+    def __enter__(self):
+        if not hasattr(signal, "SIGALRM") or not hasattr(signal, "setitimer"):
+            return self
+        def fire(_signum, _frame):
+            raise ForbiddenBudgetExceeded()
+        self.previous = signal.signal(signal.SIGALRM, fire)
+        signal.setitimer(signal.ITIMER_REAL, self.seconds)
+        self.armed = True
+        return self
+
+    def __exit__(self, *exc):
+        if self.armed:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, self.previous)
+        return False
+
+
+def repo_root(cwd, warn):
+    """The repo root, not the hook's cwd.
+
+    `.planning/ARCHITECTURE.md` lives at the root. Reading it relative to cwd meant running git
+    from any subdirectory silently disabled the entire Forbidden check while the credential scan
+    still fired — the same cwd-relative bypass class `--no-relative` closes for the diff.
+    Returns None when the root cannot be resolved; the caller treats that as could-not-check.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", cwd, "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, errors="replace", timeout=30,
+        )
+    except OSError as exc:
+        warn(f"could not resolve repo root from {cwd}: {exc}")
+        return None
+    if result.returncode != 0:
+        return None
+    root = result.stdout.strip()
+    return root or None
+
+
+def load_forbidden_patterns(cwd, warn):
     """Read `.planning/ARCHITECTURE.md`'s Forbidden bullets and compile each declared regex
     as DATA (`re.compile`) — never interpolated into a shell command.
 
@@ -142,7 +209,14 @@ def load_forbidden_patterns(cwd):
       as "no patterns declared". A missing ARCHITECTURE.md is NOT this case: most repos have
       none, and that means "no patterns declared", not "could not read the ones that exist".
     """
-    path = os.path.join(cwd, ".planning", "ARCHITECTURE.md")
+    root = repo_root(cwd, warn)
+    if root is None:
+        # Not a git repo at all is handled by the caller's existing fail-open path; a repo
+        # whose root cannot be resolved is could-not-check.
+        if os.path.isdir(os.path.join(cwd, ".git")):
+            return [], f"could not resolve the repo root from {cwd}"
+        return [], None
+    path = os.path.join(root, FORBIDDEN_DECL_PATH)
     if not os.path.isfile(path):
         return [], None
     try:
@@ -186,6 +260,11 @@ GIT_ADD_RE = re.compile(r"\bgit\s+add\b")
 
 def warn(message):
     print(f"secret-scan-guard: {message}", file=sys.stderr)
+
+
+def is_forbidden_declaration_file(path):
+    """True for the ARCHITECTURE.md that declares the patterns — see FORBIDDEN_DECL_PATH."""
+    return os.path.normpath(path) == os.path.normpath(FORBIDDEN_DECL_PATH)
 
 
 def is_credential_file(path):
@@ -274,6 +353,8 @@ def scan(diff_text, forbidden_patterns=()):
             if hunk:
                 line_no = int(hunk.group(1))
                 continue
+            if line.startswith("\\ "):
+                continue  # `\ No newline at end of file` is not a line of the file
             if line.startswith("-"):
                 continue
             if not line.startswith("+"):
@@ -284,9 +365,10 @@ def scan(diff_text, forbidden_patterns=()):
             content = line[1:]
             if SECRET_RE.search(content):
                 return file_path, line_no, "secret pattern"
-            for prose, pattern in forbidden_patterns:
-                if pattern.search(content):
-                    return file_path, line_no, prose
+            if forbidden_patterns and not is_forbidden_declaration_file(file_path):
+                for prose, pattern in forbidden_patterns:
+                    if pattern.search(content):
+                        return file_path, line_no, prose
             line_no += 1
     return None
 
@@ -317,55 +399,6 @@ def scan_untracked_candidate(cwd, rel_path, forbidden_patterns=()):
         for prose, pattern in forbidden_patterns:
             if pattern.search(line):
                 return rel_path, number, prose
-    return None
-
-
-def tracked_files(cwd):
-    """Every tracked path, NUL-split — plain `ls-files` C-quotes odd filenames, which would
-    silently drop them from the sweep (the same trap check-links.py documents)."""
-    result = subprocess.run(
-        ["git", "-C", cwd, "ls-files", "-z"],
-        capture_output=True, text=True, errors="replace", timeout=30,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "git ls-files failed")
-    return [path for path in result.stdout.split("\0") if path]
-
-
-def sweep_tracked_for_forbidden(cwd, forbidden_patterns, warn):
-    """Apply the ARCHITECTURE.md Forbidden regexes to every tracked file.
-
-    Deliberately wider than the diff, and only on push. conventions.md states the reason: a
-    forbidden literal that reached `.planning/` in an EARLIER commit is exactly the case this
-    exists to catch, and a diff-scoped scan structurally cannot see it. Running it on every
-    commit would walk the repo for each one; running it on push — the moment work leaves the
-    machine — costs one walk and still catches history.
-
-    Returns a hit tuple, or None. A file that cannot be read is reported to `warn` and skipped:
-    unlike the diff, an unreadable working-tree file is not evidence either way, and failing
-    the whole push on one unreadable path would make the guard unusable.
-    """
-    if not forbidden_patterns:
-        return None
-    try:
-        paths = tracked_files(cwd)
-    except Exception as exc:
-        # Could-not-check: the caller turns this into a block, never a silent pass.
-        warn(f"could not list tracked files in {cwd}: {exc}")
-        return COULD_NOT_PARSE
-    for rel_path in paths:
-        try:
-            with open(os.path.join(cwd, rel_path), "rb") as stream:
-                data = stream.read(1_000_000)
-        except OSError as exc:
-            warn(f"could not read {rel_path}: {exc}")
-            continue
-        if b"\x00" in data:
-            continue  # binary: nothing a declared text regex can meaningfully match
-        for number, line in enumerate(data.decode("utf-8", errors="replace").splitlines(), 1):
-            for prose, pattern in forbidden_patterns:
-                if pattern.search(line):
-                    return rel_path, number, prose
     return None
 
 
@@ -412,7 +445,7 @@ def main():
     # ARCHITECTURE.md's Forbidden-regex entries are could-not-check, not clean, when they
     # can't be read or compiled — checked before either scan path below, since neither one
     # can prove the outgoing change is safe while a declared pattern is unknown.
-    forbidden_patterns, forbidden_could_not_check = load_forbidden_patterns(cwd)
+    forbidden_patterns, forbidden_could_not_check = load_forbidden_patterns(cwd, warn)
     if forbidden_could_not_check is not None:
         print(
             "Blocked: could-not-check — .planning/ARCHITECTURE.md's Forbidden entries could "
@@ -430,17 +463,6 @@ def main():
             warn(f"could not scan untracked files in {cwd}: {exc}")
             hit = None
 
-    if hit is None and re.search(r"\bgit\s+push\b", command):
-        # Push only — see sweep_tracked_for_forbidden's docstring for why not every commit.
-        hit = sweep_tracked_for_forbidden(cwd, forbidden_patterns, warn)
-        if hit is COULD_NOT_PARSE:
-            print(
-                "Blocked: could not sweep tracked files for ARCHITECTURE.md Forbidden "
-                "patterns — could-not-check, which never reads as safe to push.",
-                file=sys.stderr,
-            )
-            return 2
-
     if hit is None:
         try:
             diff_text = diff_for(command, cwd, warn)
@@ -451,7 +473,18 @@ def main():
         if diff_text is None:
             return 0
 
-        hit = scan(diff_text, forbidden_patterns)
+        try:
+            with forbidden_budget(FORBIDDEN_MATCH_BUDGET_SECONDS):
+                hit = scan(diff_text, forbidden_patterns)
+        except ForbiddenBudgetExceeded:
+            print(
+                "Blocked: an ARCHITECTURE.md Forbidden regex did not finish within "
+                f"{FORBIDDEN_MATCH_BUDGET_SECONDS:g}s — could-not-check, which never reads as "
+                "safe. A pattern with nested quantifiers (e.g. `(a+)+`) backtracks "
+                "catastrophically; simplify the declared regex.",
+                file=sys.stderr,
+            )
+            return 2
 
     if hit is None:
         return 0

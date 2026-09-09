@@ -529,40 +529,43 @@ class SecretScanGuardTests(unittest.TestCase):
         self.assertIn("f.txt:3", result.stderr)
         self.assertNotIn("abcd1234efgh5678", result.stderr)
 
-    def test_push_sweep_catches_a_forbidden_literal_from_an_earlier_commit(self):
-        # The case R8 exists for and a diff-scoped scan structurally cannot see: the literal
-        # landed in an earlier commit, so nothing in the outgoing diff contains it.
-        literal = "TEAMID" + "1234"
-        self._write_forbidden_architecture(r"\b" + literal + r"\b",
-                                           "No team id may be committed")
-        leaked = self.fixture.repo / ".planning" / "DECISIONS.md"
-        leaked.write_text("one\ntwo\nteam = " + literal + "\n", encoding="utf-8")
-        git(self.fixture.repo, "add", "-A")
-        git(self.fixture.repo, "commit", "-q", "-m", "earlier leak")
-        self.fixture.checkout("flow/x")
-        result = run_hook(SECRET_SCAN_GUARD, {
-            "tool_input": {"command": "git push origin flow/x"}, "cwd": str(self.fixture.repo)})
-        self.assertEqual(2, result.returncode)
-        self.assertIn("DECISIONS.md:3", result.stderr)
-        self.assertIn("No team id may be committed", result.stderr)
-        self.assertNotIn(literal, result.stderr)
-
-    def test_commit_path_does_not_run_the_tracked_sweep(self):
-        # The sweep is push-only on purpose: running a repo walk on every commit is the cost
-        # this scoping avoids. A commit whose own diff is clean must not be blocked by a
-        # pre-existing violation elsewhere in the tree.
-        literal = "TEAMID" + "1234"
-        self._write_forbidden_architecture(r"\b" + literal + r"\b",
-                                           "No team id may be committed")
-        leaked = self.fixture.repo / ".planning" / "DECISIONS.md"
-        leaked.write_text("team = " + literal + "\n", encoding="utf-8")
-        git(self.fixture.repo, "add", "-A")
-        git(self.fixture.repo, "commit", "-q", "-m", "earlier leak")
-        self.fixture.checkout("flow/x")
-        self.fixture.append_and_stage("a harmless line")
+    def test_forbidden_pattern_does_not_match_its_own_declaration(self):
+        # C3: a plain-literal Forbidden entry contains the literal it forbids, so scanning the
+        # declaring file made every commit in the repo block from the line that declares the
+        # rule — escapable only by deleting the entry, i.e. turning the control off.
+        literal = "SUPERSECRET" + "MARKER"
+        self._write_forbidden_architecture(literal, "no marker in the tree")
+        git(self.fixture.repo, "add", ".planning/ARCHITECTURE.md")
         result = run_hook(SECRET_SCAN_GUARD, {
             "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)})
         self.assertEqual(0, result.returncode)
+
+    def test_forbidden_scan_reads_architecture_from_the_repo_root(self):
+        # C2: reading .planning/ARCHITECTURE.md relative to the hook's cwd meant running git
+        # from any subdirectory silently disabled the whole Forbidden check, while the
+        # credential scan still fired from that same cwd — so it looked like it had run.
+        literal = "SUBDIR" + "FORBIDDEN"
+        self._write_forbidden_architecture(literal, "no subdir literal")
+        subdir = self.fixture.repo / "sub"
+        subdir.mkdir()
+        (subdir / "x.txt").write_text("value = " + literal + "\n", encoding="utf-8")
+        git(self.fixture.repo, "add", "-A")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(subdir)})
+        self.assertEqual(2, result.returncode)
+        self.assertIn("no subdir literal", result.stderr)
+        self.assertNotIn(literal, result.stderr)
+
+    def test_catastrophic_forbidden_regex_blocks_instead_of_hanging(self):
+        # C1: Python `re` has no timeout, so a nested-quantifier pattern hung the guard on
+        # every commit forever. A guard that hangs is not fail-closed; it is one that gets
+        # removed. Expiry is could-not-check -> block.
+        self._write_forbidden_architecture(r"(a+)+$", "catastrophic by construction")
+        self.fixture.append_and_stage("a" * 60 + "!")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)})
+        self.assertEqual(2, result.returncode)
+        self.assertIn("did not finish", result.stderr)
 
     def test_allows_a_clean_commit_with_color_ui_always(self):
         # The other direction, and the one that actually bricked the workflow: a guard that
