@@ -37,6 +37,8 @@ Why the separate list rather than asking the verifier to be careful: a verifier 
 
 Keep the list small. Everything in it costs a human check, so a phase where most truths are non-inferable is a phase whose requirements need work, not more tags.
 
+**Resolution closes the loop.** The reason the tag must be structured, never prose, is that a truth the verifier will grade green like any other is what makes it a truth at all — the same argument applies to the answer once a human supplies one. When a human resolves a backstop truth, the resolution lands as a `must_haves.truths` entry, where the verifier grades it. Not a YAML comment, not a note in the objective, not a `<human-check>` — each of those records the answer somewhere nothing reads back. The entry leaves `backstop_truths` the moment it joins `truths`: one truth belongs to exactly one list, per the rule above. This interacts with must_haves being frozen once execution starts (see `## must_haves`): a resolution before execution is the normal path; a resolution after execution starts is the documented human gate that rule already requires, never a quiet edit.
+
 ## Checkpoints
 `type="checkpoint:decision"` — the user must choose between approaches. `type="checkpoint:human-action"` — the user must do something the agent can't (create an account, set a secret, verify a package). Human *verification* of built work is NOT a checkpoint task: put it in `<verify><human-check>…</human-check></verify>` so it batches to end-of-phase (each mid-flight stop costs a full executor cold-start). Set `autonomous: false` when any checkpoint task exists.
 
