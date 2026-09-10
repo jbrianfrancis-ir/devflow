@@ -2,13 +2,12 @@
 # State
 
 ## Position
-Phase: quick-016 (complete) | Plans: 4/4 | Status: 016-01..016-04 all committed
-Last: 2026-09-09 — quick 016-04: prober scratch-root claim scoped to what each
-  peer enforces (codex --sandbox/--cd real; claude cwd+prompt only, no
-  confining flag exists); SCRATCH_ROLES validator check no longer fails open
-  on a regex miss; 3 offline rooting tests added (18 total, DEVFLOW_SMOKE
-  still gates the live-CLI pair); hosts.md .tmp rule scoped off prober.
-Next: quick-016 done — run /flow-status for the next roadmap item
+Phase: 4 of 4 (verified) | Plans: 4/4 | Status: PR #38 open
+Last: 2026-09-10 — quicks 014/015/016 on flow/quick-014-verify-negative-controls (v0.23.0):
+  all nine False Green requirements, plus a live secret-scan fail-open
+  (diff.mnemonicPrefix defeated the guard silently). 3 review rounds, 6 lenses,
+  14 blocking findings all closed. 225 tests, 230 refs, 0 failures
+Next: /flow-ci 38 — first PR under branch protection; validate is a required check
 
 ## Gate
 none
@@ -19,23 +18,18 @@ Signature: rule8:phase04:plans4/4:verifverified
 
 ## Decisions
 - init: no deployable surface (D-06); link checker stdlib-only (D-04)
-- quick 011: external state (PR/CI/deploy) is a cache, not evidence
 - 2026-09-08: main protected — validate+PR required, admin bypass kept
-- quick 014: falsify negative controls + execution-only assertions bind
-  plan-format.md (v0.22.0)
-- quick 015-01/02/03: secret-scan diff-prefix pins (R8); flow-prober WRITE_ROLE
-  (R7); backstop resolution -> truths entry (R5); checker cross-plan refs (R6)
-- quick 015-04: flow-split-plan.py is the 4KB-cap remedy (R9); split don't trim
-- quick 016-01: plan-ref regex anchors to phase prefix + boundary lookaround;
-  new-plan depends_on/wave only edges back to source when files overlap
-- quick 016-04: no claude CLI flag confines writes to a directory without
-  removing Bash; prober's scratch-root guarantee is codex-only, claude relies
-  on cwd+prompt — docs and code now say so explicitly per peer
+- quick 014: falsify negative controls bind plan-format.md; external state is
+  a cache, not evidence (quick 011)
+- quick 015: flow-prober is a WRITE role (scratch-rooted); 4KB cap is now a
+  SOFT target — never loop or trim to meet it, split with flow-split-plan.py
+- quick 016: prober's scratch guarantee is codex-only (no claude flag confines
+  writes without removing Bash) — docs say so per peer. Forbidden-regex scan is
+  diff-scoped; repo-wide history scanning belongs in CI, not a per-commit hook
 
 ## Blockers
 - none
 
 ## Session
-Stopped: quick 016 plan 04 done, 3 tasks committed (88edf73..6f589d4), SUMMARY written
-Resume: quick-016 complete — pick the next roadmap/quick item
-
+Stopped: PR #38 open — https://github.com/jbrianfrancis-ir/devflow/pull/38
+Resume: /flow-ci 38 — round-3 fixes (guard + split tool) are NOT independently reviewed
