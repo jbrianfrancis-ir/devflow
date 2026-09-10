@@ -3,7 +3,7 @@
 
 ## Position
 Phase: 4 of 4 (verified) | Plans: 4/4 | Status: PR #38 open
-Last: 2026-09-10 — quicks 014/015/016 on flow/quick-014-verify-negative-controls (v0.23.0):
+Last: 2026-09-10 — quicks 014/015/016 (v0.23.0):
   all nine False Green requirements, plus a live secret-scan fail-open
   (diff.mnemonicPrefix defeated the guard silently). 3 review rounds, 6 lenses,
   14 blocking findings all closed. 225 tests, 230 refs, 0 failures
