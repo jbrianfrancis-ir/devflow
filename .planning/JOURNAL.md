@@ -4,6 +4,7 @@ The cap bounds what loads into context each run; it is not permission to forget.
 One line per completed state-changing skill run. Warm-start + audit trail; context repos (docs/blitzos.md) index these lines verbatim. -->
 # Journal
 
+- 2026-09-10 | /flow-ci | PR #38 merged (9e18b8f), validate green — False Green R1-R9 + secret-scan fail-open shipped in v0.23.0 | https://github.com/jbrianfrancis-ir/devflow/pull/38
 - 2026-09-10 | /flow-pr | PR #38 opened: False Green R1-R9 + secret-scan fail-open, v0.23.0, 3 review rounds / 14 blocking closed | https://github.com/jbrianfrancis-ir/devflow/pull/38
 - 2026-09-08 | /flow-pr | PR #37 opened (github.com/jbrianfrancis-ir/devflow/pull/37) — quick 013,
   v0.21.0; 2 rounds x 3 lenses, 1 blocking fixed (ARCHITECTURE claimed 'direct pushes are closed
@@ -18,4 +19,3 @@ One line per completed state-changing skill run. Warm-start + audit trail; conte
 - 2026-09-08 | /flow-ci | PR #36 found already merged (e665a01, 2026-09-04) — `validate` green,
   zero review threads, nothing to fix; milestone 'Documentation Restructure' complete. Live check
   showed main still has no branch protection or rulesets, so the version-bump gate #36 shipped
-  reports without enforcing — the gate merging deferred is still open | GATE

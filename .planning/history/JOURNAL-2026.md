@@ -26,3 +26,4 @@ Append-only, chronological (oldest first), uncapped. Never dropped, only moved. 
   0.20.0 (covers #34/#35, which merged untagged) + a CI gate failing any PR that changes
   plugins/devflow/** without a bump; 3 review rounds found 3 fail-opens in the gate itself,
   2 blocking, each raised by 2 lenses independently | CONTINUE
+  reports without enforcing — the gate merging deferred is still open | GATE
