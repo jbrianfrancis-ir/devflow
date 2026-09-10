@@ -3,6 +3,8 @@ to .planning/history/JOURNAL-<YYYY>.md (append, chronological, uncapped) — nev
 The cap bounds what loads into context each run; it is not permission to forget.
 One line per completed state-changing skill run. Warm-start + audit trail; context repos (docs/blitzos.md) index these lines verbatim. -->
 # Journal
+
+- 2026-09-10 | /flow-pr | PR #38 opened: False Green R1-R9 + secret-scan fail-open, v0.23.0, 3 review rounds / 14 blocking closed | https://github.com/jbrianfrancis-ir/devflow/pull/38
 - 2026-09-08 | /flow-pr | PR #37 opened (github.com/jbrianfrancis-ir/devflow/pull/37) — quick 013,
   v0.21.0; 2 rounds x 3 lenses, 1 blocking fixed (ARCHITECTURE claimed 'direct pushes are closed
   off' while enforce_admins is false — caught by 2 lenses), round 2 clean | CONTINUE

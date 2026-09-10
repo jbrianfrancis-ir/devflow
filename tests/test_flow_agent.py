@@ -150,6 +150,44 @@ class FlowAgentTests(unittest.TestCase):
         run, value = self.run_bridge(None, "reviewer", host="codex")
         self.assertIn("spawn an in-host agent", value["error"])
 
+    def test_scratch_role_roots_prober_at_workdir_not_repo(self):
+        # `flow-agent.py`'s SCRATCH_ROLES rooting: codex genuinely sandboxes the peer
+        # there (`--sandbox`/`--cd`); claude has no directory-scoping flag for it, so
+        # the repo path must never appear in its argv either way.
+        schema = self.base / "schema.json"
+        for provider in ("codex", "claude"):
+            argv = MODULE.build_command(provider, "prober", self.repo, "task", schema,
+                                        workdir=self.base)
+            self.assertNotIn(str(self.repo), argv)
+            if provider == "codex":
+                self.assertEqual(str(self.base), argv[argv.index("--cd") + 1])
+                self.assertEqual("workspace-write", argv[argv.index("--sandbox") + 1])
+            else:
+                self.assertNotIn("--cd", argv)
+                self.assertNotIn("--add-dir", argv)
+                self.assertNotIn("--sandbox", argv)
+
+    def test_prober_is_a_scratch_and_write_role(self):
+        self.assertIn("prober", MODULE.WRITE_ROLES)
+        self.assertIn("prober", MODULE.SCRATCH_ROLES)
+        self.assertTrue(MODULE.SCRATCH_ROLES.issubset(MODULE.WRITE_ROLES))
+
+    def test_non_scratch_roles_still_root_at_the_repo(self):
+        schema = self.base / "schema.json"
+        codex_write = MODULE.build_command("codex", "executor", self.repo, "task", schema)
+        self.assertEqual(str(self.repo), codex_write[codex_write.index("--cd") + 1])
+        self.assertEqual("workspace-write", codex_write[codex_write.index("--sandbox") + 1])
+        codex_read = MODULE.build_command("codex", "verifier", self.repo, "task", schema)
+        self.assertEqual(str(self.repo), codex_read[codex_read.index("--cd") + 1])
+        self.assertEqual("read-only", codex_read[codex_read.index("--sandbox") + 1])
+        claude_write = MODULE.build_command("claude", "executor", self.repo, "task", schema)
+        self.assertIn(str(self.repo), claude_write[-1])
+        self.assertEqual("acceptEdits",
+                         claude_write[claude_write.index("--permission-mode") + 1])
+        claude_read = MODULE.build_command("claude", "verifier", self.repo, "task", schema)
+        self.assertIn(str(self.repo), claude_read[-1])
+        self.assertEqual("plan", claude_read[claude_read.index("--permission-mode") + 1])
+
     def test_peer_stdin_is_closed(self):
         # codex exec consumes a non-TTY stdin; a leaked pipe would block until timeout.
         result = json.dumps(GOOD).replace("'", "'\\''")

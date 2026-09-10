@@ -442,6 +442,258 @@ class SecretScanGuardTests(unittest.TestCase):
         })
         self.assertEqual(0, result.returncode)
 
+    def test_blocks_staged_secret_with_mnemonic_prefix_config(self):
+        # Regression for the live fail-open: diff.mnemonicPrefix=true makes git emit
+        # `diff --git c/file w/file` instead of `a/`/`b/`. DIFF_GIT_HEADER_RE only matched
+        # the default shape, iter_file_chunks yielded zero chunks, and the guard exited 0
+        # (allow) on a staged secret with no warning. The guard must pin the prefixes so
+        # this config can't change the diff shape it depends on.
+        git(self.fixture.repo, "config", "diff.mnemonicPrefix", "true")
+        fixture_line = "api_key" + ' = "' + "abcd1234efgh5678" + '"'
+        self.fixture.append_and_stage(fixture_line)
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+        self.assertNotIn("abcd1234efgh5678", result.stderr)
+        # Must be the real hit (the diff was parsed and the pattern matched), not the
+        # could-not-parse fallback also exiting 2 for an unrelated reason — a guard that
+        # merely fails closed on every unparseable diff would pass this test without the
+        # prefix pinning actually working.
+        self.assertIn("pattern:", result.stderr)
+        self.assertNotIn("could not parse", result.stderr)
+
+    def _assert_real_hit(self, result):
+        """Exit 2 via the pattern match, not via the could-not-parse fallback.
+
+        The fallback also exits 2, so asserting only the exit code would let a guard that
+        understands nothing pass every one of these tests — the vacuous negative control
+        this whole rule set exists to prevent.
+        """
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+        self.assertIn("pattern:", result.stderr)
+        self.assertNotIn("could not parse", result.stderr)
+        self.assertNotIn("abcd1234efgh5678", result.stderr)
+
+    def _stage_secret(self):
+        self.fixture.append_and_stage("api_key" + ' = "' + "abcd1234efgh5678" + '"')
+
+    def _write_forbidden_architecture(self, pattern, prose="a forbidden fixture entry"):
+        """Write `.planning/ARCHITECTURE.md` with one `## Forbidden` bullet ending in the
+        `templates/architecture.md`-documented " <dash> pattern: `<regex>`" suffix."""
+        arch_dir = self.fixture.repo / ".planning"
+        arch_dir.mkdir(exist_ok=True)
+        (arch_dir / "ARCHITECTURE.md").write_text(
+            f"## Forbidden\n- {prose} — pattern: `{pattern}`\n", encoding="utf-8")
+
+    def test_blocks_secret_in_a_path_marked_minus_diff(self):
+        # `-diff` renders the file as "Binary files ... differ": the chunk parses fine, so
+        # COULD_NOT_PARSE never fires, and the added lines are simply never scanned. Fail
+        # open, silently. `--text` closes it.
+        (self.fixture.repo / ".gitattributes").write_text("*.txt -diff\n", encoding="utf-8")
+        git(self.fixture.repo, "add", ".gitattributes")
+        self._stage_secret()
+        self._assert_real_hit(run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)}))
+
+    def test_blocks_secret_behind_a_textconv_filter(self):
+        # A textconv filter rewrites content before the scan sees it. `--no-textconv`.
+        (self.fixture.repo / ".gitattributes").write_text("*.txt diff=redact\n", encoding="utf-8")
+        git(self.fixture.repo, "add", ".gitattributes")
+        git(self.fixture.repo, "config", "diff.redact.textconv", "sed -e s/./X/g")
+        self._stage_secret()
+        self._assert_real_hit(run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)}))
+
+    def test_blocks_secret_with_color_ui_always(self):
+        # color.ui=always wraps the header in escapes so DIFF_GIT_HEADER_RE matches nothing.
+        # Without --no-color this exits 2 via COULD_NOT_PARSE, which looks like a block but
+        # is the guard understanding nothing — and on a clean tree it blocked every commit.
+        git(self.fixture.repo, "config", "color.ui", "always")
+        self._stage_secret()
+        self._assert_real_hit(run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)}))
+
+    def test_reports_the_line_number_of_a_hit(self):
+        # conventions.md's reporting rule has always said file + line + pattern class. The
+        # guard reported file and class only, so the stated contract ran ahead of the code.
+        self.fixture.append_and_stage("a harmless first line")
+        self.fixture.append_and_stage("api_key" + ' = "' + "abcd1234efgh5678" + '"')
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)})
+        self.assertEqual(2, result.returncode)
+        # f.txt starts with "hello", then the two appended lines -> the secret is line 3.
+        self.assertIn("f.txt:3", result.stderr)
+        self.assertNotIn("abcd1234efgh5678", result.stderr)
+
+    def test_forbidden_pattern_does_not_match_its_own_declaration(self):
+        # C3: a plain-literal Forbidden entry contains the literal it forbids, so scanning the
+        # declaring file made every commit in the repo block from the line that declares the
+        # rule — escapable only by deleting the entry, i.e. turning the control off.
+        literal = "SUPERSECRET" + "MARKER"
+        self._write_forbidden_architecture(literal, "no marker in the tree")
+        git(self.fixture.repo, "add", ".planning/ARCHITECTURE.md")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)})
+        self.assertEqual(0, result.returncode)
+
+    def test_forbidden_scan_reads_architecture_from_the_repo_root(self):
+        # C2: reading .planning/ARCHITECTURE.md relative to the hook's cwd meant running git
+        # from any subdirectory silently disabled the whole Forbidden check, while the
+        # credential scan still fired from that same cwd — so it looked like it had run.
+        literal = "SUBDIR" + "FORBIDDEN"
+        self._write_forbidden_architecture(literal, "no subdir literal")
+        subdir = self.fixture.repo / "sub"
+        subdir.mkdir()
+        (subdir / "x.txt").write_text("value = " + literal + "\n", encoding="utf-8")
+        git(self.fixture.repo, "add", "-A")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(subdir)})
+        self.assertEqual(2, result.returncode)
+        self.assertIn("no subdir literal", result.stderr)
+        self.assertNotIn(literal, result.stderr)
+
+    def test_catastrophic_forbidden_regex_blocks_instead_of_hanging(self):
+        # C1: Python `re` has no timeout, so a nested-quantifier pattern hung the guard on
+        # every commit forever. A guard that hangs is not fail-closed; it is one that gets
+        # removed. Expiry is could-not-check -> block.
+        self._write_forbidden_architecture(r"(a+)+$", "catastrophic by construction")
+        self.fixture.append_and_stage("a" * 60 + "!")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)})
+        self.assertEqual(2, result.returncode)
+        self.assertIn("did not finish", result.stderr)
+
+    def test_allows_a_clean_commit_with_color_ui_always(self):
+        # The other direction, and the one that actually bricked the workflow: a guard that
+        # blocks every commit is not safer than one that blocks none, it just gets removed.
+        git(self.fixture.repo, "config", "color.ui", "always")
+        self.fixture.append_and_stage("a harmless line with no credential in it")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"}, "cwd": str(self.fixture.repo)})
+        self.assertEqual(0, result.returncode)
+
+    def test_blocks_staged_secret_with_noprefix_config(self):
+        # Same bypass class as mnemonicPrefix, via diff.noprefix=true instead
+        # (`diff --git file file`, no prefixes at all).
+        git(self.fixture.repo, "config", "diff.noprefix", "true")
+        fixture_line = "api_key" + ' = "' + "abcd1234efgh5678" + '"'
+        self.fixture.append_and_stage(fixture_line)
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+        self.assertNotIn("abcd1234efgh5678", result.stderr)
+        # Same distinction as the mnemonicPrefix test above: must be the real parsed hit,
+        # not the could-not-parse fallback exiting 2 for an unrelated reason.
+        self.assertIn("pattern:", result.stderr)
+        self.assertNotIn("could not parse", result.stderr)
+
+    def test_blocks_forbidden_pattern_literal(self):
+        # R8: a literal matching a regex declared on an ARCHITECTURE.md Forbidden bullet is
+        # blocked by the same fail-closed path as a credential. Built at runtime so this
+        # file's own literal never trips a Forbidden pattern some other repo might declare.
+        literal = "FORBID" + "DEN" + "LIT" + "ERAL"
+        prose = "a forbidden team identifier"
+        self._write_forbidden_architecture(r"\b" + literal + r"\b", prose)
+        self.fixture.append_and_stage("line containing " + literal + " here")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked", result.stderr)
+        self.assertIn(prose, result.stderr)
+        # The matched value must never be echoed.
+        self.assertNotIn(literal, result.stderr)
+        # Must be the Forbidden path specifically, not the credential pattern and not the
+        # could-not-parse fallback — both of which also exit 2.
+        self.assertNotIn("secret pattern", result.stderr)
+        self.assertNotIn("credential-shaped filename", result.stderr)
+        self.assertNotIn("could not parse the outgoing diff", result.stderr)
+        self.assertNotIn("could-not-check", result.stderr)
+
+    def test_allows_clean_commit_with_forbidden_pattern_configured(self):
+        literal = "FORBID" + "DEN" + "LIT" + "ERAL"
+        self._write_forbidden_architecture(r"\b" + literal + r"\b")
+        self.fixture.append_and_stage("a totally unrelated clean line")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(0, result.returncode)
+
+    def test_forbidden_bullet_without_pattern_is_not_enforced(self):
+        # A Forbidden bullet with no `pattern:` suffix stays prose-only guidance — silently
+        # unenforced, by design.
+        literal = "FORBID" + "DEN" + "LIT" + "ERAL"
+        prose = "mentions " + literal + " in prose only, no pattern declared"
+        arch_dir = self.fixture.repo / ".planning"
+        arch_dir.mkdir(exist_ok=True)
+        (arch_dir / "ARCHITECTURE.md").write_text(f"## Forbidden\n- {prose}\n", encoding="utf-8")
+        self.fixture.append_and_stage("line containing " + literal + " here")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(0, result.returncode)
+
+    def test_malformed_forbidden_pattern_blocks_as_could_not_check(self):
+        # A regex that fails to compile is could-not-check, not clean — it must BLOCK even
+        # though the staged content itself is unrelated and harmless.
+        self._write_forbidden_architecture("[unclosed", prose="a malformed pattern entry")
+        self.fixture.append_and_stage("a totally unrelated clean line")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn("could-not-check", result.stderr)
+        self.assertIn("a malformed pattern entry", result.stderr)
+        # Distinct from the diff-parse could-not-check fallback.
+        self.assertNotIn("could not parse the outgoing diff", result.stderr)
+
+    def test_missing_architecture_md_is_benign(self):
+        # No .planning/ARCHITECTURE.md at all (GitFixture doesn't write one) is "no patterns
+        # declared", not an error — a clean-otherwise commit must not be blocked just because
+        # its content happens to look like a literal some OTHER repo's Forbidden entry names.
+        literal = "FORBID" + "DEN" + "LIT" + "ERAL"
+        self.fixture.append_and_stage("line containing " + literal + " here")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git commit -m x"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(0, result.returncode)
+
+    def test_blocks_forbidden_pattern_on_push(self):
+        literal = "FORBID" + "DEN" + "LIT" + "ERAL"
+        prose = "a forbidden literal for push"
+        self.fixture.checkout("flow/test")
+        self._write_forbidden_architecture(r"\b" + literal + r"\b", prose)
+        self.fixture.append_and_stage("line containing " + literal + " here")
+        git(self.fixture.repo, "commit", "-q", "-m", "wip")
+        result = run_hook(SECRET_SCAN_GUARD, {
+            "tool_input": {"command": "git push origin flow/test"},
+            "cwd": str(self.fixture.repo),
+        })
+        self.assertEqual(2, result.returncode)
+        self.assertIn(prose, result.stderr)
+        self.assertNotIn(literal, result.stderr)
+
+    def test_unparseable_diff_is_could_not_check_not_clean(self):
+        # A non-empty diff that iter_file_chunks can't split into file sections (no
+        # recognisable `diff --git` header at all) must be reported as could-not-check, per
+        # conventions.md's fail-closed-guards rule — never collapsed into "nothing found".
+        module = load_module(SECRET_SCAN_GUARD, "secret_scan_guard_for_unparseable_test")
+        result = module.scan("this diff has no recognisable header line at all\n+still no header\n")
+        self.assertIsNotNone(result)
+        self.assertIs(result, module.COULD_NOT_PARSE)
+
 
 class SecretPatternDriftTest(unittest.TestCase):
     """The regex embedded in secret-scan-guard.py must stay byte-identical to the one

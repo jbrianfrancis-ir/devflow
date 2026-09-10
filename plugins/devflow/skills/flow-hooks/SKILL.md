@@ -22,7 +22,11 @@ the case where an agent doesn't follow them.
 |---|---|---|
 | `base-branch-guard.py` | `Bash` | `git commit`/`git push` while checked out on the project's base branch |
 | `protected-paths-guard.py` | `Edit\|Write` | an edit to a path matching `protected_paths`, unless `DEVFLOW_PROTECTED_PATH_OK` is set |
-| `secret-scan-guard.py` | `Bash` | `git commit`/`git push` whose diff matches conventions.md's secret pattern class |
+| `secret-scan-guard.py` | `Bash` | `git commit`/`git push` whose diff matches conventions.md's secret pattern class, plus any regex declared on `.planning/ARCHITECTURE.md`'s Forbidden entries |
+
+Forbidden-entry syntax and enforcement scope: `templates/architecture.md` and conventions.md's
+"Secret scan (fail-closed)" section — the guard's own contract for it lives in the script per the
+rule below, not restated here.
 
 Full script contracts — exact message text, exit codes, the config fields each one reads — live in
 the scripts themselves at `{devflow_root}/templates/hooks/*.py`; read them there rather than
