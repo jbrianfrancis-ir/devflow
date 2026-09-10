@@ -14,8 +14,8 @@ Next: quick-016 done — run /flow-status for the next roadmap item
 none
 
 ## Run
-Iteration: 1 | Started: 2026-08-27T18:54Z | Repeats: 0
-Signature: none
+Iteration: 2 | Started: 2026-08-27T18:54Z | Repeats: 0
+Signature: rule8:phase04:plans4/4:verifverified
 
 ## Decisions
 - init: no deployable surface (D-06); link checker stdlib-only (D-04)
