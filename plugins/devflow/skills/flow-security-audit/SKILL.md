@@ -29,7 +29,7 @@ Ambiguous request → ask one focused question before creating any file.
 7. **Smallest effective fix** at the last trusted decision point, plus a regression test. The audit describes fixes; it never edits target source.
 
 ## AI / LLM companion
-When the target has LLM surfaces (prompt assembly, RAG, agent memory, tool calling, MCP), add units for: indirect prompt injection via ingested content; cross-tenant context or cache bleed; tool-argument injection into sinks; confused-deputy agency (tool runs with a broader identity than the requester); approval not bound to the exact action; model output rendered or executed unescaped. Prompt injection alone is not a finding — require a code-level boundary failure. A guardrail prompt is not a control. Depth: upstream `skills/security-audit/AI-AND-LLM.md`.
+When the target has LLM surfaces (prompt assembly, RAG, agent memory, tool calling, MCP), add units for: indirect prompt injection via ingested content; cross-tenant context or cache bleed; tool-argument injection into sinks; confused-deputy agency (tool runs with a broader identity than the requester); approval not bound to the exact action; model output rendered or executed unescaped. Prompt injection alone is not a finding — require a code-level boundary failure. A guardrail prompt is not a control. Depth: upstream https://github.com/cloudflare/security-audit-skill/blob/main/AI-AND-LLM.md.
 
 ## Full audit
 **Output directory** — decide before reconnaissance:
