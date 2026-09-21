@@ -33,4 +33,6 @@ test that passed, or a code path traced. "Should work" is not a result.
 
 Drive the workflow with the `flow-*` skills — `/flow-*` in Claude Code, `$flow-*` in
 Codex. `/flow-status` reports where things are and what to run next.
+`/flow-security-audit` is an opt-in pre-production gate — off by default, never run by
+`/flow-next`; invoke it before `/flow-uat` or `/flow-release` only when a human asks.
 <!-- END DEVFLOW -->

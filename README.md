@@ -79,6 +79,7 @@ the complete gate list: [docs/autonomy.md](docs/autonomy.md).
 | integrate | `/flow-ci` | Drive the open PR to green — watch checks, fix failures, answer bot review threads |
 | triage | `/flow-triage` | Pre-screen incoming third-party PRs against ARCHITECTURE.md/REQUIREMENTS.md, flag only the promising ones for human review (`--all`, `--export`) |
 | deploy | `/flow-harden` | Production audit vs Aspire checklist; fix findings |
+| deploy (opt-in) | `/flow-security-audit` | Optional pre-production security audit — off by default, never run by `/flow-next`; guidance vs full audit, hunter≠verifier, `confirmed`/`needs_validation`/`rejected` ([docs](docs/security-audit.md)) |
 | deploy | `/flow-uat` | Deploy to UAT (provision on first deploy), generate acceptance test plan |
 | deploy | `/flow-release` | Production deploy, gated on per-SHA UAT sign-off |
 
