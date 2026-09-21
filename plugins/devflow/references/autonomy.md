@@ -41,6 +41,10 @@ Without it, a verified non-deploying project is unroutable: `/flow-next` rule 7 
 
 The human-readable "why" belongs in `PROJECT.md` as a `D-NN` decision. The config field is what routing reads; the decision entry is what a person reads six months later.
 
+## Optional gates — off unless invoked
+
+Security-audit gate: **off by default.** No routing rule sends a run to `/flow-security-audit`, and no deploy skill requires it. Invoke it before `/flow-uat` or `/flow-release` only when a human asks for a pre-production audit; its `GATE` line then holds the run like any other.
+
 ## Human gates — never auto-proceed, even in auto mode or under /goal//loop
 Checkpoint `decision` and `human-action` tasks; failed-package verification; a fail-closed secret-scan hit (credential material in an outgoing diff — see `conventions.md`); sending a consult bundle to an external model (`/flow-oracle` — outward-facing, see `oracle.md`); UAT acceptance results and SIGNOFF.md; production release confirmation; opening a pull request to upstream; replying to or resolving a **human** reviewer's PR thread, and merging a PR (`/flow-ci` — driving checks to green is autonomous, review and merge are not); refuting a `blocking` review finding rather than fixing it, and shipping a `CONFIRMED` finding dispositioned `ACCEPTED AS-IS` — a known defect going out knowingly is a human's call, never a subagent's (`/flow-pr`, `adjudication.md`); posting a triage verdict or drafted response to a third-party contributor's pull request (`/flow-triage` — screening and drafting is autonomous, posting to their PR is not); removing a worktree with unmerged or unpushed commits (`/flow-workstream drop`); pushing tags; anything destructive in git. Also a hard rule (not a gate): never commit to the base branch (`dev`/`main`) — always a feature branch (see `conventions.md`).
 
