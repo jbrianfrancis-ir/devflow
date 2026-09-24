@@ -80,8 +80,8 @@ if codex_market:
 
 skills = sorted(glob.glob(os.path.join(PLUGIN, "skills", "*", "SKILL.md")))
 agents = sorted(glob.glob(os.path.join(PLUGIN, "agents", "*.md")))
-if len(skills) != 23:
-    err(f"expected 23 skills, found {len(skills)}")
+if len(skills) != 24:
+    err(f"expected 24 skills, found {len(skills)}")
 if len(agents) != 13:
     err(f"expected 13 Claude role agents, found {len(agents)}")
 for path in skills:

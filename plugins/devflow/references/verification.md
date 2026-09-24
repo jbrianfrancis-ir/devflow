@@ -43,3 +43,7 @@ A smoke failure is infrastructure-shaped as often as code-shaped (a service that
 Consolidate `human_checks` from all SUMMARY frontmatter plus your HUMAN verdicts into one batched list.
 
 Output `VERIFICATION.md` per the template. `status: pass` only if every truth is VERIFIED, the smoke gate passed (or is undeclared and raised as a human check), and there are no gaps; `gaps` if any gap (one line each); `human_needed` if only human checks remain — including when the sole reason is an abstained backstop truth. The status vocabulary is unchanged: an abstention routes through the existing `HUMAN` verdict and `human_needed` status, and advisories never change a status. Record abstained backstop truths in the `unverified` frontmatter list so a driver can see them without parsing the table. Learnings: ≤3 bullets, only things future phases must know (conventions discovered, traps, implied decisions) — a coincidental-reliance flag that a later phase could trip over belongs here.
+
+## Test layer preference
+
+Follow `{devflow_root}/references/test-policy.md`. Prefer proving truths with behavior/integration/Smoke over newly invented unit suites. Classic unit-TDD is not the default agent workflow. Flag coverage-theater and wrapper/DTO unit diffs as verification smell even when commands are green.
