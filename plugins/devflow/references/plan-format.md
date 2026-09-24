@@ -22,6 +22,8 @@ A phase's plans form a graph: plans are nodes, `depends_on` entries are edges, w
 ## must_haves (goal-backward)
 Derive from the phase goal, not from the tasks: `truths` = observable behaviors that prove the goal ("user can log in and stays logged in after refresh"), `artifacts` = files that must exist, `key_links` = critical connections ("LoginForm submits to /api/auth"). The verifier checks these directly — existence of files proves nothing.
 
+**Name the proof layer.** When a truth describes behavior that crosses a boundary (HTTP, DB, queue/bus, file, external API, a multi-component graph), its `verify` names an **integration/behavior test or the `## Smoke` command** as the primary proof — not a new unit suite. Thin units are for pure logic or a regression pin, per `{devflow_root}/references/test-policy.md`; a truth whose only claimed proof is newly invented units is not proven.
+
 must_haves are the phase's **anchors** — signals that can't argue back. Once execution starts they are frozen: a gap is closed by changing the code, never by editing a truth to match what got built (that needs a human gate).
 
 ### backstop_truths (non-inferable behavior)

@@ -11,6 +11,8 @@ description: Execute all plans of a phase in dependency waves via parallel execu
 
 Context rules: read `.planning/STATE.md` first; pass subagents paths, never contents; read plan/SUMMARY **frontmatter only** in this session; keep output terse — the executors do the work.
 
+Test layer: executors follow `{devflow_root}/references/test-policy.md` — integration/behavior first; thin units only for pure logic or regression pins; no post-hoc coverage suites.
+
 **Pre-flight**: phase dir has `NN-MM-PLAN.md` files; working tree clean (`git status --short` — otherwise ask to commit/stash, or proceed on explicit confirmation). On the feature branch (`git.branch` from config), never the base branch — switch to/create it off `git.base` if needed (per `{devflow_root}/references/conventions.md`). Surface any `user_setup` items from plan frontmatter and confirm they're done before starting.
 
 1. **Wave plan**: read each plan's frontmatter. Skip plans whose SUMMARY already exists (resume support). Group the rest by `wave`.

@@ -38,7 +38,8 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
      verification can pass — it catches what per-phase truths cannot: phase 5 breaking phase 2.
      Exercise a real critical path (build + start + one user-visible action), not just compile;
      keep it under ~2 min. None yet → `none (not yet defined)`; the verifier then raises a human
-     check rather than inventing a command. -->
+     check rather than inventing a command. Smoke is the standing end-to-end gate: never
+     substitute a pile of new unit tests for it. -->
 - **Command**: {e.g. `dotnet test tests/Smoke` — or `./scripts/smoke.sh`}
 - **Pass looks like**: {e.g. exit 0; "8 passed"; health endpoint 200 and /orders renders a seeded order}
 
