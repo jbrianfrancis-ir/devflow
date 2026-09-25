@@ -17,6 +17,8 @@ Context rules: read `.planning/STATE.md` first; paths not contents; frontmatter-
 
 2. Present results: status, truths table summary, gaps.
 
+2a. **New service?** If the phase's diff adds a compute resource to the AppHost (`AddProject`, `AddDockerfile`, `AddContainer` for app code, `AddNextJsApp`, `AddJavaScriptApp`, `AddNodeApp`, `AddViteApp`) or a new project calling `AddServiceDefaults`, invoke `telemetry-readiness --scope code --services <the new ones>` with the host skill mechanism. A BLOCK-severity failure on a service this phase added is a verification gap, closed in this phase like any other. Skip on a `deploy.tool: null` project — there is nothing to instrument for.
+
 3. **Human checks**: walk the user through the batched list one item at a time (what to do, what they should see); record pass/fail in VERIFICATION.md. Failures become gaps.
 
 4. Route: gaps → STATE Blockers + `Next: /flow-plan N --gaps`; all pass → ROADMAP row verified, STATE updated (Next: next unplanned phase, or — when all phases verify — `/flow-harden`, except on a deploy-N/A project (`deploy.tool: null`) where it is `/flow-pr`, since routing skips the deploy chain entirely; see autonomy.md). On pass, run the **librarian** pass exactly as `/flow-execute` step 4b specifies (structural drift since `codebase/MAP.md`'s `mapped_sha` → spawn `flow-mapper` in drift mode; fail closed to `map: not refreshed ({why})` rather than advancing the date) — a phase verified through this path leaves the map just as stale as one verified through `/flow-execute`. Commit docs if commit_docs: `chore(flow): phase NN verified`; prepend a `.planning/JOURNAL.md` line (format `{devflow_root}/templates/journal.md`; create if missing).

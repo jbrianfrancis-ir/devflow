@@ -51,7 +51,7 @@ Parameters, not literals: `builder.AddParameter("name", secret: true)` in the Ap
 - [ ] Every env var / parameter name referenced in code appears in ARCHITECTURE.md's Environment section (names only, provisioning source recorded); the secret scan (`conventions.md`) over the branch diff is clean
 - [ ] No silent fallbacks on required settings (`?? "..."`, `os.environ.get(k, default)`, `GetValueOrDefault`) — required values fail fast at startup naming the missing key; defaults only on settings the Environment section marks optional
 - [ ] `aspire publish` succeeds
-- [ ] Telemetry has a destination in cloud (Application Insights / OTLP endpoint), not just the local dashboard
+- [ ] Telemetry readiness: every deployed service emits traces, metrics and logs to a workspace-based Application Insights that actually exists and is wired to it — the checkable bar, and the `telemetry-readiness` skill that grades it, are in `{devflow_root}/references/telemetry-readiness.md`. A local dashboard is not a destination
 - [ ] Tests pass; CI (if present) runs build + tests
 
 ## Failure → fix
