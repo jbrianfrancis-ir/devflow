@@ -17,6 +17,10 @@ Reference pages for DevFlow that go beyond what the [repo README](../README.md) 
 - [provenance.md](provenance.md) — who made a change and who approved it: commit trailers and the decision log.
 - [hooks.md](hooks.md) — deterministic Claude Code hooks that back the base-branch, protected-paths, and secret-scan rules with an enforced backstop.
 
+## Gates
+
+- [telemetry-readiness.md](telemetry-readiness.md) — the read-only telemetry gate: what it grades in code and in Azure, why `UNVERIFIED` is a first-class verdict, and where it runs in the loop.
+
 ## Optional gates
 
 - [security-audit.md](security-audit.md) — the opt-in `/flow-security-audit` pre-production gate: off by default, when to run it, and what it borrows from Cloudflare's security-audit skill.

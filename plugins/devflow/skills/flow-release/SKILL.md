@@ -17,6 +17,8 @@ Context rules: read `.planning/STATE.md` first. Production is not the place to i
 
 1. **Read** `{devflow_root}/references/aspire.md` (Environments, Failure→fix).
 
+1a. **Telemetry gate** (pre-deploy): invoke `telemetry-readiness --scope all --env prod` with the host skill mechanism. One verdict per environment — a uat PASS is not a prod PASS, so this runs against prod's own sinks. Overall `FAIL` or `UNVERIFIED` stops the release: `FLOW: GATE` with the blocking ids, cleared only by a fix or a recorded human override in `.planning/DECISIONS.md`. On a first-ever prod deploy P4 and P5 are UNVERIFIED by construction and are re-run in step 4.
+
 2. **Confirm** with the user: releasing SHA {sha}, signed off by {approver} on {date}, to prod. Explicit yes required — this is a permanent human gate: even under `/goal`, `/loop`, or auto mode, stop with a GATE status line and wait.
 
 3. **Deploy**: `azd env list` first — provisioning state is Azure's fact, and the PIPELINE prod row is only a cache of it (`autonomy.md` → External state is a cache, never evidence). **The live answer decides, alone**: a prod env in `azd env list` means provisioned no matter what PIPELINE's row says, and the row gets corrected in step 5. Never OR the two — a stale row reading "unprovisioned" against a prod env that exists would send a live production environment through `azd env new` + `azd up`, re-prompting and re-applying prod parameters over a running system.
@@ -24,7 +26,7 @@ Context rules: read `.planning/STATE.md` first. Production is not the place to i
    - prod env **present** → `azd env select prod`; `azd provision` only if the infra model changed since the last release; `azd deploy`.
    - `azd env list` **failed** → stop: `FLOW: BLOCKED | cannot read prod provisioning state ({reason}) | next: azd auth login or restore network, then /flow-release`. Do not fall back to the PIPELINE row: guessing "unprovisioned" here is the `azd up`-over-production case, and this is the one skill where a wrong guess is not recoverable.
 
-4. **Smoke**: curl prod health endpoints; capture URLs. Failure → present options: rollback (`git checkout <last release tag>` + `azd deploy` from it, or Azure portal revision rollback), retry after fix, or investigate (`/flow-debug`). Do not mark released until smoke is green.
+4. **Smoke**: curl prod health endpoints; capture URLs. Failure → present options: rollback (`git checkout <last release tag>` + `azd deploy` from it, or Azure portal revision rollback), retry after fix, or investigate (`/flow-debug`). Do not mark released until smoke is green. Then re-run `telemetry-readiness --scope platform --env prod` — P2–P5 against the new revision, confirming prod telemetry actually lands. A failure here is a GATE, not a rollback trigger on its own: the release stands, and the human decides whether production running blind is acceptable until it is fixed.
 
 5. **Record**: update PIPELINE prod row (SHA, date, result, URLs); `git tag release-YYYYMMDD-N && git push --tags` (ask before pushing); STATE.md Status: released, Next: next roadmap work or `/flow-status`. Commit docs: `chore(flow): release YYYYMMDD-N`; prepend a `.planning/JOURNAL.md` line — tag, result (format `{devflow_root}/templates/journal.md`; create if missing).
 
