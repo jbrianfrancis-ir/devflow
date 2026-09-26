@@ -1,6 +1,7 @@
 ---
 name: flow-release
 description: Deploy to production on Azure, gated on UAT sign-off matching the current commit. Use after /flow-uat sign-off.
+disable-model-invocation: true
 ---
 
 # flow-release
