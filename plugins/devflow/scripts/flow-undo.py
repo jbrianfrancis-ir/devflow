@@ -159,20 +159,14 @@ def preview(repo, to):
 
 
 def apply(repo, to, expected_head):
-    rc, head, err = git(repo, "rev-parse", "--verify", "HEAD")
-    if rc != 0:
-        return {"applied": False, "refused": f"HEAD does not resolve: {err}"}
+    fresh = preview(repo, to)
+    head = fresh["head"]
     if head != expected_head:
         return {"applied": False, "refused": f"HEAD is {head}, expected {expected_head}; "
                                              "HEAD moved since the preview — preview again"}
-    fresh = preview(repo, to)
     if fresh["blocked"] or not fresh["apply"]:
         return {"applied": False, "refused": "a fresh preview is blocked", "preview": fresh}
-    params = fresh["apply"]
-    if params["expected_head"] != expected_head:
-        return {"applied": False, "refused": "HEAD moved during the preview — preview again",
-                "preview": fresh}
-    root, target = params["repo"], params["to"]
+    root, target = fresh["apply"]["repo"], fresh["apply"]["to"]
 
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     backup = BACKUP_PREFIX + stamp
