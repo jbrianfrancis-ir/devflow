@@ -32,6 +32,7 @@ Reference pages for DevFlow that go beyond what the [repo README](../README.md) 
 ## Background
 
 - [acknowledgements.md](acknowledgements.md) — which external projects DevFlow's concepts are derived from.
+- [non-goals.md](non-goals.md) — standing rules and features DevFlow deliberately does not adopt, with the reason for each.
 
 ## Integration contracts
 
