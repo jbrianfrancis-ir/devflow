@@ -175,6 +175,13 @@ class LeakCheckTest(LandTestCase):
         self.assertIn("HEAD moved", report["findings"][0]["detail"])
 
 
+    def test_detects_a_switched_branch(self):
+        self.fx.git(self.fx.repo, "switch", "-q", "-c", "elsewhere")
+        code, report = self.fx.run("leak-check")
+        self.assertEqual(code, 1)
+        self.assertIn("branch moved", report["findings"][0]["detail"])
+
+
 class LandTest(LandTestCase):
     def test_happy_path_lands_serially_and_cleans_up_without_pushing(self):
         origin_before = self.fx.origin_refs()
