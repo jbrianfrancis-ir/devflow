@@ -1,6 +1,7 @@
 ---
 name: flow-workstream
 description: Manage parallel workstreams as git worktrees - new, list, drop. Args - new <slug> [--phase N], list, drop <slug>. Use to run more than one phase or feature at once without two agents fighting over one checkout.
+disable-model-invocation: true
 ---
 
 # flow-workstream

@@ -1,6 +1,7 @@
 ---
 name: flow-hooks
 description: Scaffold deterministic PreToolUse hooks (base-branch guard, protected-paths guard, secret-scan guard) into .claude/settings.json, hardening three of DevFlow's instruction-only hard rules so they hold even if an agent ignores them. Args - optional --only base,secret,paths to install a subset; default installs all three. No .planning/ required.
+disable-model-invocation: true
 ---
 
 # flow-hooks

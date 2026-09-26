@@ -57,6 +57,14 @@ One checkout runs **one** stream of Flow work. Two phases in flight in the same 
 
 Everything else is unchanged: never commit to the base branch, secret-scan every commit and push, one PR per workstream.
 
+## Executor worktrees and landing
+`/flow-execute` runs each same-wave executor in its own **task worktree** on `flow-task/<NN-MM>`, cut at the wave base, and lands the results onto the feature branch through `scripts/flow-land.py` only — spec in `skills/flow-execute/SKILL.md` step 2. The rules that bind every caller:
+
+- **Local and serial.** Landing cherry-picks one plan at a time onto the checked-out feature branch in the main checkout. It never pushes, fetches, or touches the base branch (`git.base`, `main`, `dev` are refused outright), and never forces anything. A conflict is aborted, never resolved.
+- **Location.** Claude native: the host's own `.claude/worktrees/` inside the repo, which must be gitignored. Everyone else: `worktrees.dir` from `config.json`, else a sibling `../<repo>-tasks`.
+- **Cleanup is part of landing.** `land` removes the worktree and deletes the task branch — with `-D`, which is safe only because `git cherry` has just proven every task commit is on the feature branch. A leftover task worktree, `flow-task/*` branch, or other branch created during the wave fails `wave-end`: a failure, never a warning.
+- **Relation to workstreams.** A `/flow-workstream` worktree is long-lived, one per stream, and dropped only by a human. A task worktree lives for one wave inside a stream. Don't create or drop workstreams in the same repo while a wave is in flight: `wave-end` counts every branch and worktree the wave did not start with. Discarding a task branch that holds unlanded commits is the same human gate as `/flow-workstream drop`.
+
 ## Secret scan (fail-closed)
 Run before **every commit** on the staged diff (`git diff --cached -U0`), before **every push** on the outgoing diff (`git diff <base>...HEAD -U0`), and over **every outbound consult bundle** before it leaves the machine (`/flow-oracle` — see `oracle.md`). One canonical check — write this pattern to a temp file (avoids shell-quoting errors) and `grep -inEf <pattern-file>` the diff's added lines:
 ```
@@ -72,7 +80,7 @@ Every guard in DevFlow has three outcomes, not two: **pass**, **fail**, and **co
 
 The rule: when a check cannot be performed, report it as **not run** and treat it as attention-needed — never as clean, and never silently. In code, that means a distinct sentinel (`None`, not `""` or `0`) that callers must handle. In a skill, it means saying "could not verify X" in the report rather than omitting X. The secret scan is the strictest case and stays as specified above: unable to scan is a `GATE`, exactly like a hit, because the outgoing diff is unproven either way.
 
-This applies to the whole guard family: the secret scan, `/flow-execute`'s fan-in and scope-conformance checks, worktree pre-flight in `/flow-workstream`, check state in `/flow-ci`, and the fleet scanner's git reads (`GIT-UNKNOWN`). A guard reporting success it did not establish is a bug, not a rough edge.
+This applies to the whole guard family: the secret scan, `/flow-execute`'s fan-in and scope-conformance checks, the landing helper (`flow-land.py`, whose `could-not-check` finding is never a pass), worktree pre-flight in `/flow-workstream`, check state in `/flow-ci`, and the fleet scanner's git reads (`GIT-UNKNOWN`). A guard reporting success it did not establish is a bug, not a rough edge.
 
 ## Credential modes & push canary
 - **Default rail**: the session's platform-provided git credentials (Claude Code's GitHub rail in cloud sessions; local `gh auth`). Sufficient for the whole DevFlow workflow; the set of repos granted to the session is the security boundary.

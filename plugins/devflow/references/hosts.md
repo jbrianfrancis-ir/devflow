@@ -19,6 +19,11 @@ before calling a tool.
 - Invoke skills with the host mechanism. Claude exposes `/flow-*`; Codex exposes
   `$flow-*`. Durable state may retain `/flow-*` for compatibility, but render
   the appropriate prefix when telling the user what to run.
+- Explicit-only skills (`autonomy.md` → Explicit-only skills) carry
+  `disable-model-invocation: true`. Claude honors it for plugin skills: the
+  Skill tool refuses them and the user's slash command still runs them. Codex
+  equivalent (`agents/openai.yaml` with `policy.allow_implicit_invocation:
+  false`): unverified for plugin-installed skills, not added.
 - Claude Artifact publishing is an enhancement. Without an Artifact tool, write
   the review page beneath `.planning/reviews/` and return its path.
 - `/goal`, `/loop`, and `/clear` are optional Claude conveniences. In Codex,
@@ -38,8 +43,8 @@ current host and must not start a second CLI.
 
   ```
   python3 {devflow_root}/scripts/flow-agent.py --host <claude|codex> \
-      [--provider native|claude|codex] --role <role> --repo <path> \
-      --prompt-file <path> [--timeout 1800]
+      [--provider native|claude|codex] --role <role> [--effort <level>] \
+      --repo <path> --prompt-file <path> [--timeout 1800]
   ```
 
   `--host` is the CLI you are calling from and is always required. Omit
@@ -48,6 +53,11 @@ current host and must not start a second CLI.
   to run when the resolution lands on the host, so a native role can never
   start a second CLI. Independent wrappers may run concurrently; the
   orchestrator waits for and counts every result.
+
+An executor spawned by `/flow-execute` runs in a task worktree, so its `--repo`
+is that worktree, never the main checkout. The codex peer's `--cd`/`--sandbox`
+then confines its writes to the worktree; the claude peer has no such flag, so
+there the landing helper's leak check is what enforces it.
 
 Read-only roles: adjudicator, mapper, researcher, plan-checker, plan-reviewer, reviewer, triager, verifier. Write
 roles: planner, executor, migrator, consultant, prober.
@@ -104,6 +114,33 @@ Cross-provider is different: model names are provider-specific, so the peer's
 model is never read from config. Pass `--model` to the bridge only when you
 know the name is valid for that provider; omitted, the peer CLI picks its own
 default.
+
+## Effort
+
+DevFlow ships no effort for any role: no agent file declares one, and without a
+project setting the host's own default applies. A project that wants per-role
+effort sets `agents.effort.<role>` in `.planning/config.json`, with the same
+role names as `agents.models`. Absent or `"inherit"` passes no effort at all.
+Example only, not a recommendation:
+
+```json
+"agents": { "effort": { "reviewer": "high", "executor": "inherit" } }
+```
+
+- Cross-provider: the bridge resolves `--effort`, then `agents.effort.<role>`,
+  then none, and checks the value before starting any peer. The claude peer
+  gets `claude --effort <level>` for the levels in `flow-agent.py`'s
+  `EFFORT_LEVELS`; any other value fails the dispatch. That check is the only
+  guard: the claude CLI itself warns on an unknown level and runs at its
+  default. The codex peer refuses every effort ("effort for codex: unverified,
+  not supported yet") because Codex types reasoning effort as whatever the
+  model advertises, so there is no fixed set to check against. Leave the key
+  unset or `inherit` for roles dispatched to codex.
+- Native: **not applied**. Claude Code agent definitions accept an `effort`
+  field, but DevFlow's agent files are shipped content that cannot carry a
+  project's value, and the Agent tool takes no per-call effort. Native roles
+  run at the session's effort (`claude --effort <level>` at launch). Codex
+  native per-role effort is unverified and likewise not applied.
 
 The host remains responsible for graph ordering, disjoint-write checks, fan-in,
 checkpoints, secret scans, commits and pushes, and independent verification.

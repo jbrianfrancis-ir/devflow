@@ -47,7 +47,7 @@ class FlowAgentTests(unittest.TestCase):
         (planning / "config.json").write_text(
             json.dumps({"agents": {"provider": provider}}), encoding="utf-8")
 
-    def run_bridge(self, provider, role, extra_env=None, host=None, stdin=""):
+    def run_bridge(self, provider, role, extra_env=None, host=None, stdin="", args=()):
         env = os.environ.copy()
         env["PATH"] = str(self.bin) + os.pathsep + env.get("PATH", "")
         env.update(extra_env or {})
@@ -57,6 +57,7 @@ class FlowAgentTests(unittest.TestCase):
                    "--repo", str(self.repo), "--prompt-file", str(self.prompt)]
         if provider is not None:
             command += ["--provider", provider]
+        command += list(args)
         run = subprocess.run(command, text=True, capture_output=True, env=env, input=stdin)
         return run, json.loads(run.stdout)
 
@@ -196,6 +197,98 @@ class FlowAgentTests(unittest.TestCase):
         run, value = self.run_bridge("codex", "reviewer", stdin="leaked data\n")
         self.assertEqual(0, run.returncode)
         self.assertEqual(GOOD, value)
+
+    def recording_peer(self, name):
+        """Fake peer that writes its argv, one per line, then returns a valid result."""
+        self.argv_log = self.base / "argv.txt"
+        result = json.dumps(GOOD if name == "codex" else {"structured_output": GOOD})
+        self.fake(name, f'for a in "$@"; do printf \'%s\\n\' "$a"; done > "{self.argv_log}"\n'
+                        f"printf '%s' '{result}'")
+
+    def peer_argv(self):
+        return self.argv_log.read_text(encoding="utf-8").split("\n")
+
+    def effort_config(self, effort):
+        planning = self.repo / ".planning"
+        planning.mkdir(exist_ok=True)
+        (planning / "config.json").write_text(
+            json.dumps({"agents": {"effort": effort}}), encoding="utf-8")
+
+    def test_no_effort_configured_passes_no_flag(self):
+        self.recording_peer("claude")
+        run, value = self.run_bridge("claude", "reviewer")
+        self.assertEqual(0, run.returncode, value)
+        self.assertNotIn("--effort", self.peer_argv())
+
+    def test_claude_effort_flag_reaches_the_peer(self):
+        self.recording_peer("claude")
+        run, value = self.run_bridge("claude", "executor", args=["--effort", "xhigh"])
+        self.assertEqual(0, run.returncode, value)
+        argv = self.peer_argv()
+        self.assertEqual("xhigh", argv[argv.index("--effort") + 1])
+
+    def test_effort_stays_before_the_prompt(self):
+        schema = self.base / "schema.json"
+        plain = MODULE.build_command("claude", "executor", self.repo, "task", schema)
+        tiered = MODULE.build_command("claude", "executor", self.repo, "task", schema,
+                                      effort="low")
+        self.assertEqual("low", tiered[tiered.index("--effort") + 1])
+        self.assertEqual(plain[-1], tiered[-1])
+
+    def test_project_config_supplies_role_effort(self):
+        self.effort_config({"reviewer": "low", "executor": "max"})
+        self.recording_peer("claude")
+        run, value = self.run_bridge("claude", "reviewer")
+        self.assertEqual(0, run.returncode, value)
+        argv = self.peer_argv()
+        self.assertEqual("low", argv[argv.index("--effort") + 1])
+
+    def test_effort_flag_overrides_project_config(self):
+        self.effort_config({"reviewer": "low"})
+        self.recording_peer("claude")
+        run, value = self.run_bridge("claude", "reviewer", args=["--effort", "high"])
+        self.assertEqual(0, run.returncode, value)
+        argv = self.peer_argv()
+        self.assertEqual("high", argv[argv.index("--effort") + 1])
+
+    def test_inherit_and_other_roles_stay_neutral(self):
+        self.effort_config({"reviewer": "inherit", "executor": "max"})
+        self.recording_peer("claude")
+        run, value = self.run_bridge("claude", "reviewer")
+        self.assertEqual(0, run.returncode, value)
+        self.assertNotIn("--effort", self.peer_argv())
+        run, value = self.run_bridge("claude", "verifier", args=["--effort", "inherit"])
+        self.assertEqual(0, run.returncode, value)
+        self.assertNotIn("--effort", self.peer_argv())
+
+    def test_unsupported_effort_fails_before_dispatch(self):
+        marker = self.base / "spawned"
+        self.fake("claude", f"touch '{marker}'")
+        for args, config in ((["--effort", "turbo"], None), ([], {"reviewer": "extreme"}),
+                             ([], {"reviewer": 3})):
+            if config is not None:
+                self.effort_config(config)
+            run, value = self.run_bridge("claude", "reviewer", args=args)
+            self.assertEqual(2, run.returncode)
+            self.assertIn("unsupported effort for claude", value["error"])
+            self.assertFalse(marker.exists(), "peer spawned despite an unsupported effort")
+
+    def test_codex_effort_is_refused_before_dispatch(self):
+        marker = self.base / "spawned"
+        self.fake("codex", f"touch '{marker}'")
+        for args, config in ((["--effort", "high"], None), ([], {"reviewer": "high"})):
+            if config is not None:
+                self.effort_config(config)
+            run, value = self.run_bridge("codex", "reviewer", args=args)
+            self.assertEqual(2, run.returncode)
+            self.assertEqual("effort for codex: unverified, not supported yet", value["error"])
+            self.assertFalse(marker.exists(), "codex spawned despite an unverified effort")
+
+    def test_shipped_agents_declare_no_effort(self):
+        # Neutral defaults: effort is project-owned (agents.effort.<role>), never shipped.
+        for agent in sorted((ROOT / "plugins/devflow/agents").glob("flow-*.md")):
+            frontmatter = agent.read_text(encoding="utf-8").split("---")[1]
+            self.assertNotRegex(frontmatter, r"(?m)^effort\s*:", agent.name)
 
 
 @unittest.skipUnless(os.environ.get("DEVFLOW_SMOKE") == "1",

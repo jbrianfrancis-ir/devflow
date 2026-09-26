@@ -24,6 +24,7 @@ Rules:
 - **Layout and versions** — the DevFlow conventions that bind a planner, restated here in full so you never need to read `conventions.md`: task `<files>` paths live under `src/` for code and `tests/` for tests, off the repo root, unless ARCHITECTURE.md sets a different layout (it wins). Aspire within-major version bumps are allowed automatically; a major bump is a `checkpoint:decision`.
 - Match MAP.md conventions (layout, naming, error handling, test patterns) so executor output fits the codebase. **MAP.md is also your codebase read.** Past it, look up only what a task's `<action>` has to name — a targeted Grep/Glob for the specific symbol, file, or pattern. Never enumerate `src/` or `tests/`. If MAP.md is absent or too stale to plan against, say so in your return line and recommend `/flow-map`; surveying the tree by hand is a mapper's job done at a planner's tier.
 - List external setup the human must do (accounts, secrets) in `user_setup` frontmatter.
+- Declare every file a plan creates in its `files_new` (and in `files_modified`); the plan lint blocks any `files_modified` or `<context>` path that is neither at HEAD nor declared new by this plan or one it depends on.
 
 Modes (your prompt says which):
 - **Gap mode**: plan only the gaps listed from VERIFICATION.md — smallest change that closes each gap, no refactors.

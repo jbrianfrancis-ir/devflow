@@ -38,3 +38,9 @@ is the released plugin, not this working tree. When testing a change to skill or
 content, load it from the repo-root marketplace manifest (`.claude-plugin/marketplace.json`
 for Claude, `.agents/plugins/marketplace.json` for Codex) rather than assuming the
 installed copy reflects your edits.
+
+A PR that touches `plugins/devflow/**` includes the host smoke receipt from
+`.github/pull_request_template.md`: from a throwaway fixture directory, load this working tree
+for one session only with `claude --plugin-dir <checkout>/plugins/devflow`, run one skill (for
+example `/devflow:flow-status`), and paste the key output line. A host not run is recorded
+as `NOT RUN — <reason>`. Details: `docs/installation.md`.
