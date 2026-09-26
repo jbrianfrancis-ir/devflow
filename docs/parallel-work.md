@@ -7,3 +7,5 @@ The bottleneck in agent-assisted work isn't decomposition — it's losing track 
 
 ## Workstreams
 `/flow-workstream new <slug>` cuts a git worktree on its own `flow/<slug>` branch so two phases run side by side without fighting over one checkout. It refuses streams that share a hidden edge (migration chain, lockfile, generated output, shared dev database), assigns a port offset so both apps can run, and names the untracked local files the new tree lacks. `.planning/` reconciliation at merge — which artifacts are branch-local, which merge as unions, which are single-writer — is specified in [`conventions.md`](../plugins/devflow/references/conventions.md) → Parallel workstreams.
+
+Inside one stream, `/flow-execute` also gives each same-wave executor a short-lived worktree of its own and lands them serially; how those differ from workstream worktrees is in [`conventions.md`](../plugins/devflow/references/conventions.md) → Executor worktrees and landing.

@@ -49,6 +49,11 @@ current host and must not start a second CLI.
   start a second CLI. Independent wrappers may run concurrently; the
   orchestrator waits for and counts every result.
 
+An executor spawned by `/flow-execute` runs in a task worktree, so its `--repo`
+is that worktree, never the main checkout. The codex peer's `--cd`/`--sandbox`
+then confines its writes to the worktree; the claude peer has no such flag, so
+there the landing helper's leak check is what enforces it.
+
 Read-only roles: adjudicator, mapper, researcher, plan-checker, plan-reviewer, reviewer, triager, verifier. Write
 roles: planner, executor, migrator, consultant, prober.
 
