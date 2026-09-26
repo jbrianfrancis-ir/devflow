@@ -235,8 +235,8 @@ class ExplicitOnlyTest(unittest.TestCase):
         skill.write_text(skill.read_text().replace("disable-model-invocation: true\n", ""))
         out = subprocess.run(script, capture_output=True, text=True)
         self.assertEqual(out.returncode, 1)
-        self.assertIn("flow-undo", out.stdout)
-        self.assertIn("disable-model-invocation", out.stdout)
+        self.assertIn("flow-undo/SKILL.md: explicit-only skill must set "
+                      "disable-model-invocation: true", out.stdout)
 
 
 if __name__ == "__main__":
