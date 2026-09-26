@@ -72,6 +72,7 @@ the complete gate list: [docs/autonomy.md](docs/autonomy.md).
 | ad-hoc | `/flow-audit` | Read-only cross-artifact consistency check — coverage both ways, drift, open clarifications, principle conflicts |
 | parallel | `/flow-workstream` | Run phases side by side — one git worktree per stream (`new`, `list`, `drop`) |
 | ad-hoc | `/flow-todo <idea>` | Capture without derailing |
+| ad-hoc | `/flow-undo <sha>` | Explicit-only undo of unpublished commits on a feature branch — preview, human confirmation, apply with a backup ref; refuses published work, merges, and the base branch |
 | policy | `/flow-test-policy` | Test-layer policy for agent work — integration/behavior as the feedback driver, thin units for pure logic or regression pins only, no coverage theater and no classic unit-TDD by default ([policy](plugins/devflow/references/test-policy.md)) |
 | memory | `/flow-map` | Codebase memory for planners/executors (`--docs`, `--refresh`) |
 | design | `/flow-design` | Link + pull a Claude Design (claude.ai/design) design system as hard UI constraints (`--refresh`) |

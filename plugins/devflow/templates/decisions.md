@@ -12,7 +12,7 @@ that no longer exists. One entry per human gate in autonomy.md's list. -->
 <!-- Entry format. `gate` is the gate type from autonomy.md (checkpoint-decision,
 checkpoint-human-action, package-verification, secret-scan-clearance, consult-send,
 pr-upstream, review-refute, uat-acceptance, release-confirmation, tag-push,
-worktree-drop). `by` is the git identity that answered — `git config user.name` and
+worktree-drop, undo-apply). `by` is the git identity that answered — `git config user.name` and
 user.email — never a guess at who was at the keyboard. -->
 
 ## {YYYY-MM-DD HH:MM} · {gate}

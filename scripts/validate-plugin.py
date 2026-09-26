@@ -80,8 +80,8 @@ if codex_market:
 
 skills = sorted(glob.glob(os.path.join(PLUGIN, "skills", "*", "SKILL.md")))
 agents = sorted(glob.glob(os.path.join(PLUGIN, "agents", "*.md")))
-if len(skills) != 25:
-    err(f"expected 25 skills, found {len(skills)}")
+if len(skills) != 26:
+    err(f"expected 26 skills, found {len(skills)}")
 if len(agents) != 13:
     err(f"expected 13 Claude role agents, found {len(agents)}")
 for path in skills:
@@ -90,6 +90,11 @@ for path in skills:
     rel = os.path.relpath(path, ROOT)
     if not fm or fm.get("name") != name or not fm.get("description"):
         err(f"{rel}: invalid name/description frontmatter")
+# Undo is destructive git and a human gate every time, so the model must never pick it on
+# its own: pin the host-level explicit-only switch rather than trusting the prose.
+undo = os.path.join(PLUGIN, "skills", "flow-undo", "SKILL.md")
+if ((frontmatter(undo) if os.path.isfile(undo) else None) or {}).get("disable-model-invocation") != "true":
+    err("plugins/devflow/skills/flow-undo/SKILL.md: must set disable-model-invocation: true")
 MODELS = {"opus", "sonnet", "haiku", "inherit"}
 for path in agents:
     name = os.path.splitext(os.path.basename(path))[0]
