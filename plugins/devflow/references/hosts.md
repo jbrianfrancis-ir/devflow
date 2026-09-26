@@ -43,8 +43,8 @@ current host and must not start a second CLI.
 
   ```
   python3 {devflow_root}/scripts/flow-agent.py --host <claude|codex> \
-      [--provider native|claude|codex] --role <role> --repo <path> \
-      --prompt-file <path> [--timeout 1800]
+      [--provider native|claude|codex] --role <role> [--effort <level>] \
+      --repo <path> --prompt-file <path> [--timeout 1800]
   ```
 
   `--host` is the CLI you are calling from and is always required. Omit
@@ -109,6 +109,33 @@ Cross-provider is different: model names are provider-specific, so the peer's
 model is never read from config. Pass `--model` to the bridge only when you
 know the name is valid for that provider; omitted, the peer CLI picks its own
 default.
+
+## Effort
+
+DevFlow ships no effort for any role: no agent file declares one, and without a
+project setting the host's own default applies. A project that wants per-role
+effort sets `agents.effort.<role>` in `.planning/config.json`, with the same
+role names as `agents.models`. Absent or `"inherit"` passes no effort at all.
+Example only, not a recommendation:
+
+```json
+"agents": { "effort": { "reviewer": "high", "executor": "inherit" } }
+```
+
+- Cross-provider: the bridge resolves `--effort`, then `agents.effort.<role>`,
+  then none, and checks the value before starting any peer. The claude peer
+  gets `claude --effort <level>` for the levels in `flow-agent.py`'s
+  `EFFORT_LEVELS`; any other value fails the dispatch. That check is the only
+  guard: the claude CLI itself warns on an unknown level and runs at its
+  default. The codex peer refuses every effort ("effort for codex: unverified,
+  not supported yet") because Codex types reasoning effort as whatever the
+  model advertises, so there is no fixed set to check against. Leave the key
+  unset or `inherit` for roles dispatched to codex.
+- Native: **not applied**. Claude Code agent definitions accept an `effort`
+  field, but DevFlow's agent files are shipped content that cannot carry a
+  project's value, and the Agent tool takes no per-call effort. Native roles
+  run at the session's effort (`claude --effort <level>` at launch). Codex
+  native per-role effort is unverified and likewise not applied.
 
 The host remains responsible for graph ordering, disjoint-write checks, fan-in,
 checkpoints, secret scans, commits and pushes, and independent verification.

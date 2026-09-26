@@ -29,6 +29,12 @@ WRITE_ROLES = {"planner", "executor", "migrator", "consultant", "prober"}
 # cannot build anything.
 SCRATCH_ROLES = {"prober"}
 ALL_ROLES = READ_ONLY_ROLES | WRITE_ROLES
+# Effort levels each peer CLI accepts, checked before any dispatch. claude: `claude --help`
+# on 2.1.283 lists `--effort <level>` as low, medium, high, xhigh, max. codex is absent on
+# purpose: its config schema types reasoning effort as whatever value the model advertises,
+# with no fixed set this bridge could check, so an effort for codex is refused rather than
+# guessed. No role has a default effort — absent or "inherit" passes no flag at all.
+EFFORT_LEVELS = {"claude": {"low", "medium", "high", "xhigh", "max"}}
 FIELDS = {"status", "summary", "artifacts", "completed", "checkpoint", "error"}
 RESULT_SCHEMA = {
     "type": "object", "additionalProperties": False,
@@ -70,6 +76,29 @@ def configured_provider(repo: Path) -> str | None:
     return provider if isinstance(provider, str) else None
 
 
+def configured_effort(repo: Path, role: str) -> object:
+    """Read `agents.effort.<role>` from the project config; absent or unreadable is None."""
+    try:
+        config = json.loads((repo / ".planning" / "config.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    agents = config.get("agents") if isinstance(config, dict) else None
+    effort = agents.get("effort") if isinstance(agents, dict) else None
+    return effort.get(role) if isinstance(effort, dict) else None
+
+
+def resolve_effort(requested: str | None, configured: object, provider: str) -> str | None:
+    """Apply command > project > none precedence; an unsupported value is an error."""
+    selected = requested if requested is not None else configured
+    if selected is None or selected == "inherit":
+        return None
+    if provider == "codex":
+        raise ValueError("effort for codex: unverified, not supported yet")
+    if not isinstance(selected, str) or selected not in EFFORT_LEVELS.get(provider, set()):
+        raise ValueError(f"unsupported effort for {provider}: {selected!r}")
+    return selected
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", choices=("claude", "codex"), required=True,
@@ -79,6 +108,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--role", choices=sorted(ALL_ROLES), required=True)
     parser.add_argument("--model", help="model for the peer CLI; names are "
                                         "provider-specific, so pass one valid for --provider")
+    parser.add_argument("--effort", help="effort level for the peer CLI; omit to fall back "
+                                         "to agents.effort.<role>, then the CLI's own default")
     parser.add_argument("--repo", required=True)
     parser.add_argument("--prompt-file", required=True)
     parser.add_argument("--timeout", type=int, default=1800)
@@ -103,7 +134,7 @@ def validate_result(value: object) -> dict | None:
 
 def build_command(provider: str, role: str, repo: Path, prompt: str,
                   schema_path: Path, model: str | None = None,
-                  workdir: Path | None = None) -> list[str]:
+                  workdir: Path | None = None, effort: str | None = None) -> list[str]:
     access = "read-only" if role in READ_ONLY_ROLES else "workspace-write"
     # A scratch role's `root` becomes cwd for both peers. The codex branch below additionally
     # sandboxes writes to it with `--sandbox`/`--cd` — real, OS-enforced isolation. The claude
@@ -129,7 +160,8 @@ def build_command(provider: str, role: str, repo: Path, prompt: str,
     permission = "plan" if access == "read-only" else "acceptEdits"
     return (["claude", "-p", "--permission-mode", permission, "--output-format", "json",
              "--json-schema", json.dumps(RESULT_SCHEMA)]
-            + (["--model", model] if model else []) + [instruction])
+            + (["--model", model] if model else [])
+            + (["--effort", effort] if effort else []) + [instruction])
 
 
 def extract_result(provider: str, stdout: str) -> dict | None:
@@ -162,6 +194,10 @@ def main() -> int:
         # hosts.md: native means the current host and must never start a second CLI.
         return emit(failure(f"native provider resolved to the {args.host} host; "
                             "spawn an in-host agent instead of the bridge"), 2)
+    try:
+        effort = resolve_effort(args.effort, configured_effort(repo, args.role), provider)
+    except ValueError as exc:
+        return emit(failure(str(exc)), 2)
     if shutil.which(provider) is None:
         return emit(failure(f"{provider} CLI is not installed or not on PATH"), 2)
 
@@ -175,7 +211,7 @@ def main() -> int:
             scratch.mkdir()
         command = build_command(provider, args.role, repo,
                                 prompt_path.read_text(encoding="utf-8"), schema_path,
-                                args.model, scratch)
+                                args.model, scratch, effort)
         try:
             # stdin must be closed: codex exec reads a non-TTY stdin and would
             # otherwise block on an inherited pipe until --timeout expires.
