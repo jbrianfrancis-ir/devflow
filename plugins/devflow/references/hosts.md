@@ -19,6 +19,11 @@ before calling a tool.
 - Invoke skills with the host mechanism. Claude exposes `/flow-*`; Codex exposes
   `$flow-*`. Durable state may retain `/flow-*` for compatibility, but render
   the appropriate prefix when telling the user what to run.
+- Explicit-only skills (`autonomy.md` → Explicit-only skills) carry
+  `disable-model-invocation: true`. Claude honors it for plugin skills: the
+  Skill tool refuses them and the user's slash command still runs them. Codex
+  equivalent (`agents/openai.yaml` with `policy.allow_implicit_invocation:
+  false`): unverified for plugin-installed skills, not added.
 - Claude Artifact publishing is an enhancement. Without an Artifact tool, write
   the review page beneath `.planning/reviews/` and return its path.
 - `/goal`, `/loop`, and `/clear` are optional Claude conveniences. In Codex,

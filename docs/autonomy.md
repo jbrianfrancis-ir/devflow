@@ -46,7 +46,9 @@ it. A driver may surface options; it may never pick one.
 A fixed list of gates never auto-proceeds, even under `/goal` or `/loop` — they span checkpoint decisions, secret-scan hits, anything outward-facing, and anything destructive in git. Enumerating them here would go stale the moment the list changes, and it already had. The authoritative gate list and gate-record
 fields are specified in [`autonomy.md`](../plugins/devflow/references/autonomy.md); checkpoint types
 (decision / human-action / human-verify) in
-[`checkpoints.md`](../plugins/devflow/references/checkpoints.md).
+[`checkpoints.md`](../plugins/devflow/references/checkpoints.md). Which skills only a human can
+start, and why the ones `/flow-next` chains to stay model-invocable, is in the same file under
+Explicit-only skills.
 
 ## Session hygiene (`/clear`)
 Unlike GSD, DevFlow does **not** need a `/clear` between every step. Each command loads ~1–5k tokens
