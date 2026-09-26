@@ -1,17 +1,17 @@
 ---
 name: flow-audit
-description: Read-only cross-artifact consistency check across REQUIREMENTS, ROADMAP, plans, SUMMARYs, VERIFICATION and STATE - coverage both directions, drift, unmeasurable criteria, open clarifications, principle conflicts. Use before executing a phase, before /flow-harden, or when the planning docs feel out of sync. --export assembles an agent-activity evidence pack (who had access, what changed, who approved) for a vendor or compliance review.
+description: Read-only cross-artifact consistency check across REQUIREMENTS, ROADMAP, plans, SUMMARYs, VERIFICATION and STATE - coverage both directions, drift, unmeasurable criteria, open clarifications, principle conflicts. Use before executing a phase, before /flow-harden, or when the planning docs feel out of sync. --export assembles an agent-activity evidence pack (who had access, what changed, who approved) for a vendor or compliance review. --docs checks README/docs claims (paths, scripts, package scripts, make targets, env names) against the tree - use before a docs-only PR.
 ---
 
 # flow-audit
 
 **Host setup**: resolve `devflow_root` and follow `{devflow_root}/references/hosts.md` before doing anything else.
 
-Context rules: read `.planning/STATE.md` first. Everything here is small and capped — read REQUIREMENTS.md, ROADMAP.md, ARCHITECTURE.md and STATE.md whole, and phase artifacts (`*-PLAN.md`, `*-SUMMARY.md`, `VERIFICATION.md`) **frontmatter only**. Never read source; this audits the documents against each other, not the code (`/flow-verify` proves code, `/flow-harden` audits production-readiness).
+Context rules: read `.planning/STATE.md` first. Everything here is small and capped — read REQUIREMENTS.md, ROADMAP.md, ARCHITECTURE.md and STATE.md whole, and phase artifacts (`*-PLAN.md`, `*-SUMMARY.md`, `VERIFICATION.md`) **frontmatter only**. Never read source; this audits the documents against each other, not the code (`/flow-verify` proves code, `/flow-harden` audits production-readiness). `--docs` is the one mode that reads the tree, and only to check what the docs claim about it.
 
 **STRICTLY READ-ONLY.** Change nothing — not a status, not a typo, not a marker. DevFlow spreads project knowledge across artifacts on purpose, and an auditor that edits while it reads destroys the evidence of what disagreed with what. Findings end in a report and a recommended route; the human decides.
 
-**Pre-flight**: `.planning/` with REQUIREMENTS.md and ROADMAP.md. Missing → point to `/flow-new`. Scope defaults to the whole project; `N` limits it to phase N's artifacts plus the project-level files they reference. (`--export` needs only `.planning/` and a git checkout — it reports on what exists rather than checking it.)
+**Pre-flight**: `.planning/` with REQUIREMENTS.md and ROADMAP.md. Missing → point to `/flow-new`. Scope defaults to the whole project; `N` limits it to phase N's artifacts plus the project-level files they reference. (`--export` needs only `.planning/` and a git checkout — it reports on what exists rather than checking it. `--docs` needs only a git checkout.)
 
 ## Passes
 Run all of them; report nothing you cannot point at with a file and a line or row.
@@ -38,6 +38,19 @@ One table — `ID | severity | pass | where (file:line/row) | finding | fix` —
 Clean is a real result: say "no findings" plainly rather than manufacturing LOWs to look thorough.
 
 Write nothing to `.planning/` — not even a JOURNAL line (this run changed nothing, and the journal records changes). The report lives in the transcript.
+
+## --docs (doc-vs-code claims)
+
+`--docs [paths…]` is a **separate mode**: it does not run the passes above, and it needs no `.planning/`. It checks what the project's Markdown claims about the tree — the claims a reader acts on and a stale doc gets wrong. Default scope: `README.md`, `docs/**/*.md`, `AGENTS.md`, `CLAUDE.md` and `.planning/ARCHITECTURE.md`, each if present; paths narrow it. **Strictly read-only**, like the default mode: it changes nothing, including the docs it finds wrong.
+
+1. **Mechanical claims** — run `python3 {devflow_root}/scripts/flow-docs-audit.py [paths…]` from the repo root. It emits JSON: every claim with `file`/`line`, a rule, and a status of `verified`, `contradicted`, or `could-not-check`. Rules: **D1** repo-relative paths in backticks or links exist; **D2** scripts invoked in shell fences exist; **D3** `npm run`/`pnpm`/`yarn` scripts are keys in the nearest `package.json`; **D4** `make` targets are in the Makefile; **D5** env var names in an environment/config table are referenced in some non-doc file (names only; `.env*` is never opened). Exit 2 means it could not run — report that, never a clean audit.
+2. **Behaviour claims** — statements the script cannot parse ("`--auto` skips confirmations", "retries three times"). Check each one you report by pointing at the file:line that makes it true or false. A claim you cannot point at is `could-not-check`, never "fine" — and never go read a whole codebase to settle one.
+
+Take `could-not-check` from the script as it stands: a missing `package.json` or an unreadable file is not evidence the claim holds.
+
+**Severity**: a contradicted command or path in a README quick-start / install / setup / usage section is **HIGH** (the script marks these `severity: HIGH`); every other contradiction is **MEDIUM**; `could-not-check` is listed, not graded. Report in the same table shape as above with `pass` = the rule (`D1`–`D5`, or `behaviour`), worst first, then the script's `summary` counts verbatim so the reader sees how much was checked. **Offer** to fix the docs and wait for an explicit yes. Write nothing to `.planning/`.
+
+Status line: clean → `FLOW: CONTINUE | docs audit clean: N claims verified | next: {the command STATE points to}`; any HIGH → `FLOW: GATE | docs audit: N high, M medium | next: fix the docs or the code they describe`; only MEDIUM → `CONTINUE` naming them as known debt.
 
 ## --export (evidence pack)
 

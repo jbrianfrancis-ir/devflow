@@ -69,7 +69,7 @@ the complete gate list: [docs/autonomy.md](docs/autonomy.md).
 | ad-hoc | `/flow-debug <symptom>` | Hypothesis-driven debugging with session-resumable state |
 | ad-hoc | `/flow-oracle <question>` | Second opinion from an external model — curated context bundle, `--panel` cross-check, resumable consults |
 | ad-hoc | `/flow-status` | Position + next command (`--all` for the fleet board, `--pause` to stop cleanly, `--reset-run` to re-arm the loop rails) |
-| ad-hoc | `/flow-audit` | Read-only cross-artifact consistency check — coverage both ways, drift, open clarifications, principle conflicts |
+| ad-hoc | `/flow-audit` | Read-only cross-artifact consistency check — coverage both ways, drift, open clarifications, principle conflicts (`--docs` checks README/docs claims against the tree) |
 | parallel | `/flow-workstream` | Run phases side by side — one git worktree per stream (`new`, `list`, `drop`) |
 | ad-hoc | `/flow-todo <idea>` | Capture without derailing |
 | policy | `/flow-test-policy` | Test-layer policy for agent work — integration/behavior as the feedback driver, thin units for pure logic or regression pins only, no coverage theater and no classic unit-TDD by default ([policy](plugins/devflow/references/test-policy.md)) |
