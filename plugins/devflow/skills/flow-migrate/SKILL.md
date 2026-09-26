@@ -1,6 +1,7 @@
 ---
 name: flow-migrate
 description: Convert a GSD (open-gsd/gsd-core) project's .planning/ to DevFlow format - history and context preserved, originals archived. Use once per GSD project, instead of /flow-new. Supports --provider native|claude|codex.
+disable-model-invocation: true
 ---
 
 # flow-migrate

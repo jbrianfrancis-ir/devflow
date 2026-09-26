@@ -90,7 +90,30 @@ for path in skills:
     rel = os.path.relpath(path, ROOT)
     if not fm or fm.get("name") != name or not fm.get("description"):
         err(f"{rel}: invalid name/description frontmatter")
-MODELS = {"opus", "sonnet", "haiku", "inherit"}
+
+# Outward or mutating skills that /flow-next never routes to are explicit-only: the host
+# refuses to let the model invoke them, so only a human typing the command runs them.
+# The skills flow-next chains to must stay model-invocable, or /goal and /loop stop at
+# every step: flow-plan (rules 3, 5, 6), flow-execute (4), flow-harden (7), flow-pr (8),
+# flow-ci (9), and flow-uat (rule 11 emits CONTINUE with next: /flow-uat). Pin both
+# lists so a flag added or dropped on either side fails here, not in a stalled run.
+EXPLICIT_ONLY = {"flow-release", "flow-workstream", "flow-migrate", "flow-hooks",
+                 "flow-security-audit"}
+CHAINED_MUST_STAY_INVOCABLE = {"flow-plan", "flow-execute", "flow-harden", "flow-pr",
+                               "flow-ci", "flow-uat"}
+for name in sorted(EXPLICIT_ONLY | CHAINED_MUST_STAY_INVOCABLE):
+    path = os.path.join(PLUGIN, "skills", name, "SKILL.md")
+    rel = os.path.relpath(path, ROOT)
+    if not os.path.isfile(path):
+        err(f"{rel}: missing")
+        continue
+    flagged = (frontmatter(path) or {}).get("disable-model-invocation") == "true"
+    if name in EXPLICIT_ONLY and not flagged:
+        err(f"{rel}: explicit-only skill must set disable-model-invocation: true")
+    if name in CHAINED_MUST_STAY_INVOCABLE and flagged:
+        err(f"{rel}: /flow-next chains to this skill, so it must stay model-invocable "
+            "(no disable-model-invocation)")
+MODELS ={"opus", "sonnet", "haiku", "inherit"}
 for path in agents:
     name = os.path.splitext(os.path.basename(path))[0]
     fm = frontmatter(path)

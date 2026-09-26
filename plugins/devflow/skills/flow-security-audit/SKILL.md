@@ -1,6 +1,7 @@
 ---
 name: flow-security-audit
 description: Optional pre-production security audit gate (Cloudflare harness patterns). Opt-in only — not part of default /flow-* runs. Use when explicitly asked to security-audit / pen-test / full vuln review before UAT/prod. Modes: guidance (default for questions) vs full audit (explicit). Supports --provider native|claude|codex.
+disable-model-invocation: true
 ---
 
 # flow-security-audit
