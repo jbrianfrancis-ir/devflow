@@ -18,8 +18,10 @@ Read and obey `{devflow_root}/references/test-policy.md` in full.
 When `/flow-plan`, `/flow-execute`, `/flow-verify`, or `/flow-pr` (tests lens) touch tests:
 
 1. Name the **behavior/integration/Smoke** proof for each user-visible or boundary-crossing must_have.
-2. Allow new unit files only with a one-line justification: `pure-logic` or `regression-pin: <bug/issue>`.
+2. Allow new unit files only with a one-line justification: `pure-logic` or `regression-pin: <bug/issue>`. Every new test class/describe carries a `protects:` reason from test-policy.md.
 3. Reject or revise plans/diffs that add wrapper/DTO/glue units or post-hoc coverage suites.
 4. Never treat "coverage % went up" as phase proof.
+5. Reject new per-phase test folders or requirement-id test names; place tests by behaviour.
+6. When the diff removes or replaces a feature, require its tests to be deleted in the same diff (optional one-line doc addendum with the last SHA). Never keep a test only because a phase doc cites it.
 
 End status lines follow `{devflow_root}/references/autonomy.md`.

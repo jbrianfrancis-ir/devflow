@@ -26,6 +26,8 @@ Derive from the phase goal, not from the tasks: `truths` = observable behaviors 
 
 **Name the proof layer.** When a truth describes behavior that crosses a boundary (HTTP, DB, queue/bus, file, external API, a multi-component graph), its `verify` names an **integration/behavior test or the `## Smoke` command** as the primary proof — not a new unit suite. Thin units are for pure logic or a regression pin, per `{devflow_root}/references/test-policy.md`; a truth whose only claimed proof is newly invented units is not proven.
 
+**Tests a plan adds must say what they protect** (money/fee, PII/security, external contract, regression, dense logic, behaviour through an entry point), and live in the behaviour's folder, never a per-phase folder. **A plan that removes or replaces a feature lists the tests it deletes** in `files_modified`. Deleting stale tests is in scope; a phase doc citing them is not a reason to keep them.
+
 must_haves are the phase's **anchors** — signals that can't argue back. Once execution starts they are frozen: a gap is closed by changing the code, never by editing a truth to match what got built (that needs a human gate).
 
 ### backstop_truths (non-inferable behavior)

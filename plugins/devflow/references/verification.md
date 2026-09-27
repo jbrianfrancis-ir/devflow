@@ -47,3 +47,5 @@ Output `VERIFICATION.md` per the template. `status: pass` only if every truth is
 ## Test layer preference
 
 Follow `{devflow_root}/references/test-policy.md`. Prefer proving truths with behavior/integration/Smoke over newly invented unit suites. Classic unit-TDD is not the default agent workflow. Flag coverage-theater and wrapper/DTO unit diffs as verification smell even when commands are green.
+
+Evidence is **command + result + commit SHA**. Do not write evidence that depends on named tests surviving future phases, and never add a doc-to-test mapping table. Flag as verification smell: new per-phase test folders; tests with no "protects" reason; tests for code this phase removed that are still present.

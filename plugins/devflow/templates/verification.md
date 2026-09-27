@@ -15,9 +15,10 @@ unverified: []              # backstop truths that abstained — non-inferable, 
 ## Truths
 | must_have truth | result | evidence |
 |-----------------|--------|----------|
-| {behavior} | VERIFIED / GAP / HUMAN | {command output, test, or code trace} |
+| {behavior} | VERIFIED / GAP / HUMAN | {`command` → result @ {short-sha}, or code trace} |
 | {behavior} | VERIFIED (coincidental-reliance) | {evidence} — holds only because {the accident} |
 | {non-inferable behavior} | HUMAN (non-inferable) | spec doesn't settle this; nothing pins it down |
+<!-- Evidence is frozen at the phase commit. Later phases may delete or replace the tests used here; that does not reopen this phase. -->
 
 ## Human checks
 - [ ] {batched item} — how: {what the user should do/see}
