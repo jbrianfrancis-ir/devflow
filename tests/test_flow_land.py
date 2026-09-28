@@ -7,6 +7,7 @@ wave base. The script runs as a subprocess against them, so these exercise git's
 behaviour, not a model of it. Global and system git config are masked so a developer's
 hooks or signing settings can't change the outcome.
 """
+import hashlib
 import json
 import os
 import subprocess
@@ -132,12 +133,44 @@ class WaveStartTest(LandTestCase):
         self.assertEqual(code, 1)
         self.assertIn("detached-head", kinds(report))
 
-    def test_refuses_dirty_tree(self):
-        (self.fx.repo / "stray.txt").write_text("x")
+    def test_allows_and_baselines_untracked_files_already_present(self):
+        # The human's own spec files sitting in the checkout are not the wave's business.
+        (self.fx.repo / "2026-09-28-keycloak-qa-client-SPEC.md").write_text("spec\n")
+        (self.fx.repo / "notes").mkdir()
+        (self.fx.repo / "notes" / "client spec.docx").write_bytes(b"PK\x03\x04docx")
+        code, report = self.fx.run("wave-start")
+        self.assertEqual(code, 0, report)
+        self.assertEqual(report["baseline_untracked"],
+                         ["2026-09-28-keycloak-qa-client-SPEC.md", "notes/client spec.docx"])
+        baseline = json.loads(self.fx.state_path().read_text())["baseline_untracked"]
+        self.assertEqual(baseline["2026-09-28-keycloak-qa-client-SPEC.md"],
+                         "sha256:" + hashlib.sha256(b"spec\n").hexdigest())
+        self.assertEqual(baseline["notes/client spec.docx"],
+                         "sha256:" + hashlib.sha256(b"PK\x03\x04docx").hexdigest())
+
+    def test_refuses_a_tracked_modification(self):
+        (self.fx.repo / "README.md").write_text("edited\n")
+        (self.fx.repo / "mine.md").write_text("x")
         code, report = self.fx.run("wave-start")
         self.assertEqual(code, 1)
-        self.assertIn("dirty", kinds(report))
-        self.assertIn("stray.txt", report["findings"][0]["paths"])
+        self.assertEqual(kinds(report), ["dirty"])
+        self.assertEqual(report["findings"][0]["paths"], ["README.md"])
+        self.assertFalse(self.fx.state_path().exists())
+
+    def test_refuses_a_staged_change(self):
+        (self.fx.repo / "staged.txt").write_text("x")
+        self.fx.git(self.fx.repo, "add", "staged.txt")
+        code, report = self.fx.run("wave-start")
+        self.assertEqual(code, 1)
+        self.assertEqual(kinds(report), ["dirty"])
+        self.assertEqual(report["findings"][0]["paths"], ["staged.txt"])
+
+    def test_reports_a_staged_rename_with_both_paths(self):
+        self.fx.git(self.fx.repo, "mv", "feature.txt", "renamed feature.txt")
+        code, report = self.fx.run("wave-start")
+        self.assertEqual(code, 1)
+        self.assertEqual(report["findings"][0]["paths"],
+                         ["feature.txt -> renamed feature.txt"])
 
     def test_refuses_a_second_wave_while_one_is_in_flight(self):
         self.assertEqual(self.fx.run("wave-start")[0], 0)
@@ -180,6 +213,78 @@ class LeakCheckTest(LandTestCase):
         code, report = self.fx.run("leak-check")
         self.assertEqual(code, 1)
         self.assertIn("branch moved", report["findings"][0]["detail"])
+
+
+class BaselineUntrackedTest(LandTestCase):
+    """Untracked files present at wave-start are grandfathered by content, not by name."""
+
+    def setUp(self):
+        super().setUp()
+        self.spec = self.fx.repo / "my spec.md"
+        self.spec.write_text("mine\n")
+        self.assertEqual(self.fx.run("wave-start")[0], 0)
+
+    def test_unchanged_baseline_passes_leak_check(self):
+        self.assertEqual(self.fx.run("leak-check")[0], 0)
+
+    def test_a_new_untracked_file_is_still_a_leak(self):
+        (self.fx.repo / "LEAK.txt").write_text("x")
+        code, report = self.fx.run("leak-check")
+        self.assertEqual(code, 1)
+        self.assertEqual(kinds(report), ["leak"])
+        self.assertEqual(report["findings"][0]["paths"], ["LEAK.txt"])
+
+    def test_a_modified_baseline_file_is_a_leak(self):
+        self.spec.write_text("rewritten through Bash\n")
+        code, report = self.fx.run("leak-check")
+        self.assertEqual(code, 1)
+        self.assertEqual(kinds(report), ["leak"])
+        self.assertEqual(report["findings"][0]["paths"], ["my spec.md"])
+        self.assertIn("changed during the wave", report["findings"][0]["detail"])
+
+    def test_a_staged_baseline_file_is_a_leak(self):
+        self.fx.git(self.fx.repo, "add", "my spec.md")
+        code, report = self.fx.run("leak-check")
+        self.assertEqual(code, 1)
+        self.assertEqual(report["findings"][0]["paths"], ["my spec.md"])
+
+    def test_a_deleted_baseline_file_is_not_a_leak(self):
+        self.spec.unlink()
+        self.assertEqual(self.fx.run("leak-check")[0], 0)
+
+    def test_full_wave_lands_and_ends_with_the_baseline_file_in_place(self):
+        wt = self.fx.task("01-01", [("a.txt", "a\n")])
+        code, report = self.fx.land("01-01", wt)
+        self.assertEqual(code, 0, report)
+        code, report = self.fx.run("wave-end")
+        self.assertEqual(code, 0, report)
+        self.assertEqual(self.spec.read_text(), "mine\n")
+
+    def test_conflict_abort_is_reported_clean_despite_the_baseline_file(self):
+        wt1 = self.fx.task("01-01", [("same.txt", "one\n")])
+        wt2 = self.fx.task("01-02", [("same.txt", "two\n")])
+        self.assertEqual(self.fx.land("01-01", wt1)[0], 0)
+        code, report = self.fx.land("01-02", wt2)
+        self.assertEqual(code, 1)
+        self.assertEqual(kinds(report), ["conflict"])
+        self.assertIn("feature branch is unchanged", report["findings"][0]["detail"])
+
+    def test_state_without_a_baseline_is_strict(self):
+        # A state file written before baseline_untracked existed grandfathers nothing.
+        state = json.loads(self.fx.state_path().read_text())
+        del state["baseline_untracked"]
+        self.fx.state_path().write_text(json.dumps(state))
+        code, report = self.fx.run("leak-check")
+        self.assertEqual(code, 1)
+        self.assertEqual(report["findings"][0]["paths"], ["my spec.md"])
+
+    def test_a_malformed_baseline_fails_closed(self):
+        state = json.loads(self.fx.state_path().read_text())
+        state["baseline_untracked"] = ["my spec.md"]
+        self.fx.state_path().write_text(json.dumps(state))
+        code, report = self.fx.run("leak-check")
+        self.assertEqual(code, 1)
+        self.assertEqual(kinds(report), ["could-not-check"])
 
 
 class LandTest(LandTestCase):
