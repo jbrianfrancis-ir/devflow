@@ -6,9 +6,17 @@
 
   wave-start --repo <main>   record the wave base (HEAD, branch, worktrees, branches) in a
                              state file under the main checkout's git dir, never the tree.
-                             Refuses on a base branch, a detached HEAD, or a dirty tree.
+                             Refuses on a base branch, a detached HEAD, or any tracked change
+                             (modified, staged, deleted, renamed, conflicted). Untracked files
+                             already present are the human's own and are allowed: each is
+                             recorded in `baseline_untracked` as {path: "sha256:<hex>"} (a
+                             symlink hashes its target string) and listed in the output.
   leak-check --repo <main>   the main checkout is exactly as the wave left it: same branch,
-                             HEAD at the last landed commit, `git status --porcelain` empty.
+                             HEAD at the last landed commit, no tracked change, no untracked
+                             file outside the baseline, no baseline file whose content changed.
+                             A baseline file deleted during the wave is not a leak: it cannot
+                             carry content into a landing, and it was never the wave's. State
+                             without `baseline_untracked` (an older version) baselines nothing.
                              Isolation guards edit tools, not Bash, so this is the enforcement.
   land --repo <main> --plan NN-MM --task-branch flow-task/NN-MM --worktree <path>
                              cherry-pick <wave-base>..<task-branch> onto the feature branch,
@@ -30,6 +38,7 @@ Stdlib only (ARCHITECTURE.md: Python 3.9+, no dependencies).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -100,9 +109,69 @@ def protected_branches(repo):
     return names
 
 
+def status_entries(repo):
+    """`git status` as [(XY, path)]. `-z` gives paths verbatim (plain porcelain C-quotes
+    spaces-free-but-odd names); a rename or copy is one entry whose path is `old -> new`."""
+    args = ["git", "-C", repo, "status", "--porcelain=v1", "-z", "--untracked-files=all"]
+    result = subprocess.run(args, capture_output=True)
+    if result.returncode != 0:
+        raise CouldNotCheck(f"git status failed: {os.fsdecode(result.stderr).strip()}")
+    records, entries = iter(result.stdout.split(b"\0")), []
+    for record in records:
+        if not record:
+            continue
+        xy, path = os.fsdecode(record[:2]), os.fsdecode(record[3:])
+        if "R" in xy or "C" in xy:
+            path = f"{os.fsdecode(next(records, b''))} -> {path}"
+        entries.append((xy, path))
+    return entries
+
+
 def porcelain(repo):
-    lines = git(repo, "status", "--porcelain", "--untracked-files=all").stdout.splitlines()
-    return [line[3:] for line in lines if line.strip()]
+    """Every changed path, untracked included: a strict clean check."""
+    return [path for _, path in status_entries(repo)]
+
+
+def fingerprint(repo, rel):
+    """sha256 of an untracked file's bytes, or of a symlink's target string. Anything else
+    (an untracked nested repository shows up as a directory) cannot be fingerprinted."""
+    path = os.path.join(repo, rel)
+    digest = hashlib.sha256()
+    try:
+        if os.path.islink(path):
+            digest.update(b"symlink:" + os.fsencode(os.readlink(path)))
+        elif os.path.isfile(path):
+            # Chunked: baseline files can be datasets or images, re-hashed on every check.
+            with open(path, "rb") as stream:
+                for chunk in iter(lambda: stream.read(1 << 20), b""):
+                    digest.update(chunk)
+        else:
+            raise CouldNotCheck(f"untracked {rel!r} is not a regular file; cannot fingerprint")
+    except OSError as exc:
+        raise CouldNotCheck(f"cannot fingerprint untracked {rel!r}: {exc}")
+    return "sha256:" + digest.hexdigest()
+
+
+def baseline_of(state):
+    """The untracked files grandfathered at wave-start. Absent (older state) means none."""
+    baseline = state.get("baseline_untracked", {})
+    if not isinstance(baseline, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in baseline.items()):
+        raise CouldNotCheck("wave state baseline_untracked is not a {path: fingerprint} map")
+    return baseline
+
+
+def unexpected_changes(repo, baseline):
+    """(changed, altered_baseline): every tracked change and untracked file outside the
+    baseline, then baseline files whose content differs. A deleted baseline file is in
+    neither — git no longer lists it."""
+    changed, altered = [], []
+    for xy, path in status_entries(repo):
+        if xy != "??" or path not in baseline:
+            changed.append(path)
+        elif fingerprint(repo, path) != baseline[path]:
+            altered.append(path)
+    return changed, altered
 
 
 def worktrees(repo):
@@ -171,10 +240,13 @@ def leak_findings(repo, state):
     if head != state["expected_head"]:
         findings.append(finding("leak", f"HEAD moved: expected {state['expected_head']}, "
                                 f"found {head}"))
-    dirty = porcelain(repo)
-    if dirty:
+    changed, altered = unexpected_changes(repo, baseline_of(state))
+    if changed:
         findings.append(finding("leak", "main checkout has uncommitted or untracked changes",
-                                dirty))
+                                changed))
+    if altered:
+        findings.append(finding("leak", "untracked files present at wave-start changed "
+                                "during the wave", altered))
     return findings
 
 
@@ -199,9 +271,10 @@ def cmd_wave_start(repo, args):
                         "and wave-end (resume uses its wave_base)")], {"state": existing}
     branch = current_branch(repo)
     findings = base_branch_findings(repo, branch)
-    dirty = porcelain(repo)
+    entries = status_entries(repo)
+    dirty = [path for xy, path in entries if xy != "??"]
     if dirty:
-        findings.append(finding("dirty", "working tree is not clean", dirty))
+        findings.append(finding("dirty", "working tree has tracked changes", dirty))
     stale = [b for b in branches(repo) if b.startswith(TASK_PREFIX)]
     if stale:
         findings.append(finding("leftover-branch", "task branches from an earlier wave "
@@ -211,10 +284,12 @@ def cmd_wave_start(repo, args):
     head = rev(repo, "HEAD")
     if head is None:
         raise CouldNotCheck("HEAD does not resolve to a commit")
+    baseline = {path: fingerprint(repo, path) for xy, path in entries if xy == "??"}
     state = {"branch": branch, "wave_base": head, "expected_head": head,
-             "worktrees": sorted(worktrees(repo)), "branches": branches(repo), "landed": []}
+             "worktrees": sorted(worktrees(repo)), "branches": branches(repo), "landed": [],
+             "baseline_untracked": baseline}
     write_state(repo, state)
-    return [], {"wave_base": head, "branch": branch}
+    return [], {"wave_base": head, "branch": branch, "baseline_untracked": sorted(baseline)}
 
 
 def cmd_leak_check(repo, args):
@@ -292,7 +367,11 @@ def land(repo, args):
             conflicted = git(repo, "diff", "--name-only", "--diff-filter=U",
                              check=False).stdout.split()
             abort = git(repo, "cherry-pick", "--abort", check=False)
-            clean = abort.returncode == 0 and rev(repo, "HEAD") == before and not porcelain(repo)
+            try:
+                restored = not any(unexpected_changes(repo, baseline_of(state)))
+            except CouldNotCheck:
+                restored = False
+            clean = abort.returncode == 0 and rev(repo, "HEAD") == before and restored
             detail = ("cherry-pick failed and was aborted; the feature branch is unchanged — "
                       "never resolved here" if clean else
                       "cherry-pick failed and the abort did NOT restore the feature branch")
