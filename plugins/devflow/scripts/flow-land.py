@@ -136,17 +136,20 @@ def fingerprint(repo, rel):
     """sha256 of an untracked file's bytes, or of a symlink's target string. Anything else
     (an untracked nested repository shows up as a directory) cannot be fingerprinted."""
     path = os.path.join(repo, rel)
+    digest = hashlib.sha256()
     try:
         if os.path.islink(path):
-            data = b"symlink:" + os.fsencode(os.readlink(path))
+            digest.update(b"symlink:" + os.fsencode(os.readlink(path)))
         elif os.path.isfile(path):
+            # Chunked: baseline files can be datasets or images, re-hashed on every check.
             with open(path, "rb") as stream:
-                data = stream.read()
+                for chunk in iter(lambda: stream.read(1 << 20), b""):
+                    digest.update(chunk)
         else:
             raise CouldNotCheck(f"untracked {rel!r} is not a regular file; cannot fingerprint")
     except OSError as exc:
         raise CouldNotCheck(f"cannot fingerprint untracked {rel!r}: {exc}")
-    return "sha256:" + hashlib.sha256(data).hexdigest()
+    return "sha256:" + digest.hexdigest()
 
 
 def baseline_of(state):
