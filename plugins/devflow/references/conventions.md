@@ -2,6 +2,17 @@
 
 Base principles applied to every project unless `.planning/ARCHITECTURE.md` overrides them.
 
+## Prose for people
+DevFlow writes prose for people at about 80% of ASD-STE100 (Simplified Technical English). Use short active sentences. Put one idea in each sentence. Use plain verbs: use, not utilize; start, not commence. Keep technical names. Define each name once.
+
+Apply this rule only to prose for people. It covers four places:
+- `PROJECT.md`: What, Core value, and Out of scope.
+- A plan: objective, action, and done.
+- A SUMMARY body: the short prose, not the frontmatter.
+- A requirement: the behavior sentence and the accept text.
+
+Do not apply it to frontmatter, REQ ids, file paths, commands, or architecture pins. Do not add an English linter, a CI check, or a build failure for style. Do not rewrite existing planning docs to match this rule. The rule governs new prose that DevFlow writes.
+
 ## Code layout
 Application and library code lives under `src/` off the repo root; **tests live under `tests/`** off the repo root. Keep config, docs, `.planning/`, CI, and tooling at the root. Planner: task `<files>` paths go under `src/` for code and `tests/` for tests. Executor: create code in `src/` and tests in `tests/`; never scatter either at the repo root. (An ecosystem with a firm different idiom may override this in ARCHITECTURE.md; absent that, use `src/` and `tests/`.)
 

@@ -1,5 +1,6 @@
 <!-- .planning/REQUIREMENTS.md — cap 3KB. One line per requirement. -->
 # Requirements
+<!-- Prose for people follows the writing rule in references/conventions.md (about 80% of ASD-STE100). -->
 
 ## Must have (v1)
 - REQ-01: {user-observable behavior} — accept: {how to check it}

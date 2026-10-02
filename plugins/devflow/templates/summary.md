@@ -8,4 +8,5 @@ deviations: []              # "[Rule N] description" per entry
 human_checks: []            # items for end-of-phase human verification
 deferred: []                # out-of-scope issues found, not fixed
 ---
+<!-- Prose for people follows the writing rule in references/conventions.md (about 80% of ASD-STE100). -->
 {≤10 lines: what was built; anything the next plan or verifier must know.}
