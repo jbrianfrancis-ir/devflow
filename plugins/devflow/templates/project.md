@@ -1,5 +1,6 @@
 <!-- .planning/PROJECT.md — cap 2KB. Overwrite sections, don't append. -->
 # {Project name}
+<!-- Prose for people follows the writing rule in references/conventions.md (about 80% of ASD-STE100). -->
 
 ## What
 {2–3 sentences: what it is, who it's for.}

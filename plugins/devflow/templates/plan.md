@@ -15,6 +15,7 @@ must_haves:
   key_links: []          # critical connections ("X calls Y")
 ---
 
+<!-- Prose for people follows the writing rule in references/conventions.md (about 80% of ASD-STE100). -->
 <objective>{What this plan accomplishes and why — 2 lines.}</objective>
 
 <context>
