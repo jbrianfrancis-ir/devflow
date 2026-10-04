@@ -11,7 +11,9 @@ description: Systematic debugging with persistent hypothesis state that survives
 
 Context rules: read `.planning/STATE.md` first if present. Keep output terse.
 
-1. **State file**: no args → resume the newest `status: open` file in `.planning/debug/`; none → ask for the symptom. New symptom → create `.planning/debug/NNN-slug.md` from `{devflow_root}/templates/debug.md`: symptom, repro (get a reliable reproduction FIRST — no repro means gathering evidence, not testing fixes), initial hypotheses table (2–4, ranked by likelihood × cheapness to test).
+Make the reproduction a deterministic failing check that prints an observable that changes with the bug; do not name a cause, suspect, or likely file until that check has failed in front of you. After it fails, show the user exactly three ranked hypotheses of different cause kinds, write each prediction as “If X is the cause, changing Y makes the check pass,” and run the unchanged check; record each hypothesis as refuted or confirmed.
+
+1. **State file**: no args → resume the newest `status: open` file in `.planning/debug/`; none → ask for the symptom. New symptom → create `.planning/debug/NNN-slug.md` from `{devflow_root}/templates/debug.md`: symptom, repro (get a reliable reproduction FIRST — no repro means gathering evidence, not testing fixes), initial hypotheses table (exactly three hypotheses of different cause kinds).
 
 2. **Loop** until a hypothesis is confirmed:
    - Pick the highest-value untested hypothesis.
