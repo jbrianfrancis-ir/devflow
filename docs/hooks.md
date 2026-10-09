@@ -4,7 +4,8 @@ DevFlow's hard rules — never commit to the base branch, secret-scan every comm
 protected paths need a human — are written into every agent's own instructions. `/flow-hooks`
 scaffolds a deterministic backstop for three of them: Claude Code
 [PreToolUse hooks](https://code.claude.com/docs/en/hooks) that fire whether or not an agent
-followed its instructions.
+followed its instructions — unless a Claude Code mod stops them first (see
+[Known limitations](#known-limitations)).
 
 ## What it installs
 
@@ -59,3 +60,16 @@ removing a leaked secret is remediation, not a new hit.
 Treat the wrapper-script gap as the reason the underlying agent-instruction rules in
 `conventions.md` stay primary — the hook is a backstop for the case an agent ignores them, not a
 substitute for following them.
+
+**Claude Code mods run before these guards.** Since Claude Code 2.1.287, a
+[mod](https://code.claude.com/docs/en/plugins/mods/overview) that a user installs runs in-process
+before the guards. The guards are `PreToolUse` hooks in the project's `.claude/settings.json`, so
+they run only after the last mod passes the tool call on. A mod that answers a tool call itself
+stops the guards from running, and a mod on `tool.check` can approve a call that a guard blocked.
+Only `PreToolUse` hooks in managed settings run before every mod, and only their block is final
+([the order mods run in](https://code.claude.com/docs/en/plugins/mods/events#the-order-mods-run-in)).
+To keep the guarantee, do not install mods you do not trust (`claude plugin validate` lists what a
+mod hooks). On a machine with managed settings, put the guards in managed settings, or set the
+built-in guard's
+[`allowManagedModsOnly`](https://code.claude.com/docs/en/plugins/mods/admin#stop-user-installed-mods-from-loading)
+option so that no mod a user installs runs.
