@@ -67,14 +67,26 @@ Production sign-offs (`.planning/deploy/SIGNOFF.md`): {approver, date, sha, resu
 
 Evidence for every verified truth is an anchor — a command that ran, a test that passed, or a code path traced — recorded per phase in `VERIFICATION.md`. `unverified` counts truths the verifier **abstained** on as non-inferable rather than certifying; they are open questions, not defects.
 
-## 6. Controls in force
+## 6. Rework rate
+From `flow-rework.py` over {range}, window {14} days: how much code written in the range was modified or deleted again within the window of being written. A signal for where change outran verification, not a pass/fail measure; no threshold applies.
+
+| | Commits | Lines added | Lines reworked | Rework rate |
+|---|---|---|---|---|
+| Agent (`DevFlow-Agent` trailer) | {N} | {N} | {N} | {x.x%} |
+| Baseline (no trailer) | {N} | {N} | {N} | {x.x%} |
+
+Top files by agent rework: {path (N lines), … — or "none"}.
+
+Notes, verbatim from the script: {small-sample notes, open-window note, merge/rename limits}.
+
+## 7. Controls in force
 - Fail-closed secret scan on every commit, every push, and every outbound bundle; a hit blocks and requires a human to clear it. Values are never echoed or logged — only file, line, and pattern class.
 - Never commit to the base branch; all work lands on a feature branch and integrates by pull request.
 - Human gates that agents may never self-answer: {list from autonomy.md}.
 - `ARCHITECTURE.md` pins versions and carries a Forbidden list; deviations outside it stop as a decision checkpoint rather than an improvisation.
 - `.env*` and key files are never opened; environment variables are referenced by name only.
 
-## 7. Open at time of export
+## 8. Open at time of export
 {Gaps, unresolved human checks, abstained truths, open [NEEDS CLARIFICATION] markers — or "none".}
 
 ---

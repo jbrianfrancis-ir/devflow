@@ -62,6 +62,7 @@ Fill `{devflow_root}/templates/audit-export.md` — it carries the section struc
 - **Changes** — `git log --format='%H|%ad|%an|%s|%(trailers:key=DevFlow-Agent,valueonly)|%(trailers:key=DevFlow-Plan,valueonly)' --date=short <range>`. Group by phase/plan; report attributed vs total and name the unattributed remainder rather than quietly excluding it.
 - **Access** — providers and models **observed in the trailers**, not read from `config.json`: config is current state and says nothing about what ran in March. Report the declared values too, and flag any difference.
 - **Approvals** — `.planning/DECISIONS.md` in range, verbatim, plus `deploy/SIGNOFF.md`.
+- **Rework rate** — `python3 {devflow_root}/scripts/flow-rework.py --since <same range start> --json`, omitting `--since` when the export covers the whole history (it then measures the last 30 days, and the section says so). Copy the agent and baseline figures, top files, and every note verbatim. It is a signal, not a gate: no threshold, and no rate turns the status line into a GATE. Exit 2 means it could not run — write "not recorded" with the reason.
 - **Verification** — `VERIFICATION.md` frontmatter per phase: status, smoke, human checks, `unverified`.
 - **Controls** — from `conventions.md` and `autonomy.md`: what is *enforced*, not outcomes you haven't measured.
 
