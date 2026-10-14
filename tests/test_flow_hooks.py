@@ -15,6 +15,7 @@ CONVENTIONS = ROOT / "plugins/devflow/references/conventions.md"
 BASE_BRANCH_GUARD = HOOKS_DIR / "base-branch-guard.py"
 PROTECTED_PATHS_GUARD = HOOKS_DIR / "protected-paths-guard.py"
 SECRET_SCAN_GUARD = HOOKS_DIR / "secret-scan-guard.py"
+DEPENDENCY_GUARD = HOOKS_DIR / "dependency-guard.py"
 
 
 def load_module(path, name):
@@ -693,6 +694,108 @@ class SecretScanGuardTests(unittest.TestCase):
         result = module.scan("this diff has no recognisable header line at all\n+still no header\n")
         self.assertIsNotNone(result)
         self.assertIs(result, module.COULD_NOT_PARSE)
+
+
+class DependencyGuardTests(unittest.TestCase):
+    PACKAGE_JSON = json.dumps({
+        "name": "app",
+        "scripts": {"test": "vitest"},
+        "dependencies": {"react": "^17.0.0"},
+    }, indent=2) + "\n"
+
+    def setUp(self):
+        self.fixture = GitFixture()
+        self.addCleanup(self.fixture.cleanup)
+        self.manifest = self.fixture.repo / "package.json"
+        self.manifest.write_text(self.PACKAGE_JSON, encoding="utf-8")
+
+    def edit(self, old, new, path=None, mode="default"):
+        return run_hook(DEPENDENCY_GUARD, {
+            "tool_name": "Edit",
+            "tool_input": {"file_path": str(path or self.manifest),
+                           "old_string": old, "new_string": new},
+            "cwd": str(self.fixture.repo),
+            "permission_mode": mode,
+        })
+
+    def bash(self, command, mode="default"):
+        return run_hook(DEPENDENCY_GUARD, {
+            "tool_name": "Bash",
+            "tool_input": {"command": command},
+            "cwd": str(self.fixture.repo),
+            "permission_mode": mode,
+        })
+
+    def decision(self, result):
+        self.assertEqual(0, result.returncode, result.stderr)
+        if not result.stdout.strip():
+            return None, ""
+        output = json.loads(result.stdout)["hookSpecificOutput"]
+        return output["permissionDecision"], output["permissionDecisionReason"]
+
+    def test_asks_on_new_dependency(self):
+        decision, reason = self.decision(self.edit(
+            '"react": "^17.0.0"', '"react": "^17.0.0",\n    "left-pad": "1.3.0"'))
+        self.assertEqual("ask", decision)
+        self.assertIn("left-pad 1.3.0", reason)
+        self.assertIn("DECISIONS.md", reason)
+
+    def test_asks_on_version_change(self):
+        decision, reason = self.decision(self.edit('"^17.0.0"', '"^18.2.0"'))
+        self.assertEqual("ask", decision)
+        self.assertIn("react ^17.0.0 -> ^18.2.0", reason)
+
+    def test_allows_unrelated_manifest_edit(self):
+        decision, _ = self.decision(self.edit('"test": "vitest"', '"test": "vitest run"'))
+        self.assertIsNone(decision)
+
+    def test_allows_non_manifest_file(self):
+        target = self.fixture.repo / "notes.md"
+        target.write_text("react ^17.0.0\n", encoding="utf-8")
+        decision, _ = self.decision(self.edit("^17.0.0", "^18.2.0", path=target))
+        self.assertIsNone(decision)
+
+    def test_asks_on_bash_package_add(self):
+        decision, reason = self.decision(self.bash("cd web && npm install left-pad lodash"))
+        self.assertEqual("ask", decision)
+        self.assertIn("left-pad, lodash", reason)
+
+    def test_allows_bash_install_from_existing_manifest(self):
+        for command in ("npm install", "pip install -r requirements.txt", "git commit -m 'npm add x'"):
+            decision, _ = self.decision(self.bash(command))
+            self.assertIsNone(decision, command)
+
+    def test_blocks_in_bypass_permissions_mode(self):
+        result = self.bash("uv add httpx", mode="bypassPermissions")
+        self.assertEqual(2, result.returncode)
+        self.assertIn("httpx", result.stderr)
+
+    def test_asks_on_write_of_new_lockfile_entries(self):
+        result = run_hook(DEPENDENCY_GUARD, {
+            "tool_name": "Write",
+            "tool_input": {"file_path": str(self.fixture.repo / "go.mod"),
+                           "content": "module x\n\nrequire github.com/a/b v1.2.0\n"},
+            "cwd": str(self.fixture.repo),
+        })
+        decision, reason = self.decision(result)
+        self.assertEqual("ask", decision)
+        self.assertIn("github.com/a/b v1.2.0", reason)
+
+    def test_asks_when_manifest_unparseable_after_edit(self):
+        decision, reason = self.decision(self.edit('"^17.0.0"', '"^17.0.0'))
+        self.assertEqual("ask", decision)
+        self.assertIn("could-not-check", reason)
+
+    def test_configured_manifest_list_replaces_default(self):
+        (self.fixture.repo / ".planning" / "config.json").write_text(
+            json.dumps({"dependency_manifests": ["deps.lst"]}), encoding="utf-8")
+        decision, _ = self.decision(self.edit('"^17.0.0"', '"^18.2.0"'))
+        self.assertIsNone(decision)
+        listing = self.fixture.repo / "deps.lst"
+        listing.write_text("a\n", encoding="utf-8")
+        decision, reason = self.decision(self.edit("a", "b", path=listing))
+        self.assertEqual("ask", decision)
+        self.assertIn("deps.lst", reason)
 
 
 class SecretPatternDriftTest(unittest.TestCase):

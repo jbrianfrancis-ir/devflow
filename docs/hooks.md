@@ -1,8 +1,8 @@
 # Hooks
 
 DevFlow's hard rules — never commit to the base branch, secret-scan every commit and push,
-protected paths need a human — are written into every agent's own instructions. `/flow-hooks`
-scaffolds a deterministic backstop for three of them: Claude Code
+protected paths need a human, a new or changed dependency needs a human — are written into every
+agent's own instructions. `/flow-hooks` scaffolds a deterministic backstop for four of them: Claude Code
 [PreToolUse hooks](https://code.claude.com/docs/en/hooks) that fire whether or not an agent
 followed its instructions — unless a Claude Code mod stops them first (see
 [Known limitations](#known-limitations)).
@@ -14,8 +14,9 @@ followed its instructions — unless a Claude Code mod stops them first (see
 | `base-branch-guard.py` | `Bash` | `git commit`/`git push` while checked out on the project's base branch |
 | `protected-paths-guard.py` | `Edit`/`Write` | an edit to a path matching `protected_paths`, unless `DEVFLOW_PROTECTED_PATH_OK` is set |
 | `secret-scan-guard.py` | `Bash` | `git commit`/`git push` whose diff matches conventions.md's secret pattern class |
+| `dependency-guard.py` | `Bash`/`Edit`/`Write`/`MultiEdit` | an edit that adds or changes a dependency in a manifest or lockfile, or a package-add command — asks the human, naming the packages |
 
-Run `/flow-hooks` (optionally `--only base,secret,paths` for a subset) in any project — no
+Run `/flow-hooks` (optionally `--only base,secret,paths,deps` for a subset) in any project — no
 `.planning/` required. It copies the scripts into `.claude/hooks/` and merges idempotent
 `PreToolUse` entries into `.claude/settings.json`, leaving unrelated settings untouched. Those
 are the target repo's own files; the skill writes them but never commits on your behalf.
@@ -36,6 +37,30 @@ clears a hit, including false positives), are specified in
 glob list, from the same file. Full script contracts live in
 `plugins/devflow/templates/hooks/*.py`.
 
+## Dependency guard
+
+A new or changed dependency is a human gate ([`autonomy.md`](../plugins/devflow/references/autonomy.md)).
+`dependency-guard.py` watches these manifests and lockfiles: `package.json`, `package-lock.json`,
+`pnpm-lock.yaml`, `yarn.lock`, `requirements*.txt`, `pyproject.toml`, `poetry.lock`, `uv.lock`,
+`Pipfile`, `Pipfile.lock`, `*.csproj`, `Directory.Packages.props`, `packages.lock.json`,
+`Cargo.toml`, `Cargo.lock`, `go.mod`, `go.sum`.
+
+For an edit to one of them, it parses the file before and after and compares dependency names and
+versions. An edit that adds a dependency or changes a version is gated, and the prompt names each
+package. An unrelated edit to the same file (a script, a comment) passes, and so does removing a
+dependency. A file that does not parse after the edit is could-not-check, and is gated too. A
+`Bash` command that adds packages (`npm`/`pnpm install <pkg>`, `yarn add`, `pip install <pkg>`,
+`uv add`, `poetry add`, `pipenv install <pkg>`, `dotnet add package`, `cargo add`, `go get`) is
+gated with the package names. An install from an existing manifest (`npm install`,
+`pip install -r requirements.txt`) is not.
+
+The gate is a `PreToolUse` `"ask"` decision, so Claude Code prompts the human. In
+`bypassPermissions` mode a prompt is not guaranteed, so the guard blocks (exit 2) instead. Record
+the answer in `.planning/DECISIONS.md` ([provenance](provenance.md#decision-log)).
+
+`dependency_manifests` in `.planning/config.json` (a list of filename globs) replaces the watched
+list. A configured glob the guard has no parser for is gated on any content change.
+
 ## Known limitations
 
 These guards match on the literal `Bash` command string and a computed diff/file listing — they
@@ -45,6 +70,9 @@ are not a sandbox and cannot see through indirection:
   that internally runs `git commit`/`git push` never contains that literal substring in
   `tool_input.command`, so neither `base-branch-guard.py` nor `secret-scan-guard.py` sees it. This
   is the residual gap — everything else below is handled.
+- **Manifests changed by a shell command.** `dependency-guard.py` reads `Edit`/`Write`/`MultiEdit`
+  content and recognizes package-add commands. A manifest rewritten by `sed`, `echo >>` or a script
+  is not seen.
 
 `secret-scan-guard.py` also covers, not just an already-staged diff: `git commit -a`/`-am`/`--all`
 (scanned via a working-tree-vs-HEAD diff, not `--cached` alone); a binary or zero-byte credential
