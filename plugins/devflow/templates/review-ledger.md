@@ -1,7 +1,8 @@
 <!-- .planning/reviews/LEDGER.md — APPEND-ONLY, UNCAPPED, oldest first. Never rewritten, never reordered.
-     Same discipline as DECISIONS.md: a closed round is immutable, and only the adjudicator reads this
-     file (in its own fresh context), so length costs the orchestrator nothing. Created on first round.
-     Doctrine: references/adjudication.md. -->
+     Same discipline as DECISIONS.md: a closed round is immutable. Created on the first adversarial round.
+     The adjudicator writes it. Reviewers read it as settled ground on every /flow-pr path, so a settled
+     finding is not re-raised on a run that skipped --adversarial. Length stays in those fresh contexts;
+     the orchestrator passes the path. Doctrine: references/adjudication.md. -->
 # Review ledger
 
 Findings ruled on this repo, oldest first. Read by three later audiences: whoever executes the
@@ -12,7 +13,7 @@ was left alone.
 
 ## Round {N} — {YYYY-MM-DD} · {what was reviewed}
 
-**Range:** `{base}...{sha}` | **Reviewer:** {role/provider/model, one per lens} | **Adjudicated by:** {role/provider/model}
+**Reviewed SHA:** `{full sha of HEAD when this round was spawned}` | **Range:** `{base}...{sha}` on round 1, `{previous-sha}..{sha}` on a re-review | **Reviewer:** {role/provider/model, one per lens} | **Adjudicated by:** {role/provider/model}
 **Findings in: {N} · Rows out: {N}** {say which IDs merged, when any did}
 
 ### Situation

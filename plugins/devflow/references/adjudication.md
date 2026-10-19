@@ -50,6 +50,8 @@ Screen every incoming finding against the existing ledger **before** re-verifyin
 
 Screening is a citation, not a judgment call. If you cannot point at the row that settled it, it is not settled.
 
+A regression is the exception. The reviewer flags one with the commit that reintroduced a defect an earlier row already closed (`flow-reviewer.md`). Cite that row, then verify the commit. When the commit reopens the defect, the new row rules it and names the commit. `SETTLED ALREADY` is the verdict only when the commit did not reopen it. Screening a regression off because the old row exists puts a live defect back in the settled pile.
+
 ## Rounds
 
 The ledger appends; it is never rewritten. **A closed round is immutable** — a later round that shows an earlier ruling was wrong writes a *new* row citing the row it supersedes and says what changed (new evidence, or a ruling made without it). The original stays as written: the record of having been wrong is part of what the ledger is for, and a log that only contains correct rulings is not a record.
