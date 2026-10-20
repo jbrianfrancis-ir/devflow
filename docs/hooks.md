@@ -1,8 +1,9 @@
 # Hooks
 
 DevFlow's hard rules — never commit to the base branch, secret-scan every commit and push,
-protected paths need a human, a new or changed dependency needs a human — are written into every
-agent's own instructions. `/flow-hooks` scaffolds a deterministic backstop for four of them: Claude Code
+protected paths need a human, a new or changed dependency needs a human, never force-push or run
+anything destructive in git — are written into every agent's own instructions. `/flow-hooks`
+scaffolds a deterministic backstop for five of them: Claude Code
 [PreToolUse hooks](https://code.claude.com/docs/en/hooks) that fire whether or not an agent
 followed its instructions — unless a Claude Code mod stops them first (see
 [Known limitations](#known-limitations)).
@@ -15,8 +16,9 @@ followed its instructions — unless a Claude Code mod stops them first (see
 | `protected-paths-guard.py` | `Edit`/`Write` | an edit to a path matching `protected_paths`, unless `DEVFLOW_PROTECTED_PATH_OK` is set |
 | `secret-scan-guard.py` | `Bash` | `git commit`/`git push` whose diff matches conventions.md's secret pattern class |
 | `dependency-guard.py` | `Bash`/`Edit`/`Write`/`MultiEdit` | an edit that adds or changes a dependency in a manifest or lockfile, or a package-add command — asks the human, naming the packages |
+| `destructive-git-guard.py` | `Bash` | on any branch: a force push (`--force`, `-f`, `--force-with-lease`, a `+refspec`), `git reset --hard`, `git clean -f`, `git branch -D` |
 
-Run `/flow-hooks` (optionally `--only base,secret,paths,deps` for a subset) in any project — no
+Run `/flow-hooks` (optionally `--only base,secret,paths,deps,destructive` for a subset) in any project — no
 `.planning/` required. It copies the scripts into `.claude/hooks/` and merges idempotent
 `PreToolUse` entries into `.claude/settings.json`, leaving unrelated settings untouched. Those
 are the target repo's own files; the skill writes them but never commits on your behalf.
@@ -61,6 +63,25 @@ the answer in `.planning/DECISIONS.md` ([provenance](provenance.md#decision-log)
 `dependency_manifests` in `.planning/config.json` (a list of filename globs) replaces the watched
 list. A configured glob the guard has no parser for is gated on any content change.
 
+## Destructive-git guard
+
+`autonomy.md` makes anything destructive in git a human gate, and DevFlow never force-pushes.
+`destructive-git-guard.py` blocks (exit 2) these on every branch, not only the base branch:
+
+- `git push --force`, `-f` (also in a group such as `-uf`), `--force-with-lease`, and a refspec
+  with a leading `+` (`git push origin +main`)
+- `git reset --hard`
+- `git clean -f` / `--force` (also `-fd`, `-xdf`); a dry run with `-n` passes
+- `git branch -D`, and `--delete --force` / `-d -f`
+
+`--force-with-lease` is blocked on purpose. The lease only stops you overwriting commits you have
+not fetched; the remote branch is still rewritten, and the rule has no lease exception. There is no
+override variable: when a human decides a force push or a hard reset is right, they run it in their
+own terminal. The guard reads no config and needs no git repo. It looks inside `bash -c`, `sh -c`
+and `eval`, and skips leading `VAR=value` assignments, `sudo`/`env`-style wrappers and git's
+global options. `git checkout .` and `git restore .` are not blocked. The block-list idea comes from
+Matt Pocock's git-guardrails-claude-code skill (concept only, no code).
+
 ## Known limitations
 
 These guards match on the literal `Bash` command string and a computed diff/file listing — they
@@ -69,7 +90,9 @@ are not a sandbox and cannot see through indirection:
 - **Wrapper scripts and indirection.** A command like `bash release.sh` or a Makefile/npm target
   that internally runs `git commit`/`git push` never contains that literal substring in
   `tool_input.command`, so neither `base-branch-guard.py` nor `secret-scan-guard.py` sees it. This
-  is the residual gap — everything else below is handled.
+  is the residual gap — everything else below is handled. The same gap applies to
+  `destructive-git-guard.py`, and it also cannot see a git alias (`git config alias.fp 'push -f'`
+  then `git fp`).
 - **Manifests changed by a shell command.** `dependency-guard.py` reads `Edit`/`Write`/`MultiEdit`
   content and recognizes package-add commands. A manifest rewritten by `sed`, `echo >>` or a script
   is not seen.

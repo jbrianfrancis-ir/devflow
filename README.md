@@ -76,7 +76,7 @@ the complete gate list: [docs/autonomy.md](docs/autonomy.md).
 | policy | `/flow-test-policy` | Test-layer policy for agent work — integration/behavior as the feedback driver, thin units for pure logic or regression pins only, no coverage theater and no classic unit-TDD by default ([policy](plugins/devflow/references/test-policy.md)) |
 | memory | `/flow-map` | Codebase memory for planners/executors (`--docs`, `--refresh`) |
 | design | `/flow-design` | Link + pull a Claude Design (claude.ai/design) design system as hard UI constraints (`--refresh`) |
-| guardrails | `/flow-hooks` | Scaffold deterministic base-branch, protected-paths, secret-scan, and dependency hooks into `.claude/settings.json` |
+| guardrails | `/flow-hooks` | Scaffold deterministic base-branch, protected-paths, secret-scan, dependency, and destructive-git hooks into `.claude/settings.json` |
 | integrate | `/flow-pr` | Independent lens review of the outgoing diff, push to origin, open a PR (narrative recap + reviewer's guide) against upstream (`--adversarial` reviews through the peer provider and adjudicates into a ledger) |
 | integrate | `/flow-ci` | Drive the open PR to green — watch checks, fix failures, answer bot review threads |
 | triage | `/flow-triage` | Pre-screen incoming third-party PRs against ARCHITECTURE.md/REQUIREMENTS.md, flag only the promising ones for human review (`--all`, `--export`) |
