@@ -16,6 +16,7 @@ BASE_BRANCH_GUARD = HOOKS_DIR / "base-branch-guard.py"
 PROTECTED_PATHS_GUARD = HOOKS_DIR / "protected-paths-guard.py"
 SECRET_SCAN_GUARD = HOOKS_DIR / "secret-scan-guard.py"
 DEPENDENCY_GUARD = HOOKS_DIR / "dependency-guard.py"
+DESTRUCTIVE_GIT_GUARD = HOOKS_DIR / "destructive-git-guard.py"
 
 
 def load_module(path, name):
@@ -796,6 +797,115 @@ class DependencyGuardTests(unittest.TestCase):
         decision, reason = self.decision(self.edit("a", "b", path=listing))
         self.assertEqual("ask", decision)
         self.assertIn("deps.lst", reason)
+
+
+class DestructiveGitGuardTests(unittest.TestCase):
+    """Commands that discard work or rewrite shared history are blocked on any branch."""
+
+    BLOCKED = [
+        "git push --force",
+        "git push -f origin flow/x",
+        "git push origin flow/x --force",
+        "git push -uf origin flow/x",
+        "git push --force-with-lease",
+        "git push --force-with-lease=main:abc123 origin main",
+        "git push origin +flow/x",
+        "git push origin +HEAD:refs/heads/flow/x",
+        "git push origin -- +flow/x",
+        "git reset --hard",
+        "git reset --hard HEAD~1",
+        "git clean -f",
+        "git clean --force",
+        "git clean -fd",
+        "git clean -xdf",
+        "git branch -D flow/x",
+        "git branch --delete --force flow/x",
+        "git branch -d -f flow/x",
+        "git branch -df flow/x",
+        "git -C /tmp/repo push -f",
+        "git -c core.pager=cat reset --hard",
+        "/usr/bin/git push -f",
+        "GIT_TRACE=1 git push -f",
+        "sudo git reset --hard",
+        "cd repo && git reset --hard origin/main",
+        "git fetch; git push -f",
+        "echo ok | git clean -fdx",
+        "echo $(git reset --hard)",
+        "bash -c 'git push --force'",
+        "bash -c \"git status && git push -f\"",
+        "eval git branch -D flow/x",
+        "git status\ngit push -f",
+    ]
+
+    ALLOWED = [
+        "git push",
+        "git push -u origin flow/x",
+        "git push origin flow/x",
+        "git push origin :refs/heads/old",
+        "git push -o ci.skip origin flow/x",
+        "git push -ofoo origin flow/x",
+        "git push --force-if-includes origin flow/x",
+        "git reset",
+        "git reset --soft HEAD~1",
+        "git reset HEAD f.txt",
+        "git clean -n",
+        "git clean -n -f",
+        "git clean -fn",
+        "git clean --dry-run --force",
+        "git branch -d flow/x",
+        "git branch -f flow/x HEAD",
+        "git log --force",
+        "git commit -m 'do not push --force'",
+        "git commit -m \"reset --hard is never the fix\"",
+        "echo git push -f",
+        "ls -la",
+    ]
+
+    def setUp(self):
+        self.guard = load_module(DESTRUCTIVE_GIT_GUARD, "destructive_git_guard")
+
+    def test_blocks_every_destructive_form(self):
+        for command in self.BLOCKED:
+            with self.subTest(command=command):
+                self.assertIsNotNone(self.guard.find_destructive(command))
+
+    def test_allows_safe_git_and_non_git_commands(self):
+        for command in self.ALLOWED:
+            with self.subTest(command=command):
+                self.assertIsNone(self.guard.find_destructive(command))
+
+    def test_hook_exits_2_with_reason_on_force_push(self):
+        result = run_hook(DESTRUCTIVE_GIT_GUARD, {"tool_input": {"command": "git push --force"}})
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked: git push --force", result.stderr)
+
+    def test_hook_blocks_force_with_lease(self):
+        result = run_hook(DESTRUCTIVE_GIT_GUARD, {
+            "tool_input": {"command": "git push --force-with-lease origin flow/x"}})
+        self.assertEqual(2, result.returncode)
+        self.assertIn("--force-with-lease", result.stderr)
+
+    def test_hook_blocks_on_a_feature_branch_too(self):
+        fixture = GitFixture()
+        self.addCleanup(fixture.cleanup)
+        fixture.checkout("flow/test")
+        result = run_hook(DESTRUCTIVE_GIT_GUARD, {
+            "tool_input": {"command": "git reset --hard"}, "cwd": str(fixture.repo)})
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked: git reset --hard", result.stderr)
+
+    def test_hook_allows_normal_push(self):
+        result = run_hook(DESTRUCTIVE_GIT_GUARD, {
+            "tool_input": {"command": "git push -u origin flow/x"}})
+        self.assertEqual(0, result.returncode)
+        self.assertEqual("", result.stderr)
+
+    def test_hook_fails_open_loudly_on_bad_json(self):
+        result = subprocess.run(
+            [sys.executable, str(DESTRUCTIVE_GIT_GUARD)],
+            input="not json", capture_output=True, text=True)
+        self.assertEqual(0, result.returncode)
+        self.assertIn("destructive-git-guard:", result.stderr)
 
 
 class SecretPatternDriftTest(unittest.TestCase):
