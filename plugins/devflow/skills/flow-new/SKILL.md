@@ -17,7 +17,7 @@ Context rules (all flow skills): read `.planning/STATE.md` before acting when it
 
 1. **Detect existing code**: `git ls-files | head -50` + look for manifests (package.json, *.csproj, pyproject.toml, go.mod). If real code exists, spawn agent `flow-mapper` with: template path `{devflow_root}/templates/codebase-map.md`, output path `.planning/codebase/MAP.md`. Use its digest for questioning and roadmap.
 
-2. **Understand**: if the user gave an idea file or description (or `--auto`), work from that. Otherwise read `{devflow_root}/references/questioning.md` and run the bounded Q&A (≤5 questions, one round, using the host question mechanism).
+2. **Understand**: if the user gave an idea file or description (or `--auto`), work from that. Otherwise read `{devflow_root}/references/questioning.md` and run the bounded Q&A (≤5 questions, one round, using the host question mechanism, in its Round format).
 
 2a. **Right-size before you commit to a roadmap.** `/flow-new` writes a 3–6 phase project; that weight is only worth paying when the work genuinely has phases. Before step 4, judge honestly what you have. **One coherent task with a single obvious end state — a refactor, a doc pass, a dependency bump, one feature behind one decision — is not a project.** Say so and offer `/flow-quick`, which carries the same guarantees (atomic commits, deviation rules, secret scan, feature branch) without plans, plan-check rounds, or a verifier. Offer it; never decide for the user, and if they still want the full loop, initialize it without argument.
 
