@@ -19,3 +19,22 @@ If the user rambles, reflect back a numbered summary and confirm it. Then write 
 - **`## Out of scope`** — the user ruled it out.
 
 Prefer a marker over an assumption whenever being wrong would mean rework rather than an edit. Markers are cheap here and expensive later: unresolved by planning time they become `backstop_truths`, and the verifier abstains rather than certifying a coin-flip.
+
+## Round format
+
+Every DevFlow question round — this one, and `/flow-plan` step 1 — uses one shape, so the user can answer the whole round in one line (`1 yes, 2 yes, 3 B`):
+
+- **Ask the whole frontier at once.** The frontier is every question you can ask now: its answer does not depend on another question that is still open. Ask all of those in one round, up to the cap (≤5 here, ≤3 in `/flow-plan`). A question that depends on another open question in this round waits for a later step; it does not go in the round.
+- **Number every question** `Q1`, `Q2`, … and give each a short title.
+- **Recommend an answer for each** — the one you would choose, with its reason in one clause.
+- **Word each question so "yes" accepts your recommendation**: "Use PostgreSQL 17 for storage? (Recommended: yes — the existing services already run it.)" When there are options, list them, mark the recommended one first, and still let "yes" take it.
+- **Facts are your job.** Never ask the user what you can find yourself in the repo, the codebase map or the docs. The user decides; you look things up.
+
+```
+❓ **Q1 — <title>**: <question, with options when there are any>
+➡️ Recommended: <answer> — <reason>
+```
+
+With a host question mechanism that takes options, put the recommended option first and label it `(Recommended)`. Answers that open new questions do not buy an extra round; questions that remain open go to the three places above.
+
+The round shape is adapted from Matt Pocock's [`grilling` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grilling/SKILL.md) (concept only). DevFlow keeps its caps instead of interviewing until every branch is settled: what one round leaves open becomes a marker, an assumption or out of scope.
