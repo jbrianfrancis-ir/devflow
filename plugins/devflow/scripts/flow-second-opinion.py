@@ -602,14 +602,36 @@ def gh_json(args, timeout=60):
         return None
 
 
+def pr_info_from_rest(data):
+    """Map the REST pulls/N payload to the fields this helper uses; None if unusable.
+
+    REST rather than `gh pr view --json` because older gh releases lack `baseRefOid`.
+    A head repository that is missing (deleted fork) counts as cross-repository.
+    """
+    if not isinstance(data, dict):
+        return None
+    head = data.get("head") if isinstance(data.get("head"), dict) else {}
+    base = data.get("base") if isinstance(data.get("base"), dict) else {}
+    head_sha, base_sha = head.get("sha"), base.get("sha")
+    if not (isinstance(head_sha, str) and isinstance(base_sha, str)):
+        return None
+    head_repo = head.get("repo") if isinstance(head.get("repo"), dict) else {}
+    base_repo = base.get("repo") if isinstance(base.get("repo"), dict) else {}
+    head_name = (head_repo.get("full_name") or "").lower()
+    base_name = (base_repo.get("full_name") or "").lower()
+    return {"number": data.get("number"), "title": data.get("title") or "",
+            "url": data.get("html_url") or "", "state": data.get("state") or "",
+            "headRefOid": head_sha, "baseRefName": base.get("ref") or "", "baseRefOid": base_sha,
+            "isCrossRepository": not head_name or head_name != base_name,
+            "headRepositoryOwner": {"login": (head_repo.get("owner") or {}).get("login") or "?"}}
+
+
 def check_scope(owner, repo, number, allowlist, with_pr=True):
     repo_info = gh_json(["api", f"repos/{owner}/{repo}"])
     pr_info = None
     reasons = []
     if with_pr:
-        pr_info = gh_json(["pr", "view", str(number), "-R", f"{owner}/{repo}", "--json",
-                           "number,title,url,state,headRefOid,baseRefName,baseRefOid,"
-                           "isCrossRepository,headRepositoryOwner"])
+        pr_info = pr_info_from_rest(gh_json(["api", f"repos/{owner}/{repo}/pulls/{number}"]))
         if pr_info is None:
             reasons.append(f"{owner}/{repo}#{number}: pull request metadata unavailable")
     reasons = scope_reasons(owner, repo, allowlist, repo_info, pr_info or {}) + reasons

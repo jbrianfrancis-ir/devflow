@@ -294,10 +294,10 @@ class TrialLog(unittest.TestCase):
 FAKE_GH = r'''#!/usr/bin/env python3
 import json, os, subprocess, sys
 a = sys.argv[1:]
+if a[:1] == ["api"] and "/pulls/" in a[1]:
+    print(os.environ["FAKE_PR_JSON"]); sys.exit(0)
 if a[:1] == ["api"]:
     print(os.environ["FAKE_REPO_JSON"]); sys.exit(0)
-if a[:2] == ["pr", "view"]:
-    print(os.environ["FAKE_PR_JSON"]); sys.exit(0)
 if a[:2] == ["repo", "clone"]:
     extra = a[a.index("--") + 1:] if "--" in a else []
     sys.exit(subprocess.call(["git", "clone", *extra, os.environ["FAKE_ORIGIN"], a[3]]))
@@ -338,6 +338,32 @@ sys.exit(3)
 '''
 
 
+def rest_pr(head, base, head_repo="jbrianfrancis-ir/devflow"):
+    repo = lambda name: {"full_name": name, "owner": {"login": name.split("/")[0]}}
+    return {"number": 7, "title": "feat", "state": "open",
+            "html_url": "https://github.com/jbrianfrancis-ir/devflow/pull/7",
+            "head": {"sha": head, "ref": "feature", "repo": repo(head_repo) if head_repo else None},
+            "base": {"sha": base, "ref": "main", "repo": repo("jbrianfrancis-ir/devflow")}}
+
+
+class RestPrInfo(unittest.TestCase):
+    def test_same_repo(self):
+        info = sor.pr_info_from_rest(rest_pr("a" * 40, "b" * 40))
+        self.assertEqual((info["headRefOid"], info["baseRefOid"], info["baseRefName"]),
+                         ("a" * 40, "b" * 40, "main"))
+        self.assertFalse(info["isCrossRepository"])
+        self.assertEqual(info["url"], "https://github.com/jbrianfrancis-ir/devflow/pull/7")
+
+    def test_fork_head_and_deleted_head_are_cross_repo(self):
+        self.assertTrue(sor.pr_info_from_rest(rest_pr("a", "b", "stranger/devflow"))
+                        ["isCrossRepository"])
+        self.assertTrue(sor.pr_info_from_rest(rest_pr("a", "b", None))["isCrossRepository"])
+
+    def test_unusable_payloads(self):
+        for data in (None, [], {}, {"head": {"sha": "a"}}, {"head": {}, "base": {"sha": "b"}}):
+            self.assertIsNone(sor.pr_info_from_rest(data), data)
+
+
 class EndToEnd(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -375,11 +401,7 @@ class EndToEnd(unittest.TestCase):
         self.env.update(
             FAKE_ORIGIN=str(origin), FAKE_POST_LOG=str(self.root / "posts.log"),
             FAKE_REPO_JSON=json.dumps({"fork": False, "owner": {"login": "jbrianfrancis-ir"}}),
-            FAKE_PR_JSON=json.dumps({"number": 7, "title": "feat", "url": "https://github.com/"
-                                     "jbrianfrancis-ir/devflow/pull/7", "state": "OPEN",
-                                     "headRefOid": head, "baseRefName": "main", "baseRefOid": base,
-                                     "isCrossRepository": False,
-                                     "headRepositoryOwner": {"login": "jbrianfrancis-ir"}}))
+            FAKE_PR_JSON=json.dumps(rest_pr(head, base)))
         self.work = self.root / "work"
         self.work.mkdir()
 
