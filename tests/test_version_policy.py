@@ -89,6 +89,16 @@ class ConventionsRuleTest(unittest.TestCase):
         for framework in (".NET", "EF Core", "Node", "React", "TypeScript"):
             self.assertIn(framework, self.section)
 
+    def test_minor_patch_bump_is_not_a_dependency_gate(self):
+        # Brian, 2026-10-23: minor and patch bumps skip the dependency prompt and can go into
+        # an existing PR; the guard and autonomy.md must say the same thing.
+        flat = " ".join(self.section.split())
+        self.assertIn("Minor/patch revision bumps are not a dependency gate either", flat)
+        self.assertIn("can go into an existing PR", flat)
+        autonomy = " ".join(read(PLUGIN / "references" / "autonomy.md").split())
+        self.assertIn("a routine minor/patch upgrade of an existing dependency within its major "
+                      "is not a gate", autonomy)
+
 
 class PointerBlockTest(unittest.TestCase):
     def test_root_pointer_matches_template(self):

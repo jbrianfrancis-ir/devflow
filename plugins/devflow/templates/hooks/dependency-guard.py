@@ -7,7 +7,11 @@ Two triggers:
 - An Edit/Write/MultiEdit to a dependency manifest or lockfile (MANIFESTS below) whose result adds
   a dependency or changes one's version. The guard computes the file before and after the edit and
   compares (name, version) entries, so an unrelated edit to the same file (a script, a comment)
-  passes. Removing a dependency is not flagged.
+  passes. Removing a dependency is not flagged. A routine revision bump of a dependency that is
+  already there also passes (is_routine_bump below): same major (for 0.x the minor counts as the
+  major, and every 0.0.x change gates), an upgrade not a downgrade, the same range operator, no
+  pre-release on the new side, and the same source/registry. Anything else (a new name, a major
+  move, a downgrade, a range or operator change, a version the guard cannot read) still gates.
 - A Bash command that adds packages (`npm install <pkg>`, `uv add`, `dotnet add package`, ...).
   The guard cannot know what the resolver will pick, so naming a package is enough.
 
@@ -67,17 +71,36 @@ def parse_package_json(text):
             for name, spec in (data.get(section) or {}).items()}
 
 
+def source_of(location):
+    """Where a lockfile entry resolves from, for with_source: the host of a plain http(s) URL (a
+    registry tarball path changes with every version), otherwise the whole location minus any
+    ?query/#fragment (a git commit, a rev pin or an integrity hash), so a git repo stays whole."""
+    location = str(location).strip()
+    match = re.match(r"^(https?)://([^/?#]+)", location)
+    if match:
+        return match.group(2).lower()
+    return re.split(r"[#?]", location, maxsplit=1)[0]
+
+
+def with_source(version, location):
+    """`1.2.3 (registry.npmjs.org)`: a lockfile version tagged with its source, so a registry or
+    git-source change is a version change, and never a routine bump."""
+    version = str(version)
+    return f"{version} ({source_of(location)})" if location else version
+
+
 def parse_package_lock(text):
     data = load_json(text)
     entries = set()
     for key, info in (data.get("packages") or {}).items():
         if key and isinstance(info, dict):
-            entries.add((key.rsplit("node_modules/", 1)[-1], str(info.get("version"))))
+            entries.add((key.rsplit("node_modules/", 1)[-1],
+                         with_source(info.get("version"), info.get("resolved"))))
 
     def walk(deps):  # lockfileVersion 1
         for name, info in (deps or {}).items():
             if isinstance(info, dict):
-                entries.add((name, str(info.get("version"))))
+                entries.add((name, with_source(info.get("version"), info.get("resolved"))))
                 walk(info.get("dependencies"))
     walk(data.get("dependencies"))
     return entries
@@ -101,26 +124,40 @@ def parse_pnpm_lock(text):
 
 
 YARN_VERSION_RE = re.compile(r"^\s+version:?\s+\"?([^\"\s]+)\"?")
+YARN_RESOLVED_RE = re.compile(r"^\s+(?:resolved|resolution):?\s+\"?([^\"\s]+)\"?")
 
 
 def parse_yarn_lock(text):
     entries = set()
-    names = []
+    names, version, resolved = [], None, None
+
+    def flush():
+        if names and version is not None:
+            entries.update((name, with_source(version, resolved)) for name in names)
+
     for line in text.splitlines():
         if not line.strip() or line.lstrip().startswith("#"):
             continue
         if not line[0].isspace() and line.rstrip().endswith(":"):
-            names = []
+            flush()
+            names, version, resolved = [], None, None
             for spec in line.rstrip().rstrip(":").split(","):
                 spec = spec.strip().strip("\"'")
                 at = spec.rfind("@")
                 if at > 0 and spec != "__metadata":
                     names.append(spec[:at])
             continue
-        version = YARN_VERSION_RE.match(line)
-        if version:
-            entries.update((name, version.group(1)) for name in names)
-            names = []
+        match = YARN_VERSION_RE.match(line)
+        if match:
+            version = match.group(1)
+            continue
+        match = YARN_RESOLVED_RE.match(line)
+        if match:
+            resolved = match.group(1)
+            if line.lstrip().startswith("resolution"):  # berry: `name@npm:1.2.3` -> `npm`
+                protocol = resolved.rsplit("@", 1)[-1]
+                resolved = protocol.split(":", 1)[0] if ":" in protocol else protocol
+    flush()
     return entries
 
 
@@ -240,19 +277,29 @@ def parse_key_value_tables(pattern):
 
 
 def parse_toml_package_list(text):
-    """`[[package]]` name/version records (poetry.lock, uv.lock, Cargo.lock)."""
+    """`[[package]]` name/version records (poetry.lock, uv.lock, Cargo.lock), each version tagged
+    with the record's `source` (Cargo's `registry+https://...`, uv's `{ registry = "..." }`)."""
     entries = set()
     record = None
+
+    def flush():
+        if record and "name" in record:
+            entries.add((record["name"],
+                         with_source(record.get("version", ""), record.get("source"))))
+
     for table, key, value, array_table in iter_toml(text):
         if key is None:
-            if record and "name" in record:
-                entries.add((record["name"], record.get("version", "")))
+            flush()
             record = {} if (table == "package" and array_table) else None
             continue
         if record is not None and table == "package" and key in ("name", "version"):
             record[key] = toml_scalar(value)
-    if record and "name" in record:
-        entries.add((record["name"], record.get("version", "")))
+        elif record is not None and table == "package" and key == "source":
+            kind = re.match(r"^\{\s*([A-Za-z0-9_-]+)\s*=", value.strip())  # uv: { git = "..." }
+            strings = toml_strings(value)
+            location = strings[0] if strings else value.strip()
+            record["source"] = f"{kind.group(1)}+{location}" if kind else location
+    flush()
     return entries
 
 
@@ -406,18 +453,80 @@ def after_text(tool_input, before):
     return text
 
 
+# --- routine revision bumps ----------------------------------------------------------------
+# One version, optionally behind a single operator: `1.2.3`, `^1.2.3`, `~1.2`, `==1.2.3`,
+# `~=1.2`, `v1.2.3` (Go), `[1.2.3]` (NuGet exact). Anything else (`>=1`, `1.x`, `*`, `latest`,
+# `1.2 - 2.0`, `^1 || ^2`, `[1.0,2.0)`, `$(Prop)`, `git+https://...`, `npm:other@1`, `file:..`)
+# is unreadable here, so changing it is never routine.
+VERSION_SPEC_RE = re.compile(
+    r"^(\^|~=|~|==|=|\[)?\s*v?(\d+(?:\.\d+){0,3})([-+][0-9A-Za-z.+-]*)?(\])?$")
+SOURCE_SUFFIX_RE = re.compile(r"^(.*?)(?: \(([^()]+)\))?$")
+
+
+def parse_version_spec(spec):
+    """(operator, release tuple, suffix, marker, source) or None when unreadable."""
+    spec = str(spec).strip()
+    source_match = SOURCE_SUFFIX_RE.match(spec)
+    spec, source = source_match.group(1).strip(), source_match.group(2)
+    spec, _, marker = spec.partition(";")  # PEP 508 environment marker
+    match = VERSION_SPEC_RE.match(spec.strip())
+    if not match:
+        return None
+    operator, release, suffix, close = match.groups()
+    if (operator == "[") != (close == "]"):
+        return None
+    return (operator or "", tuple(int(part) for part in release.split(".")), suffix or "",
+            marker.strip(), source)
+
+
+def major_key(release):
+    """The compatibility line a release belongs to: its major; for 0.x the minor counts as the
+    major (0.4 -> 0.5 is a major move); a 0.0.x version is its own line."""
+    if release[0] != 0:
+        return release[:1]
+    if len(release) > 1 and release[1] != 0:
+        return release[:2]
+    return release[:3]
+
+
+def is_routine_bump(old_spec, new_spec):
+    """True when old -> new is a minor/patch upgrade within one major, with nothing else changed
+    — the one version change that passes without a prompt."""
+    old, new = parse_version_spec(old_spec), parse_version_spec(new_spec)
+    if old is None or new is None:
+        return False
+    old_op, old_release, old_suffix, old_marker, old_source = old
+    new_op, new_release, new_suffix, new_marker, new_source = new
+    if (old_op, old_marker, old_source) != (new_op, new_marker, new_source):
+        return False  # range widened/narrowed, environment marker or source/registry changed
+    if new_suffix:
+        return False  # a pre-release or build-tagged version is never routine
+    if major_key(old_release) != major_key(new_release):
+        return False
+
+    def padded(release):
+        return release + (0,) * (4 - len(release))
+    return padded(new_release) >= padded(old_release)  # a downgrade is not a bump
+
+
 def describe_changes(before_entries, after_entries):
+    """(added, changed, routine) descriptions. A changed entry is routine when it is a
+    within-major upgrade of a version the name already had."""
     before_versions = {}
     for name, version in before_entries:
         before_versions.setdefault(name, set()).add(version)
-    added, changed = [], []
+    added, changed, routine = [], [], []
     for name, version in sorted(after_entries - before_entries):
         if name in before_versions:
             old = ", ".join(sorted(before_versions[name]))
-            changed.append(f"{name} {old} -> {version}")
+            line = f"{name} {old} -> {version}"
+            if any(is_routine_bump(prior, version) for prior in before_versions[name]):
+                routine.append(line)
+            else:
+                changed.append(line)
         else:
             added.append(f"{name} {version}".strip())
-    return added, changed
+    return added, changed, routine
 
 
 def check_file_edit(tool_input, cwd):
@@ -449,9 +558,9 @@ def check_file_edit(tool_input, cwd):
         before_entries = parser(before)
     except CouldNotParse:
         before_entries = set()
-    added, changed = describe_changes(before_entries, after_entries)
+    added, changed, _routine = describe_changes(before_entries, after_entries)
     if not added and not changed:
-        return None
+        return None  # nothing new, or only routine within-major revision bumps
     parts = []
     if added:
         parts.append("adds " + "; ".join(added))
