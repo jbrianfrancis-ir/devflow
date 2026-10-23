@@ -11,7 +11,7 @@ Second opinions from an external frontier model, concept-derived from [steipete/
 
 ## Bundle — `.planning/consults/NNN-slug/BUNDLE.md`
 One self-contained markdown file:
-- **Request header**: the question, one-line project description, and the constraints the answer must respect — quote ARCHITECTURE.md pins (stack, versions, forbidden items) and relevant Locked decisions so the external model answers *within* them.
+- **Request header**: the question, one-line project description, and the constraints the answer must respect — quote ARCHITECTURE.md pins (stack, major versions, forbidden items) and relevant Locked decisions so the external model answers *within* them.
 - **Files**: each fenced with a `### path` header. Curate — only files that change the answer (the seed state file, the code under suspicion, the failing plan), never "the repo". Cap ~100KB total; over cap → trim lowest-value files and list exclusions in the manifest.
 - **Never include**: `.env*`, `*.pem`/`*.pfx`/`*.key`/`id_rsa*`, lockfiles, build output, or anything the scan below hits.
 

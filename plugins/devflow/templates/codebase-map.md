@@ -10,7 +10,7 @@ mapped_sha: {full SHA of HEAD when this map was written}
 # Codebase Map
 
 ## Stack
-{language, framework, key libs + versions — one line each}
+{language, framework, key libs + major versions — one line each; exact versions live in the manifests}
 
 ## Layout
 {annotated tree, depth 2, only dirs that matter}

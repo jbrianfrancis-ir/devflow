@@ -6,7 +6,7 @@ Cover:
 1. **What** — one-sentence description + primary user.
 2. **Done looks like** — 3–5 observable behaviors of v1 (these become REQ-NN lines).
 3. **Out of scope** — tempting things we are NOT building (write them down; they prevent scope creep later).
-4. **Architecture** — the exact stack: runtime, frameworks, and libraries **with versions**, patterns, Azure/Aspire resources, anything forbidden. Most users have this decided — capture it verbatim into ARCHITECTURE.md (hard constraints); record softer preferences as D-NN decisions instead.
+4. **Architecture** — the exact stack: runtime, frameworks, and libraries **with major versions** (`.NET 10`, `Aspire 13.x` — exact versions stay in the manifests), patterns, Azure/Aspire resources, anything forbidden. Most users have this decided — capture it verbatim into ARCHITECTURE.md (hard constraints); record softer preferences as D-NN decisions instead.
 5. **Risk** — the part the user is least sure about (candidate for research).
 
 Also cover, briefly, **how good is good enough** — the one or two thresholds that would make the result unacceptable if missed (speed, scale, or a completion rate). They become `SC-NN` success criteria: measurable and technology-agnostic. Most users have a rough number; "no idea yet" is a fine answer and becomes a marker, not an invented figure.
