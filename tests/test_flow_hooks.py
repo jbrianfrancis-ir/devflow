@@ -799,6 +799,138 @@ class DependencyGuardTests(unittest.TestCase):
         self.assertIn("deps.lst", reason)
 
 
+    # --- routine within-major revision bumps (Brian, 2026-10-23: "minor and patch bumps should
+    # skip that prompt - those revision changes can go into an existing PR") ------------------
+
+    def write(self, name, content):
+        return run_hook(DEPENDENCY_GUARD, {
+            "tool_name": "Write",
+            "tool_input": {"file_path": str(self.fixture.repo / name), "content": content},
+            "cwd": str(self.fixture.repo),
+        })
+
+    def test_allows_minor_and_patch_bump_of_existing_dependency(self):
+        for new in ('"^17.0.2"', '"^17.3.0"'):
+            with self.subTest(new=new):
+                decision, _ = self.decision(self.edit('"^17.0.0"', new))
+                self.assertIsNone(decision)
+
+    def test_routine_bump_passes_in_bypass_mode_too(self):
+        result = self.edit('"^17.0.0"', '"^17.0.1"', mode="bypassPermissions")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual("", result.stdout.strip())
+
+    def test_still_asks_when_routine_bump_comes_with_a_new_dependency(self):
+        decision, reason = self.decision(self.edit(
+            '"react": "^17.0.0"', '"react": "^17.0.1",\n    "left-pad": "1.3.0"'))
+        self.assertEqual("ask", decision)
+        self.assertIn("left-pad 1.3.0", reason)
+        self.assertNotIn("react", reason)
+
+    def test_still_asks_on_downgrade_range_change_and_unreadable_versions(self):
+        for new in ('"^16.14.0"', '"^17.0.0-rc.1"', '">=17.0.0"', '"~17.0.1"', '"17.x"',
+                    '"*"', '"latest"', '"npm:preact@^17.0.1"', '"git+https://x.test/r.git"'):
+            with self.subTest(new=new):
+                decision, _ = self.decision(self.edit('"^17.0.0"', new))
+                self.assertEqual("ask", decision)
+
+    def test_csproj_and_central_package_bumps(self):
+        for name in ("App.csproj", "Directory.Packages.props"):
+            element = "PackageReference" if name.endswith(".csproj") else "PackageVersion"
+            path = self.fixture.repo / name
+            path.write_text(f'<Project><ItemGroup>\n  <{element} Include="Aspire.Hosting" '
+                            f'Version="13.6.2" />\n</ItemGroup></Project>\n', encoding="utf-8")
+            with self.subTest(name=name, bump="patch"):
+                decision, _ = self.decision(self.edit('"13.6.2"', '"13.6.3"', path=path))
+                self.assertIsNone(decision)
+            with self.subTest(name=name, bump="minor"):
+                decision, _ = self.decision(self.edit('"13.6.2"', '"13.7.0"', path=path))
+                self.assertIsNone(decision)
+            with self.subTest(name=name, bump="major"):
+                decision, reason = self.decision(self.edit('"13.6.2"', '"14.0.0"', path=path))
+                self.assertEqual("ask", decision)
+                self.assertIn("Aspire.Hosting 13.6.2 -> 14.0.0", reason)
+            for new in ('"[13.6.2,14.0)"', '"13.*"', '"$(AspireVersion)"', '"13.6.1"'):
+                with self.subTest(name=name, new=new):
+                    decision, _ = self.decision(self.edit('"13.6.2"', new, path=path))
+                    self.assertEqual("ask", decision)
+
+    def test_requirements_and_go_mod_bumps(self):
+        req = self.fixture.repo / "requirements.txt"
+        req.write_text("httpx==0.27.0\nrequests==2.31.0\n", encoding="utf-8")
+        decision, _ = self.decision(self.edit("requests==2.31.0", "requests==2.32.3", path=req))
+        self.assertIsNone(decision)
+        decision, _ = self.decision(self.edit("httpx==0.27.0", "httpx==0.27.2", path=req))
+        self.assertIsNone(decision)
+        decision, _ = self.decision(self.edit("httpx==0.27.0", "httpx==0.28.0", path=req))
+        self.assertEqual("ask", decision)  # 0.x: the minor is the major
+        decision, _ = self.decision(self.edit("requests==2.31.0", "requests>=2.31.0", path=req))
+        self.assertEqual("ask", decision)
+        gomod = self.fixture.repo / "go.mod"
+        gomod.write_text("module x\n\nrequire github.com/a/b v1.2.0\n", encoding="utf-8")
+        decision, _ = self.decision(self.edit("v1.2.0", "v1.3.1", path=gomod))
+        self.assertIsNone(decision)
+        decision, _ = self.decision(self.edit("b v1.2.0", "b/v2 v2.0.0", path=gomod))
+        self.assertEqual("ask", decision)
+
+    def test_lockfile_registry_change_is_never_routine(self):
+        def lock(version, host):
+            return json.dumps({"lockfileVersion": 3, "packages": {
+                "": {"name": "app"},
+                "node_modules/react": {
+                    "version": version,
+                    "resolved": f"https://{host}/react/-/react-{version}.tgz"}}})
+        (self.fixture.repo / "package-lock.json").write_text(
+            lock("17.0.0", "registry.npmjs.org"), encoding="utf-8")
+        decision, _ = self.decision(self.write("package-lock.json",
+                                               lock("17.0.2", "registry.npmjs.org")))
+        self.assertIsNone(decision)
+        decision, reason = self.decision(self.write("package-lock.json",
+                                                    lock("17.0.2", "npm.evil.test")))
+        self.assertEqual("ask", decision)
+        self.assertIn("npm.evil.test", reason)
+
+    def test_cargo_lock_git_source_change_is_never_routine(self):
+        def lock(version, source):
+            return f'[[package]]\nname = "serde"\nversion = "{version}"\nsource = "{source}"\n'
+        registry = "registry+https://github.com/rust-lang/crates.io-index"
+        (self.fixture.repo / "Cargo.lock").write_text(lock("1.0.190", registry), encoding="utf-8")
+        decision, _ = self.decision(self.write("Cargo.lock", lock("1.0.200", registry)))
+        self.assertIsNone(decision)
+        decision, _ = self.decision(self.write(
+            "Cargo.lock", lock("1.0.200", "git+https://github.com/someone/serde#abc123")))
+        self.assertEqual("ask", decision)
+
+    def test_bash_package_add_still_asks_even_for_an_existing_package(self):
+        # The guard cannot tell what the resolver will pick, so a command naming a package
+        # always gates; a routine bump goes through a manifest edit instead.
+        decision, _ = self.decision(self.bash("npm install react@17.0.2"))
+        self.assertEqual("ask", decision)
+
+    def test_is_routine_bump_table(self):
+        guard = load_module(DEPENDENCY_GUARD, "dependency_guard_routine")
+        routine = [("1.2.3", "1.2.4"), ("1.2.3", "1.9.0"), ("^1.2.3", "^1.3.0"),
+                   ("~=1.2", "~=1.4"), ("==2.31.0", "==2.32.3"), ("v1.2.0", "v1.3.1"),
+                   ("[1.2.3]", "[1.2.4]"), ("1.2.3-rc.1", "1.2.3"), ("0.4.1", "0.4.7"),
+                   ("10.0.1", "10.0.100"), ("1.2.3.4", "1.2.3.5"),
+                   ("4.17.20 (registry.npmjs.org)", "4.17.21 (registry.npmjs.org)"),
+                   ("==1.2; python_version<'3.11'", "==1.3; python_version<'3.11'")]
+        gated = [("1.2.3", "2.0.0"), ("2.0.0", "1.9.9"), ("1.2.4", "1.2.3"), ("0.4.1", "0.5.0"),
+                 ("0.0.1", "0.0.2"), ("1.2.3", "1.2.4-beta.1"), ("v1.2.0", "v1.2.1+incompatible"),
+                 ("^1.2.3", "~1.2.4"), ("1.2.3", "^1.2.4"), ("^1.2.3", ">=1.2.3"),
+                 ("1.2.3", "1.x"), ("1.2.3", "*"), ("1.2.3", "latest"), ("", "1.2.3"),
+                 ("[1.0,2.0)", "[1.1,2.0)"), ("$(V)", "1.2.3"), ("None", "1.2.3"),
+                 ("4.17.20 (registry.npmjs.org)", "4.17.21 (npm.evil.test)"),
+                 ("4.17.20", "4.17.21 (npm.evil.test)"),
+                 ("==1.2; python_version<'3.11'", "==1.3")]
+        for old, new in routine:
+            with self.subTest(old=old, new=new):
+                self.assertTrue(guard.is_routine_bump(old, new))
+        for old, new in gated:
+            with self.subTest(old=old, new=new):
+                self.assertFalse(guard.is_routine_bump(old, new))
+
+
 class DestructiveGitGuardTests(unittest.TestCase):
     """Commands that discard work or rewrite shared history are blocked on any branch."""
 

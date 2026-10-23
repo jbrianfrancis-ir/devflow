@@ -25,7 +25,7 @@ the case where an agent doesn't follow them.
 | `base-branch-guard.py` | `Bash` | `git commit`/`git push` while checked out on the project's base branch |
 | `protected-paths-guard.py` | `Edit\|Write` | an edit to a path matching `protected_paths`, unless `DEVFLOW_PROTECTED_PATH_OK` is set |
 | `secret-scan-guard.py` | `Bash` | `git commit`/`git push` whose diff matches conventions.md's secret pattern class, plus any regex declared on `.planning/ARCHITECTURE.md`'s Forbidden entries |
-| `dependency-guard.py` | `Bash\|Edit\|Write\|MultiEdit` | an edit that adds or changes a dependency in a manifest or lockfile, or a package-add command (`npm install <pkg>`, `uv add`, `dotnet add package`, ...) — asks the human, naming the packages |
+| `dependency-guard.py` | `Bash\|Edit\|Write\|MultiEdit` | an edit that adds a dependency or changes one beyond a routine within-major minor/patch upgrade in a manifest or lockfile, or a package-add command (`npm install <pkg>`, `uv add`, `dotnet add package`, ...) — asks the human, naming the packages |
 | `destructive-git-guard.py` | `Bash` | on any branch: `git push --force`/`-f`/`--force-with-lease` or a `+refspec`, `git reset --hard`, `git clean -f` (not with `-n`), `git branch -D` |
 
 Forbidden-entry syntax and enforcement scope: `templates/architecture.md` and conventions.md's

@@ -13,9 +13,11 @@ chat history — so a cold session loses nothing.
 | Recent activity | `.planning/JOURNAL.md` |
 | Existing-codebase map | `.planning/codebase/MAP.md` |
 
-`.planning/ARCHITECTURE.md` is **law, not advice**: use exactly the versions it pins,
-nothing from its Forbidden list, and treat its `## Principles` as binding. Work that
-needs something outside it is a decision for the human, never an improvisation.
+`.planning/ARCHITECTURE.md` is **law, not advice**: stay on the major versions it
+records (exact versions live in the manifests and lockfiles, so a minor/patch bump needs
+no doc edit), use nothing from its Forbidden list, and treat its `## Principles` as
+binding. Work that needs something outside it, including a major-version change, is a
+decision for the human, never an improvisation.
 
 **Git**: never commit to the base branch. Work lands on a `flow/<slug>` feature branch
 and integrates by pull request. Never commit credential material — reference env vars by

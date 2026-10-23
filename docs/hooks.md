@@ -15,7 +15,7 @@ followed its instructions — unless a Claude Code mod stops them first (see
 | `base-branch-guard.py` | `Bash` | `git commit`/`git push` while checked out on the project's base branch |
 | `protected-paths-guard.py` | `Edit`/`Write` | an edit to a path matching `protected_paths`, unless `DEVFLOW_PROTECTED_PATH_OK` is set |
 | `secret-scan-guard.py` | `Bash` | `git commit`/`git push` whose diff matches conventions.md's secret pattern class |
-| `dependency-guard.py` | `Bash`/`Edit`/`Write`/`MultiEdit` | an edit that adds or changes a dependency in a manifest or lockfile, or a package-add command — asks the human, naming the packages |
+| `dependency-guard.py` | `Bash`/`Edit`/`Write`/`MultiEdit` | an edit that adds a dependency or changes one beyond a routine within-major minor/patch upgrade in a manifest or lockfile, or a package-add command — asks the human, naming the packages |
 | `destructive-git-guard.py` | `Bash` | on any branch: a force push (`--force`, `-f`, `--force-with-lease`, a `+refspec`), `git reset --hard`, `git clean -f`, `git branch -D` |
 
 Run `/flow-hooks` (optionally `--only base,secret,paths,deps,destructive` for a subset) in any project — no
@@ -41,7 +41,7 @@ glob list, from the same file. Full script contracts live in
 
 ## Dependency guard
 
-A new or changed dependency is a human gate ([`autonomy.md`](../plugins/devflow/references/autonomy.md)).
+A new dependency, or a change beyond a routine within-major minor/patch bump, is a human gate ([`autonomy.md`](../plugins/devflow/references/autonomy.md)).
 `dependency-guard.py` watches these manifests and lockfiles: `package.json`, `package-lock.json`,
 `pnpm-lock.yaml`, `yarn.lock`, `requirements*.txt`, `pyproject.toml`, `poetry.lock`, `uv.lock`,
 `Pipfile`, `Pipfile.lock`, `*.csproj`, `Directory.Packages.props`, `packages.lock.json`,
@@ -50,7 +50,17 @@ A new or changed dependency is a human gate ([`autonomy.md`](../plugins/devflow/
 For an edit to one of them, it parses the file before and after and compares dependency names and
 versions. An edit that adds a dependency or changes a version is gated, and the prompt names each
 package. An unrelated edit to the same file (a script, a comment) passes, and so does removing a
-dependency. A file that does not parse after the edit is could-not-check, and is gated too. A
+dependency. A file that does not parse after the edit is could-not-check, and is gated too.
+
+A **routine revision bump passes without a prompt**: a minor or patch upgrade of a dependency that
+is already in the file, within the same major (`13.6.2` → `13.6.3` or `13.7.0`, `^17.0.0` →
+`^17.3.0`, `==2.31.0` → `==2.32.3`, `v1.2.0` → `v1.3.1`). For `0.x` the minor counts as the major,
+so `0.4` → `0.5` is gated, and any `0.0.x` change is gated. Everything else still gates: a new
+dependency, a major bump, a downgrade, a pre-release or build-tagged version, a changed range
+operator (`~` → `^`, exact → `^`, anything → `>=`/`*`/`1.x`/`latest`/a NuGet range), a version the
+guard cannot read (`$(Prop)`, `npm:`/`git+`/`file:` specs), and a changed source or registry in a
+lockfile (`resolved` host in `package-lock.json`/`yarn.lock`, `source` in `Cargo.lock`/`uv.lock`).
+Such a bump can go into an existing PR without a separate prompt or PR. A
 `Bash` command that adds packages (`npm`/`pnpm install <pkg>`, `yarn add`, `pip install <pkg>`,
 `uv add`, `poetry add`, `pipenv install <pkg>`, `dotnet add package`, `cargo add`, `go get`) is
 gated with the package names. An install from an existing manifest (`npm install`,

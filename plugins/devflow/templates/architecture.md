@@ -1,22 +1,25 @@
 <!-- .planning/ARCHITECTURE.md — cap 3KB. HARD constraints, owned by the human.
-Agents must use exactly what's listed (no substitutes, no silent upgrades);
+Agents must use what's listed (no substitutes, no silent major upgrades);
+versions are MAJOR only — exact versions live in manifests/lockfiles;
 anything needed outside this file is a checkpoint:decision, never an improvisation. -->
 # Architecture constraints
 
 ## Stack
-| What | Exactly | Version |
-|------|---------|---------|
-| Runtime | {e.g. .NET} | {e.g. 10.0} |
+| What | Exactly | Major |
+|------|---------|-------|
+| Runtime | {e.g. .NET} | {e.g. 10} |
 | Language | {e.g. C#} | {14} |
-| Orchestration | Aspire | {13.5.x} |
-<!-- EVERY version in this file — this table AND `## Frameworks & libraries` below — is an
-     illustrative example and goes stale between DevFlow releases. Resolve each from its own
-     source before pinning: `dotnet --list-sdks` / the vendor's release page for a runtime or
-     language, `dotnet package search <id> --exact-match` for a package. Never copy a number out
-     of this template into a real pin — this file is not a feed, and ARCHITECTURE.md is law, so a
-     stale example here becomes a binding constraint there.
-     Aspire additionally: within-major updates auto-apply (13.5.0→13.5.1, 13.4→13.5); a major
-     bump (13→14) needs approval. -->
+| Orchestration | Aspire | {13.x} |
+<!-- MAJOR VERSIONS ONLY — this table AND `## Frameworks & libraries` below. Write `10`, `13.x`,
+     `24 LTS`; never `13.5.1`. The exact version lives only in the manifest/lockfile
+     (csproj, Directory.Packages.props, global.json, package.json + lockfile, ...), so a
+     minor/patch bump changes the manifest and never this file, and raises no warning. Only a
+     major change (e.g. Aspire 13 → 14) is a checkpoint:decision, and then the major here changes.
+     A deliberate exact pin must carry its reason — `10.0.3 (exact: <why>)` — and only then
+     binds below the major. Every number shown is an illustrative example: resolve the current
+     major from its own source (`dotnet --list-sdks`, the vendor's release page,
+     `dotnet package search <id> --exact-match`), never from this template.
+     Aspire: within-major updates auto-apply; a major bump needs approval. -->
 
 
 
@@ -44,10 +47,10 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 - **Pass looks like**: {e.g. exit 0; "8 passed"; health endpoint 200 and /orders renders a seeded order}
 
 ## Frameworks & libraries
-| Library | Version | Use for |
-|---------|---------|---------|
-| {e.g. EF Core} | {10.0.x} | {data access} |
-| {e.g. xUnit} | {2.9.x} | {tests} |
+| Library | Major | Use for |
+|---------|-------|---------|
+| {e.g. EF Core} | {10.x} | {data access} |
+| {e.g. xUnit} | {2.x} | {tests} |
 
 ## Architecture & patterns
 - {e.g. vertical slice per feature; API in Minimal APIs; no MediatR}

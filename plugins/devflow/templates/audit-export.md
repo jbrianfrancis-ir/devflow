@@ -83,7 +83,7 @@ Notes, verbatim from the script: {small-sample notes, open-window note, merge/re
 - Fail-closed secret scan on every commit, every push, and every outbound bundle; a hit blocks and requires a human to clear it. Values are never echoed or logged — only file, line, and pattern class.
 - Never commit to the base branch; all work lands on a feature branch and integrates by pull request.
 - Human gates that agents may never self-answer: {list from autonomy.md}.
-- `ARCHITECTURE.md` pins versions and carries a Forbidden list; deviations outside it stop as a decision checkpoint rather than an improvisation.
+- `ARCHITECTURE.md` pins major versions (exact versions live in the manifests) and carries a Forbidden list; deviations outside it stop as a decision checkpoint rather than an improvisation.
 - `.env*` and key files are never opened; environment variables are referenced by name only.
 
 ## 8. Open at time of export
