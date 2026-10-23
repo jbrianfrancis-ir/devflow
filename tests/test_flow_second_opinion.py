@@ -180,6 +180,29 @@ class Parsing(unittest.TestCase):
         self.assertEqual(cost, 0.0123)
         self.assertEqual(sid, "s1")
 
+    def test_grok_streamed_progress_objects_take_the_last(self):
+        progress = {"summary": "Reading the diff.", "findings": []}
+        text = json.dumps(progress) + json.dumps(progress) + json.dumps(REVIEW)
+        review, *_ = sor.parse_grok_output(json.dumps({"text": text, "stopReason": "end_turn"}))
+        self.assertEqual(review["summary"], "One real bug.")
+        self.assertEqual(len(review["findings"]), 3)
+
+    def test_grok_cancelled_run_has_no_review(self):
+        text = json.dumps({"summary": "Reading the diff.", "findings": []})
+        out = json.dumps({"text": text, "stopReason": "cancelled", "total_cost_usd": 0.5})
+        review, _, cost, _ = sor.parse_grok_output(out)
+        self.assertIsNone(review)
+        self.assertEqual(cost, 0.5)
+        self.assertEqual(sor.grok_stop_reason(out), "cancelled")
+
+    def test_grok_denies_common_non_git_commands(self):
+        cmd = sor.grok_command("/tmp/r", "/tmp/p", "sid", 10)
+        denies = [cmd[i + 1] for i, a in enumerate(cmd) if a == "--deny"]
+        for rule in ("Bash(python*)", "Bash(cd *)", "Bash(cat*)", "Bash(curl*)"):
+            self.assertIn(rule, denies)
+        self.assertFalse(any(d.startswith("Bash(git ") and d not in (
+            "Bash(git push*)", "Bash(git commit*)") for d in denies))
+
     def test_grok_structured_output_key(self):
         review, *_ = sor.parse_grok_output(json.dumps({"structured_output": REVIEW}))
         self.assertEqual(review["summary"], "One real bug.")

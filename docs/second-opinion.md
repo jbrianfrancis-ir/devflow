@@ -69,3 +69,9 @@ One limit to know: Grok's `read-only` sandbox profile still allows writes to tem
 checkout is under the temp dir. Grok's own permission mode (`dontAsk`, with only read and
 read-only git commands allowed), the removed write bits on the checkout, and the
 before-and-after check cover that gap.
+
+Headless Grok cannot ask for approval, so a shell command that matches no rule cancels the whole
+run (`stopReason: cancelled`, reported as an error). The prompt asks for single git commands only,
+and common non-git commands (python, cat, sed, cd, curl, …) are denied explicitly: an explicit
+deny is returned to the model, which carries on with its file tools. A cancelled run is never
+scored from its partial progress output.
