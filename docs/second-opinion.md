@@ -34,8 +34,9 @@ From any directory, with `gh` signed in:
 
 - `python3 {devflow_root}/scripts/flow-second-opinion.py review <pr-url>` — both tools, local
   report only.
-- add `--tools codex` or `--tools grok` to run one tool; `--timeout 900` caps each tool in
-  seconds; `--head <sha>` reviews a specific head, such as the reviewed head of a merged PR.
+- add `--tools codex` or `--tools grok` to run one tool; `--timeout <s>` caps every tool in
+  seconds (default: Grok 1500s, Codex 900s); `--head <sha>` reviews a specific head, such as
+  the reviewed head of a merged PR.
 - add `--post` to post ONE combined comment headed "second-opinion review (trial)". Posting is a
   human gate ([autonomy.md](../plugins/devflow/references/autonomy.md)).
 - `scorecard` sums the trial log per tool.

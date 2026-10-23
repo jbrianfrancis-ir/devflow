@@ -59,7 +59,9 @@ SEVERITIES = ("critical", "high", "medium", "low")
 CATEGORIES = ("bug", "security", "regression", "other")
 BLOCKED_OWNERS = {"informativeresearch"}
 BLOCKED_NAME_PREFIXES = ("specialprojects.", "automationhub.")
-DEFAULT_TIMEOUT = 900
+# Per-tool wall-clock caps in seconds. Grok reasons at high effort and takes 8-15 minutes on a
+# mid-size PR (dotfiles #7: 900s timed out, 860s on a rerun), Codex well under a minute.
+DEFAULT_TIMEOUTS = {"codex": 900, "grok": 1500}
 DEFAULT_MAX_TURNS = 40
 MAX_FINDINGS = 25
 COMMENT_LIMIT = 60000
@@ -235,8 +237,9 @@ def build_parser():
     review.add_argument("--post", action="store_true",
                         help="post ONE combined comment on the PR (default: local report only)")
     review.add_argument("--head", help="review this head SHA instead of the PR's current head")
-    review.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT,
-                        help=f"seconds per tool (default {DEFAULT_TIMEOUT})")
+    review.add_argument("--timeout", type=int, default=None,
+                        help="seconds per tool, applied to every tool (default: " + ", ".join(
+                            f"{tool} {secs}s" for tool, secs in DEFAULT_TIMEOUTS.items()) + ")")
     review.add_argument("--max-turns", type=int, default=DEFAULT_MAX_TURNS,
                         help=f"grok agent turn cap (default {DEFAULT_MAX_TURNS})")
     review.add_argument("--work-root", help="parent dir for the throwaway checkout "
@@ -257,13 +260,18 @@ def parse_args(argv):
         if unknown or not tools:
             raise SetupError(f"--tools must be a subset of {','.join(TOOLS)}; got {args.tools!r}")
         args.tools = list(dict.fromkeys(tools))
-        if args.timeout < 30:
+        if args.timeout is not None and args.timeout < 30:
             raise SetupError("--timeout must be at least 30 seconds")
         if args.max_turns < 1:
             raise SetupError("--max-turns must be at least 1")
         if args.head and not re.match(r"^[0-9a-f]{7,40}$", args.head):
             raise SetupError("--head must be a hex commit SHA")
     return args
+
+
+def tool_timeout(args, tool):
+    """--timeout when given (every tool), else the tool's own default."""
+    return args.timeout if args.timeout is not None else DEFAULT_TIMEOUTS[tool]
 
 
 def codex_command(repo_dir, schema_path, last_path, prompt):
@@ -763,10 +771,11 @@ def review_with(tool, ctx, run_dir, repo_dir, env, args):
     else:
         session_id = str(uuid.uuid4())
         cmd = grok_command(repo_dir, prompt_path, session_id, args.max_turns)
+    timeout = tool_timeout(args, tool)
     before = tree_state(repo_dir)
     set_tree_writable(repo_dir, False)
     try:
-        rc, out, err, seconds, timed_out = run_tool(cmd, str(repo_dir), env, args.timeout)
+        rc, out, err, seconds, timed_out = run_tool(cmd, str(repo_dir), env, timeout)
     finally:
         set_tree_writable(repo_dir, True)
     (run_dir / f"{tool}-stdout.txt").write_text(out or "")
@@ -792,7 +801,7 @@ def review_with(tool, ctx, run_dir, repo_dir, env, args):
         result["note"] = "the checkout changed during this tool's run"
     elif timed_out:
         result["status"] = "timeout"
-        result["note"] = f"killed after {args.timeout}s"
+        result["note"] = f"killed after {timeout}s"
     elif review is None:
         result["status"] = "error"
         result["note"] = f"exit {rc}; no schema-shaped answer. stderr: {_clip(redact(err or ''), 300)}"

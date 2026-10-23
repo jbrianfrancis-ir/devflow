@@ -114,7 +114,14 @@ class Args(unittest.TestCase):
         args = sor.parse_args(["review", "o/r#1"])
         self.assertEqual(args.tools, ["codex", "grok"])
         self.assertFalse(args.post)
-        self.assertEqual(args.timeout, sor.DEFAULT_TIMEOUT)
+        self.assertIsNone(args.timeout)
+        self.assertEqual(sor.tool_timeout(args, "grok"), 1500)
+        self.assertEqual(sor.tool_timeout(args, "codex"), 900)
+
+    def test_timeout_flag_applies_to_every_tool(self):
+        args = sor.parse_args(["review", "o/r#1", "--timeout", "120"])
+        self.assertEqual(sor.tool_timeout(args, "grok"), 120)
+        self.assertEqual(sor.tool_timeout(args, "codex"), 120)
 
     def test_tool_subset_and_dedupe(self):
         self.assertEqual(sor.parse_args(["review", "o/r#1", "--tools", "grok, codex,grok"]).tools,
