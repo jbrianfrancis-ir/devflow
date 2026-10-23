@@ -34,8 +34,9 @@ From any directory, with `gh` signed in:
 
 - `python3 {devflow_root}/scripts/flow-second-opinion.py review <pr-url>` — both tools, local
   report only.
-- add `--tools codex` or `--tools grok` to run one tool; `--timeout 900` caps each tool in
-  seconds; `--head <sha>` reviews a specific head, such as the reviewed head of a merged PR.
+- add `--tools codex` or `--tools grok` to run one tool; `--timeout <s>` caps every tool in
+  seconds (default: Grok 1500s, Codex 900s); `--head <sha>` reviews a specific head, such as
+  the reviewed head of a merged PR.
 - add `--post` to post ONE combined comment headed "second-opinion review (trial)". Posting is a
   human gate ([autonomy.md](../plugins/devflow/references/autonomy.md)).
 - `scorecard` sums the trial log per tool.
@@ -69,3 +70,9 @@ One limit to know: Grok's `read-only` sandbox profile still allows writes to tem
 checkout is under the temp dir. Grok's own permission mode (`dontAsk`, with only read and
 read-only git commands allowed), the removed write bits on the checkout, and the
 before-and-after check cover that gap.
+
+Headless Grok cannot ask for approval, so a shell command that matches no rule cancels the whole
+run (`stopReason: cancelled`, reported as an error). The prompt asks for single git commands only,
+and common non-git commands (python, cat, sed, cd, curl, …) are denied explicitly: an explicit
+deny is returned to the model, which carries on with its file tools. A cancelled run is never
+scored from its partial progress output.
