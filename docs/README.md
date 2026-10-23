@@ -12,6 +12,7 @@ Reference pages for DevFlow that go beyond what the [repo README](../README.md) 
 
 - [requirements-clarity.md](requirements-clarity.md) — how DevFlow marks an unsettled requirement instead of guessing, and audits it later.
 - [review.md](review.md) — how plans and diffs get reviewed, including the adversarial cross-provider pass and its ledger.
+- [second-opinion.md](second-opinion.md) — the Grok Build + Codex CLI second-opinion reviewer trial: scope guard, read-only guarantees, trial log and scorecard.
 - [parallel-work.md](parallel-work.md) — seeing every project's status at once, and running phases side by side in worktrees.
 - [autonomy.md](autonomy.md) — the FLOW status line, loop rails, and the gates that never auto-proceed.
 - [provenance.md](provenance.md) — who made a change and who approved it: commit trailers and the decision log.
