@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -35,6 +36,14 @@ ALL_ROLES = READ_ONLY_ROLES | WRITE_ROLES
 # with no fixed set this bridge could check, so an effort for codex is refused rather than
 # guessed. No role has a default effort — absent or "inherit" passes no flag at all.
 EFFORT_LEVELS = {"claude": {"low", "medium", "high", "xhigh", "max"}}
+# GitHub owners whose repos we wrote. A claude peer started in any other checkout (a
+# third-party clone) runs with `--setting-sources user`, so the repo's own
+# .claude/settings.json and settings.local.json (hooks, permissions, plugins) never load
+# headless. Checked live on Claude Code 2.1.312: that flag also drops the project
+# CLAUDE.md and .claude/skills, which is the point for a repo we did not write. Trust comes
+# from the origin/upstream remotes only, never from a file in the repo, so a clone cannot
+# vouch for itself.
+TRUSTED_REMOTE_OWNERS = {"informativeresearch", "jbrianfrancis-ir"}
 FIELDS = {"status", "summary", "artifacts", "completed", "checkpoint", "error"}
 RESULT_SCHEMA = {
     "type": "object", "additionalProperties": False,
@@ -132,6 +141,26 @@ def validate_result(value: object) -> dict | None:
     return value
 
 
+def remote_owner(url: str) -> str | None:
+    """Owner segment of a GitHub remote URL (https, ssh or scp form), lowercased."""
+    match = re.search(r"github\.com[:/]+([^/]+)/", url.strip(), re.IGNORECASE)
+    return match.group(1).lower() if match else None
+
+
+def trusted_repo(repo: Path) -> bool:
+    """True when origin or upstream points at a GitHub owner we wrote; no remote is untrusted."""
+    for remote in ("origin", "upstream"):
+        try:
+            run = subprocess.run(["git", "-C", str(repo), "remote", "get-url", remote],
+                                 text=True, capture_output=True, stdin=subprocess.DEVNULL,
+                                 timeout=10)
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        if run.returncode == 0 and remote_owner(run.stdout) in TRUSTED_REMOTE_OWNERS:
+            return True
+    return False
+
+
 def build_command(provider: str, role: str, repo: Path, prompt: str,
                   schema_path: Path, model: str | None = None,
                   workdir: Path | None = None, effort: str | None = None) -> list[str]:
@@ -158,8 +187,10 @@ def build_command(provider: str, role: str, repo: Path, prompt: str,
                  "--output-schema", str(schema_path), "--color", "never"]
                 + (["--model", model] if model else []) + [instruction])
     permission = "plan" if access == "read-only" else "acceptEdits"
+    # Repo-planted hooks must not fire in a clone we did not write (TRUSTED_REMOTE_OWNERS).
+    sources = [] if trusted_repo(repo) else ["--setting-sources", "user"]
     return (["claude", "-p", "--permission-mode", permission, "--output-format", "json",
-             "--json-schema", json.dumps(RESULT_SCHEMA)]
+             "--json-schema", json.dumps(RESULT_SCHEMA)] + sources
             + (["--model", model] if model else [])
             + (["--effort", effort] if effort else []) + [instruction])
 
