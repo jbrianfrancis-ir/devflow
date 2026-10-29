@@ -104,6 +104,39 @@ class FlowAgentTests(unittest.TestCase):
         self.assertIn("workspace-write", codex)
         self.assertIn("plan", claude)
 
+    def git_repo(self, *remotes):
+        repo = self.base / "gitrepo"
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        for name, url in remotes:
+            subprocess.run(["git", "-C", str(repo), "remote", "add", name, url], check=True)
+        return repo
+
+    def test_claude_peer_ignores_project_settings_in_third_party_clone(self):
+        schema = self.base / "schema.json"
+        for remotes in ([("origin", "https://github.com/someone-else/tool.git")],
+                        [("origin", "git@github.com:someone-else/tool.git"),
+                         ("upstream", "https://gitlab.com/InformativeResearch/tool.git")],
+                        []):
+            with self.subTest(remotes=remotes):
+                repo = self.git_repo(*remotes)
+                command = MODULE.build_command("claude", "reviewer", repo, "task", schema)
+                self.assertEqual("user", command[command.index("--setting-sources") + 1])
+                self.assertEqual("task", command[-1].rsplit("\n", 1)[-1])
+                subprocess.run(["rm", "-rf", str(repo)], check=True)
+
+    def test_claude_peer_keeps_project_settings_in_our_repos(self):
+        schema = self.base / "schema.json"
+        for remotes in ([("origin", "https://github.com/jbrianfrancis-ir/devflow.git")],
+                        [("origin", "git@github.com:someone-else/fork.git"),
+                         ("upstream", "ssh://git@github.com/InformativeResearch/IR.WebAPI")]):
+            with self.subTest(remotes=remotes):
+                repo = self.git_repo(*remotes)
+                command = MODULE.build_command("claude", "reviewer", repo, "task", schema)
+                self.assertNotIn("--setting-sources", command)
+                subprocess.run(["rm", "-rf", str(repo)], check=True)
+        codex = MODULE.build_command("codex", "reviewer", self.git_repo(), "task", schema)
+        self.assertNotIn("--setting-sources", codex)
+
     def test_model_is_passed_through_and_optional(self):
         schema = self.base / "schema.json"
         for provider in ("codex", "claude"):
