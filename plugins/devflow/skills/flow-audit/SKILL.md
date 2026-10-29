@@ -1,17 +1,17 @@
 ---
 name: flow-audit
-description: Read-only cross-artifact consistency check across REQUIREMENTS, ROADMAP, plans, SUMMARYs, VERIFICATION and STATE - coverage both directions, drift, unmeasurable criteria, open clarifications, principle conflicts. Use before executing a phase, before /flow-harden, or when the planning docs feel out of sync. --export assembles an agent-activity evidence pack (who had access, what changed, who approved) for a vendor or compliance review. --docs checks README/docs claims (paths, scripts, package scripts, make targets, env names) against the tree - use before a docs-only PR.
+description: Read-only cross-artifact consistency check across REQUIREMENTS, ROADMAP, plans, SUMMARYs, VERIFICATION and STATE - coverage both directions, drift, unmeasurable criteria, open clarifications, principle conflicts. Use before executing a phase, before /flow-harden, or when the planning docs feel out of sync. --export assembles an agent-activity evidence pack (who had access, what changed, who approved) for a vendor or compliance review. --docs checks README/docs claims (paths, scripts, package scripts, make targets, env names) against the tree - use before a docs-only PR. --drift checks what the plan, STATE, decisions and CLAUDE.md say against the code and git history - use when a cold session is about to trust the docs.
 ---
 
 # flow-audit
 
 **Host setup**: resolve `devflow_root` and follow `{devflow_root}/references/hosts.md` before doing anything else.
 
-Context rules: read `.planning/STATE.md` first. Everything here is small and capped — read REQUIREMENTS.md, ROADMAP.md, ARCHITECTURE.md and STATE.md whole, and phase artifacts (`*-PLAN.md`, `*-SUMMARY.md`, `VERIFICATION.md`) **frontmatter only**. Never read source; this audits the documents against each other, not the code (`/flow-verify` proves code, `/flow-harden` audits production-readiness). `--docs` is the one mode that reads the tree, and only to check what the docs claim about it.
+Context rules: read `.planning/STATE.md` first. Everything here is small and capped — read REQUIREMENTS.md, ROADMAP.md, ARCHITECTURE.md and STATE.md whole, and phase artifacts (`*-PLAN.md`, `*-SUMMARY.md`, `VERIFICATION.md`) **frontmatter only**. Never read source; this audits the documents against each other, not the code (`/flow-verify` proves code, `/flow-harden` audits production-readiness). `--docs` and `--drift` are the modes that read the tree, and only to check what the docs claim about it.
 
 **STRICTLY READ-ONLY.** Change nothing — not a status, not a typo, not a marker. DevFlow spreads project knowledge across artifacts on purpose, and an auditor that edits while it reads destroys the evidence of what disagreed with what. Findings end in a report and a recommended route; the human decides.
 
-**Pre-flight**: `.planning/` with REQUIREMENTS.md and ROADMAP.md. Missing → point to `/flow-new`. Scope defaults to the whole project; `N` limits it to phase N's artifacts plus the project-level files they reference. (`--export` needs only `.planning/` and a git checkout — it reports on what exists rather than checking it. `--docs` needs only a git checkout.)
+**Pre-flight**: `.planning/` with REQUIREMENTS.md and ROADMAP.md. Missing → point to `/flow-new`. Scope defaults to the whole project; `N` limits it to phase N's artifacts plus the project-level files they reference. (`--export` needs only `.planning/` and a git checkout — it reports on what exists rather than checking it. `--docs` needs only a git checkout. `--drift` needs `.planning/` and a git checkout.)
 
 ## Passes
 Run all of them; report nothing you cannot point at with a file and a line or row.
@@ -51,6 +51,24 @@ Take `could-not-check` from the script as it stands: a missing `package.json` or
 **Severity**: a contradicted command or path in a README quick-start / install / setup / usage section is **HIGH** (the script marks these `severity: HIGH`); every other contradiction is **MEDIUM**; `could-not-check` is listed, not graded. Report in the same table shape as above with `pass` = the rule (`D1`–`D5`, or `behaviour`), worst first, then the script's `summary` counts verbatim so the reader sees how much was checked. **Offer** to fix the docs and wait for an explicit yes. Write nothing to `.planning/`.
 
 Status line: clean → `FLOW: CONTINUE | docs audit clean: N claims verified | next: {the command STATE points to}`; any HIGH → `FLOW: GATE | docs audit: N high, M medium | next: fix the docs or the code they describe`; only MEDIUM → `CONTINUE` naming them as known debt.
+
+## --drift (docs vs code)
+
+`--drift [N] [--since <date|tag|sha>]` is a **separate mode**: it does not run the passes above. The default passes check the documents against each other and `--docs` checks paths and commands; `--drift` checks what the plan, STATE, decisions and agent instructions say was built against what the code and git history show. It answers the question a cold session cannot: *can I trust these docs?* `N` limits it to phase N; `--since` limits the git range. **Strictly read-only**, like the default mode: it changes nothing, including a STATE line it finds stale.
+
+Read STATE.md, ROADMAP.md, ARCHITECTURE.md, DECISIONS.md and the project section of `CLAUDE.md`/`AGENTS.md` (outside the DevFlow block) whole; phase artifacts **frontmatter only**. Read source only to settle one specific claim — open the file:line that makes it true or false, never a whole codebase.
+
+1. **X1 Plan → tree.** For each executed plan (a SUMMARY exists): every `must_haves.artifacts` and `files_new` path exists at `HEAD` (`git cat-file -e HEAD:<path>`), and every SUMMARY `commits` SHA resolves and is on this branch (`git merge-base --is-ancestor <sha> HEAD`). A missing artifact or an off-branch commit is work the docs claim and the code does not have.
+2. **X2 Stale verification.** For each verified phase, find the commit that last wrote its VERIFICATION.md (`git log -1 --format=%H -- <path>`), then the commits since it that touch the phase's `files_modified` (`git log --no-merges --format='%h|%s|%(trailers:key=DevFlow-Plan,valueonly)' <sha>..HEAD -- <files>`). A change from outside that phase means the code was edited after it was proven, and the verification no longer covers what ships.
+3. **X3 Unplanned work.** Non-merge commits in range that touch paths outside `.planning/` and carry no `DevFlow-Plan` trailer, with no matching `.planning/quick/` entry. Report the count and the top paths, not every commit: this is work no plan or requirement traces to.
+4. **X4 STATE vs git.** Every branch, SHA and PR that STATE Position or Session names: the branch exists (`git rev-parse --verify`), the SHA resolves, and the PR is in the state STATE claims (`gh pr view <n> --json state` when gh is authenticated; otherwise `could-not-check`). A STATE that says "PR open" for a merged PR misleads the next session.
+5. **X5 Decisions and instructions vs code.** Each concrete, checkable statement — an ARCHITECTURE.md manifest major or Forbidden item, a DECISIONS.md or STATE `## Decisions` entry that names a mechanism, a project rule in CLAUDE.md/AGENTS.md such as "all DB access goes through `src/data/`" — point at the file:line that makes it true or false. A statement you cannot settle that way is `could-not-check`, never "fine". Full manifest-against-ARCHITECTURE audits stay in `/flow-harden`; check only what a statement names.
+
+A git command that fails, or a ref that does not resolve, is `could-not-check` with the reason — never evidence of a clean result.
+
+**Severity**: a Forbidden item or principle the code violates is **CRITICAL**; a missing artifact, an off-branch SUMMARY commit, stale verification, and STATE contradicted by git are **HIGH**; unplanned work and a decision the code quietly departs from are **MEDIUM**; wording is **LOW**. `could-not-check` is listed, not graded. Same report table as above with `pass` = `X1`–`X5`, worst first, ~25 findings cap, then routes: stale verification → `/flow-verify N`; STATE drift → `/flow-status`; unplanned work → record it with `/flow-quick` or a plan; a decision the code contradicts → a decision for the human (update the decision or the code, never both silently). **Offer** the mechanical fixes and wait for an explicit yes. Write nothing to `.planning/`.
+
+Status line: clean → `FLOW: CONTINUE | drift audit clean: N claims checked | next: {the command STATE points to}`; any CRITICAL or HIGH → `FLOW: GATE | drift audit: N critical, M high | next: {route}`; only MEDIUM/LOW → `CONTINUE` naming them as known debt.
 
 ## --export (evidence pack)
 
