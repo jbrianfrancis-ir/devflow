@@ -80,8 +80,8 @@ if codex_market:
 
 skills = sorted(glob.glob(os.path.join(PLUGIN, "skills", "*", "SKILL.md")))
 agents = sorted(glob.glob(os.path.join(PLUGIN, "agents", "*.md")))
-if len(skills) != 27:
-    err(f"expected 27 skills, found {len(skills)}")
+if len(skills) != 28:
+    err(f"expected 28 skills, found {len(skills)}")
 if len(agents) != 13:
     err(f"expected 13 Claude role agents, found {len(agents)}")
 for path in skills:
@@ -100,7 +100,8 @@ for path in skills:
 # flow-ci (9), and flow-uat (rule 11 emits CONTINUE with next: /flow-uat). Pin both
 # lists so a flag added or dropped on either side fails here, not in a stalled run.
 EXPLICIT_ONLY = {"flow-release", "flow-workstream", "flow-migrate", "flow-hooks",
-                 "flow-security-audit", "flow-undo", "flow-second-opinion"}
+                 "flow-security-audit", "flow-undo", "flow-second-opinion",
+                 "flow-prod-readiness"}
 CHAINED_MUST_STAY_INVOCABLE = {"flow-plan", "flow-execute", "flow-harden", "flow-pr",
                                "flow-ci", "flow-uat"}
 for name in sorted(EXPLICIT_ONLY | CHAINED_MUST_STAY_INVOCABLE):
