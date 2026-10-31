@@ -54,6 +54,8 @@ Parameters, not literals: `builder.AddParameter("name", secret: true)` in the Ap
 - [ ] Telemetry readiness: every deployed service emits traces, metrics and logs to a workspace-based Application Insights that actually exists and is wired to it — the checkable bar, and the `telemetry-readiness` skill that grades it, are in `{devflow_root}/references/telemetry-readiness.md`. A local dashboard is not a destination
 - [ ] Tests pass; CI (if present) runs build + tests
 
+This checklist covers the code and the build. The hosting posture around a deployed app — edge geo-filter, WAF, identity on every request, private data stores, audit logging, tested restore, minimum capacity, monitoring — is the separate, explicit-only `/flow-prod-readiness` review (`{devflow_root}/references/prod-readiness.md`), run once per app before go-live and after major infrastructure changes; `/flow-harden` neither runs nor requires it.
+
 ## Failure → fix
 - `azd up` Bicep errors → usually resource-name conflict or region: `azd env set AZURE_LOCATION <region>`, rename resource.
 - Container build fails → build the service locally; inspect `aspire publish` artifacts.

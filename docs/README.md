@@ -24,6 +24,7 @@ Reference pages for DevFlow that go beyond what the [repo README](../README.md) 
 
 ## Optional gates
 
+- [prod-readiness.md](prod-readiness.md) — the explicit-only `/flow-prod-readiness` platform review: once per app before go-live and after major infrastructure changes, never per PR; nine items graded pass/gap/unknown with an owner, read-only.
 - [security-audit.md](security-audit.md) — the opt-in `/flow-security-audit` pre-production gate: off by default, when to run it, and what it borrows from Cloudflare's security-audit skill.
 
 ## Incoming contributions

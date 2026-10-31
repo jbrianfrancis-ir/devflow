@@ -83,6 +83,7 @@ the complete gate list: [docs/autonomy.md](docs/autonomy.md).
 | triage | `/flow-triage` | Pre-screen incoming third-party PRs against ARCHITECTURE.md/REQUIREMENTS.md, flag only the promising ones for human review (`--all`, `--export`) |
 | deploy | `/flow-harden` | Production audit vs Aspire checklist; fix findings |
 | deploy | `/telemetry-readiness` | Read-only telemetry gate — every deployed service emits traces, metrics and logs to a workspace-based Application Insights that exists and is wired to it; `PASS`/`FAIL`/`UNVERIFIED` per check, `--scope` code / platform / all ([docs](docs/telemetry-readiness.md)) |
+| deploy (opt-in) | `/flow-prod-readiness` | Read-only platform readiness review — once per app before go-live and after major infra changes, never per PR; edge geo-filter, WAF + false-positive check, identity on every request, private DB, secrets, audit log, tested restore, capacity/shutdown, monitoring; `pass`/`gap`/`unknown` + owner ([docs](docs/prod-readiness.md)) |
 | deploy (opt-in) | `/flow-security-audit` | Optional pre-production security audit — off by default, never run by `/flow-next`; guidance vs full audit, hunter≠verifier, `confirmed`/`needs_validation`/`rejected` ([docs](docs/security-audit.md)) |
 | deploy | `/flow-uat` | Deploy to UAT (provision on first deploy), generate acceptance test plan |
 | deploy | `/flow-release` | Production deploy, gated on per-SHA UAT sign-off |
