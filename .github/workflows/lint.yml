@@ -23,6 +23,8 @@ jobs:
         run: python3 -m unittest discover -s tests -v
       - name: Check internal links
         run: python3 scripts/check-links.py
+      - name: Check size budget
+        run: bash scripts/budget-count.sh --check
       - name: Check version bump on shipped content
         if: github.event_name == 'pull_request'
         # Branch name via env, never interpolated into the shell command.
