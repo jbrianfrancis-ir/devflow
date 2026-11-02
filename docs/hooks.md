@@ -16,7 +16,7 @@ followed its instructions — unless a Claude Code mod stops them first (see
 | `protected-paths-guard.py` | `Edit`/`Write` | an edit to a path matching `protected_paths`, unless `DEVFLOW_PROTECTED_PATH_OK` is set |
 | `secret-scan-guard.py` | `Bash` | `git commit`/`git push` whose diff matches conventions.md's secret pattern class |
 | `dependency-guard.py` | `Bash`/`Edit`/`Write`/`MultiEdit` | an edit that adds a dependency or changes one beyond a routine within-major minor/patch upgrade in a manifest or lockfile, or a package-add command — asks the human, naming the packages |
-| `destructive-git-guard.py` | `Bash` | on any branch: a force push (`--force`, `-f`, `--force-with-lease`, a `+refspec`), `git reset --hard`, `git clean -f`, `git branch -D` |
+| `destructive-git-guard.py` | `Bash` | on any branch: a force push (`--force`, `-f`, `--force-with-lease`, a `+refspec`), `git reset --hard`, `git clean -f`, `git branch -D`, `git checkout .`, `git restore .` |
 
 Run `/flow-hooks` (optionally `--only base,secret,paths,deps,destructive` for a subset) in any project — no
 `.planning/` required. It copies the scripts into `.claude/hooks/` and merges idempotent
@@ -83,14 +83,15 @@ list. A configured glob the guard has no parser for is gated on any content chan
 - `git reset --hard`
 - `git clean -f` / `--force` (also `-fd`, `-xdf`); a dry run with `-n` passes
 - `git branch -D`, and `--delete --force` / `-d -f`
+- `git checkout .` / `-- .` / `HEAD -- .` and `git restore .` / `--worktree .` (pathspec `.` or `:/`)
 
 `--force-with-lease` is blocked on purpose. The lease only stops you overwriting commits you have
 not fetched; the remote branch is still rewritten, and the rule has no lease exception. There is no
 override variable: when a human decides a force push or a hard reset is right, they run it in their
 own terminal. The guard reads no config and needs no git repo. It looks inside `bash -c`, `sh -c`
 and `eval`, and skips leading `VAR=value` assignments, `sudo`/`env`-style wrappers and git's
-global options. `git checkout .` and `git restore .` are not blocked. The block-list idea comes from
-Matt Pocock's git-guardrails-claude-code skill (concept only, no code).
+global options. `git restore --staged .` (unstaging only) and `git checkout <branch>` pass. The
+block-list idea comes from Matt Pocock's git-guardrails-claude-code skill (concept only, no code).
 
 ## Known limitations
 
