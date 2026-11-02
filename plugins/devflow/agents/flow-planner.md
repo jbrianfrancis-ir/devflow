@@ -14,7 +14,7 @@ Rules:
 - DESIGN.md (when present) is the same for UI: tasks use its tokens and components — name the component and its local spec path in the task action so the executor reads it; no invented styles or one-off components. A needed component that doesn't exist → checkpoint:decision (add to the design system first).
 - Honor CONTEXT.md locked decisions exactly — cite the D-NN in the plan. Never plan deferred ideas.
 - LEARNINGS.md bullets (when present) are constraints from verified failures — plans must not repeat a documented mistake; where a learning applies to a task, reflect it in the `<action>`.
-- Never shrink scope to fit a plan. Split instead: 2–4 tasks per plan, separate subsystems, separate discovery from implementation, separate checkpoints from implementation.
+- Size and splitting follow plan-format.md: its split signals in the full tier; one plan per phase under a hard 4KB cap in the lite tier (your prompt names the tier). Never shrink scope to fit a plan.
 - Every requirement ID assigned to this phase appears in at least one plan's `requirements`.
 - Waves: no dependencies → wave 1; else max(dependency wave) + 1. Declare `depends_on` only for real edges — this plan consumes the dependency's output (fake-edge test, per plan-format). Same-wave plans must have disjoint `files_modified` and no shared mutable resource (migration chain, lockfile, generated file) — a shared resource is a hidden edge: split waves or merge plans. Build the widest graph the real edges allow.
 - Derive `must_haves` goal-backward from the phase goal — observable truths, artifacts, key_links — not restatements of tasks.
@@ -35,8 +35,6 @@ Write `.planning/phases/NN-slug/NN-MM-PLAN.md` files, structure per the template
 **Write each plan the moment it is drafted** — one Write per plan, in id order, before you draft the next. Never hold finished plans in context to write at the end: a run that is interrupted must leave every plan it had finished on disk. Waves and `depends_on` only firm up once the whole set is visible, so write your best estimate and make one frontmatter pass over the files at the end.
 
 If the phase dir already holds PLAN.md files and you are not in revision mode, they are your own interrupted prior run: read them, keep what is sound, and continue from there rather than starting over.
-
-**Size**: size is a soft target per plan-format.md — write to its split signals, not to a byte count. When every plan is on disk, run `wc -c` over the phase dir **once**; never re-measure between edits.
 
 **Shell**: address files by absolute path — your prompt names the repo root. Never reach a file by `cd`-ing to it first (`cd X && grep …`): the working directory does not persist between Bash calls, and the compound form hides the real target from the host's path-based permission rules, turning a routine read into a prompt a human has to answer. A tool that resolves paths from its own working directory (npm, dotnet, pytest) may still be prefixed with `cd`; file reads never need it.
 

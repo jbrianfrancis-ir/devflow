@@ -256,5 +256,36 @@ class R7ContextPathsExist(LintCase):
         self.assertEqual(result.returncode, 0, result.stdout)
 
 
+class LiteTier(LintCase):
+    """R8: in the lite tier (.planning/config.json "tier": "lite") 4KB is a hard cap."""
+
+    def config(self, text):
+        (self.repo / ".planning/config.json").write_text(text, encoding="utf-8")
+
+    def big_plan(self):
+        return plan("01-01").replace("<action>do it</action>", "<action>" + "x" * 4200 + "</action>")
+
+    def test_lite_plan_over_cap_is_r8(self):
+        self.config('{"tier": "lite"}')
+        self.write("01-01-PLAN.md", self.big_plan())
+        self.assertFinding(self.run_lint(), "R8", "01-01", "4096-byte hard cap")
+
+    def test_full_tier_and_no_config_ignore_size(self):
+        self.write("01-01-PLAN.md", self.big_plan())
+        self.assertEqual(self.run_lint().returncode, 0)
+        self.config('{"tier": "full"}')
+        self.assertEqual(self.run_lint().returncode, 0)
+
+    def test_lite_plan_under_cap_passes(self):
+        self.config('{"tier": "lite"}')
+        self.write("01-01-PLAN.md", plan("01-01"))
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_unreadable_config_is_could_not_check(self):
+        self.config("{not json")
+        self.write("01-01-PLAN.md", plan("01-01"))
+        self.assertFinding(self.run_lint(), "R0", "-", "could not read tier")
+
 if __name__ == "__main__":
     unittest.main()
