@@ -34,7 +34,7 @@ A reviewer's figures that you could not reproduce is a finding about the review,
 
 ## Dismissal has to cost something
 
-`FIX LATER` requires the backlog entry to exist **before** the row is written — a `TODOS.md` line or an issue, cited by path or URL in the disposition. A promise to record it later is the same as not recording it. This is the only guard against the disposition that costs nothing to assign and quietly absorbs every finding nobody wants to argue about.
+`FIX LATER` requires the backlog entry to exist **before** the row is written — a `TODOS.md` line or an issue, cited by path or URL in the disposition. A promise to record it later is the same as not recording it. This is the only guard against the disposition that costs nothing to assign and quietly absorbs every finding nobody wants to argue about. `/flow-pr`'s rare-case cutoff (L×S < 5) files through this same rule.
 
 Backfill each `FIX NOW` row as the work lands, with its commit. A ledger still saying `queued` three phases later is telling you something true.
 
