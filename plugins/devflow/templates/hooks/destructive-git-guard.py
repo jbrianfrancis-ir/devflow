@@ -10,6 +10,8 @@ Blocked (exit 2, reason on stderr):
   git reset --hard
   git clean -f | --force (also -fd, -xdf, ...), unless -n/--dry-run is present
   git branch -D | --delete --force | -d -f (also -df)
+  git checkout . | -- . | <tree> -- .  any pathspec that is exactly `.` or `:/`
+  git restore . | --worktree .         same pathspecs; --staged/-S alone (unstaging only) passes
 
 `--force-with-lease` is blocked too. It only protects against overwriting commits you have not
 fetched; it still rewrites the remote branch, and "never force-push" has no lease exception. A
@@ -52,6 +54,12 @@ GIT_GLOBAL_WITH_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace",
 
 # push options that consume the next token as their value (so it is not read as a refspec).
 PUSH_WITH_VALUE = {"-o", "--push-option", "--repo", "--receive-pack", "--exec"}
+
+# A pathspec that covers the whole working tree: checkout/restore with it discards every
+# uncommitted change at once.
+WHOLE_TREE = {".", ":/"}
+CHECKOUT_WITH_VALUE = {"-b", "-B", "--orphan"}
+RESTORE_WITH_VALUE = {"-s", "--source"}
 
 
 def warn(message):
@@ -168,7 +176,52 @@ def check_branch(args):
     return None
 
 
-CHECKS = {"push": check_push, "reset": check_reset, "clean": check_clean, "branch": check_branch}
+def pathspecs(args, with_value):
+    """Non-option words, plus every word after `--`."""
+    found = []
+    i = 0
+    while i < len(args):
+        word = args[i]
+        if word == "--":
+            return found + args[i + 1:]
+        if word in with_value:
+            i += 2
+            continue
+        if not word.startswith("-"):
+            found.append(word)
+        i += 1
+    return found
+
+
+def check_checkout(args):
+    if WHOLE_TREE & set(pathspecs(args, CHECKOUT_WITH_VALUE)):
+        return "git checkout ."
+    return None
+
+
+def check_restore(args):
+    if not WHOLE_TREE & set(pathspecs(args, RESTORE_WITH_VALUE)):
+        return None
+    staged = worktree = False
+    for word in args:
+        if word == "--":
+            break
+        if word == "--staged":
+            staged = True
+        elif word == "--worktree":
+            worktree = True
+        for letter in short_flags(word):
+            if letter == "s":  # -s<tree>: the rest is the option's value
+                break
+            staged = staged or letter == "S"
+            worktree = worktree or letter == "W"
+    if staged and not worktree:
+        return None
+    return "git restore ."
+
+
+CHECKS = {"push": check_push, "reset": check_reset, "clean": check_clean, "branch": check_branch,
+          "checkout": check_checkout, "restore": check_restore}
 
 
 def find_destructive(command, depth=0):

@@ -12,14 +12,6 @@ Read `.planning/STATE.md` first. It names the current phase, what is in flight, 
 next command to run. Everything DevFlow knows lives on disk under `.planning/` — not in
 chat history — so a cold session loses nothing.
 
-| Need | Read |
-|------|------|
-| Where the project stands | `.planning/STATE.md` |
-| What we're building, in what order | `.planning/REQUIREMENTS.md`, `.planning/ROADMAP.md` |
-| Binding technical constraints | `.planning/ARCHITECTURE.md` |
-| Recent activity | `.planning/JOURNAL.md` |
-| Existing-codebase map | `.planning/codebase/MAP.md` |
-
 `.planning/ARCHITECTURE.md` is **law, not advice**: stay on the major versions it
 records (exact versions live in the manifests and lockfiles, so a minor/patch bump needs
 no doc edit), use nothing from its Forbidden list, and treat its `## Principles` as
@@ -33,8 +25,6 @@ name and do not open `.env*` files.
 **Evidence over assertion**: a claim that something works needs a command that ran, a
 test that passed, or a code path traced. "Should work" is not a result.
 
-Drive the workflow with the `flow-*` skills — `/flow-*` in Claude Code, `$flow-*` in
-Codex. `/flow-status` reports where things are and what to run next.
 `/flow-security-audit` is an opt-in pre-production gate — off by default, never run by
 `/flow-next`; invoke it before `/flow-uat` or `/flow-release` only when a human asks.
 <!-- END DEVFLOW -->

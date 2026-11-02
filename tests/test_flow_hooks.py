@@ -967,6 +967,17 @@ class DestructiveGitGuardTests(unittest.TestCase):
         "bash -c \"git status && git push -f\"",
         "eval git branch -D flow/x",
         "git status\ngit push -f",
+        "git checkout .",
+        "git checkout -- .",
+        "git checkout HEAD -- .",
+        "git checkout :/",
+        "git restore .",
+        "git restore --worktree .",
+        "git restore -SW .",
+        "git restore --staged --worktree .",
+        "git restore --source=HEAD~1 :/",
+        "bash -c 'git restore .'",
+        "eval git checkout -- .",
     ]
 
     ALLOWED = [
@@ -991,6 +1002,13 @@ class DestructiveGitGuardTests(unittest.TestCase):
         "git commit -m \"reset --hard is never the fix\"",
         "echo git push -f",
         "ls -la",
+        "git restore --staged .",
+        "git restore -S .",
+        "git restore f.txt",
+        "git checkout main",
+        "git checkout -b flow/x",
+        "git checkout -- src/f.txt",
+        "git checkout main -- src/f.txt",
     ]
 
     def setUp(self):
@@ -1025,6 +1043,18 @@ class DestructiveGitGuardTests(unittest.TestCase):
             "tool_input": {"command": "git reset --hard"}, "cwd": str(fixture.repo)})
         self.assertEqual(2, result.returncode)
         self.assertIn("Blocked: git reset --hard", result.stderr)
+
+    def test_hook_blocks_checkout_dot_inside_bash_c(self):
+        result = run_hook(DESTRUCTIVE_GIT_GUARD, {
+            "tool_input": {"command": "bash -c 'git checkout -- .'"}})
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Blocked: git checkout .", result.stderr)
+
+    def test_hook_allows_unstaging_everything(self):
+        result = run_hook(DESTRUCTIVE_GIT_GUARD, {
+            "tool_input": {"command": "git restore --staged ."}})
+        self.assertEqual(0, result.returncode)
+        self.assertEqual("", result.stderr)
 
     def test_hook_allows_normal_push(self):
         result = run_hook(DESTRUCTIVE_GIT_GUARD, {
