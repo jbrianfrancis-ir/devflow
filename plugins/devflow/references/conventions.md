@@ -110,6 +110,9 @@ This applies to the whole guard family: the secret scan, `/flow-execute`'s fan-i
 ## Session journal (`.planning/JOURNAL.md`)
 One line per completed state-changing skill run, **newest first** — format in `templates/journal.md`. Cap 2KB (~25 lines): when over, **move** the overflow — oldest lines first — to `.planning/history/JOURNAL-<YYYY>.md`, appending in chronological order. Never drop them. The cap exists to bound what gets read into context on every run, which is a reason to move old lines out of the hot file, not a reason to destroy them; a record that forgets its own oldest entries can't answer a question asked a year later. History files are append-only and uncapped — nothing reads them for warm-start. Create either file on first write; its absence is always fine (pre-existing projects keep working). Read by `/flow-status` (top line = last activity) and indexable by BlitzOS-style context repos as session entries (see `docs/blitzos.md`).
 
+## After compaction (Claude Code)
+After compaction in Claude Code the summary is a pointer, not evidence: open the session `.jsonl` under `~/.claude/projects/` that it names, then find and quote the exact error, path, number or rule before acting. If it isn't there, ask; never act from the summary alone.
+
 ## Decision log (`.planning/DECISIONS.md`)
 Append-only record of every human gate, written when the gate is answered — the authoritative gate list and the recording rule are in `autonomy.md`; the entry format is `templates/decisions.md`. **The only uncapped state file**: it is never read for warm-start, so it costs no context and the usual size discipline does not apply. Never rewrite, compact, or reorder it — an append-only log whose history can be edited is not evidence. Entries are chronological, oldest first, opposite to JOURNAL.md.
 

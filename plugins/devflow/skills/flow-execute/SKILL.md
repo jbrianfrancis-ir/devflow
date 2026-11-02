@@ -9,7 +9,7 @@ description: Execute all plans of a phase in dependency waves via parallel execu
 
 **Agent provider**: accept `--provider native|claude|codex`. Resolve and dispatch every role in this run exactly as `{devflow_root}/references/hosts.md` specifies. The selected provider applies to all delegated roles unless this skill explicitly calls an external consultation engine. A missing or failed peer is fail-closed; report `FLOW: BLOCKED` with remediation and never fall back silently.
 
-Context rules: read `.planning/STATE.md` first; pass subagents paths, never contents; read plan/SUMMARY **frontmatter only** in this session; keep output terse — the executors do the work.
+Context rules: read `.planning/STATE.md` first; pass subagents paths, never contents; read plan/SUMMARY **frontmatter only** in this session; keep output terse — the executors do the work. After a compaction, `{devflow_root}/references/conventions.md` → After compaction applies.
 
 Test layer: executors follow `{devflow_root}/references/test-policy.md` — integration/behavior first; thin units only for pure logic or regression pins; no post-hoc coverage suites.
 

@@ -47,7 +47,7 @@ First run with no roots configured scans the parent of the current directory. Of
 
 Status line for `--all`: report the fleet, not this repo — `FLOW: GATE | fleet: N projects, M need a human | next: cd <path> && <command>` when any do, else `FLOW: CONTINUE | fleet: N projects, none blocked | next: cd <path> && <command>` naming the project you'd advance first.
 
-**--pause**: rewrite STATE.md's Session section (Stopped: exact position incl. in-flight wave/plan; Resume: the command + any context needed cold), commit `chore(flow): pause` if commit_docs. Resume later needs no special command — every skill reads STATE.md first.
+**--pause**: rewrite STATE.md's Session section (Stopped: exact position incl. in-flight wave/plan; Resume: the command + any context needed cold), commit `chore(flow): pause` if commit_docs. Resume later needs no special command — every skill reads STATE.md first. After a compaction, resume from the transcript, not the summary (`{devflow_root}/references/conventions.md` → After compaction).
 
 **--reset-run**: reset STATE.md's `## Run` block (`Iteration: 1`, `Started:` now, `Repeats: 0`, `Signature:` cleared) — the manual counterpart to the automatic reset an answered gate performs. Use it after fixing whatever the loop was stuck on, or to re-arm a rail that tripped. Say what the counters were before clearing them: the numbers are the evidence for why the run stopped, and silently zeroing them loses the only record. It does not touch `## Gate` — an unanswered gate stays unanswered.
 
