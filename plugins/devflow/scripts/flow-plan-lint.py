@@ -16,6 +16,7 @@ there are zero findings; any finding exits 1. Rules (stable ids):
   R6 every files_modified path exists at HEAD, or is in files_new (this plan's, or a
      plan it transitively depends on); every files_new entry is also in files_modified
   R7 every repo-relative path in <context> exists at HEAD or is declared new as in R6
+  R8 lite tier only (.planning/config.json "tier": "lite"): a pending plan over 4096 bytes
 
 Fail-closed per conventions.md: a check that cannot run is an R0 finding, never a pass.
 Frontmatter parsing is imported from flow-split-plan.py, so the two scripts cannot
@@ -203,6 +204,9 @@ def context_paths(body: str, sp) -> list[str]:
     return found
 
 
+LITE_MAX_BYTES = 4096
+
+
 def lint(phase_dir: Path, repo: Path, sp) -> dict:
     findings: list[dict] = []
 
@@ -243,6 +247,21 @@ def lint(phase_dir: Path, repo: Path, sp) -> dict:
             add("R1", pid, problem)
         if not problems:
             valid[pid] = plans[pid]
+
+    # R8 — the lite tier makes 4KB a hard cap (plan-format.md). No config, or no tier, is full.
+    config = phase_dir.resolve().parents[1] / "config.json"
+    tier = "full"
+    if config.is_file():
+        try:
+            tier = json.loads(config.read_text(encoding="utf-8")).get("tier") or "full"
+        except (OSError, ValueError, AttributeError) as exc:
+            add("R0", "-", f"could not read tier from {config}: {exc}")
+    if tier == "lite":
+        for pid in pending:
+            size = plan_paths[pid].stat().st_size
+            if size > LITE_MAX_BYTES:
+                add("R8", pid, f"{size} bytes, over the lite tier's {LITE_MAX_BYTES}-byte hard cap "
+                                "— cut prose (never a truth), or set tier to full")
 
     graph = {pid: as_list(p["fm"], "depends_on", sp) for pid, p in plans.items() if p}
     waves = {pid: int(p["fm"]["wave"]) for pid, p in plans.items()
