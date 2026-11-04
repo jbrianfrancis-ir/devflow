@@ -2,6 +2,7 @@
 """Deterministic lint of a phase's plans before any executor is dispatched.
 
     flow-plan-lint.py <phase-dir> [--repo <root>] [--json]
+    flow-plan-lint.py <phase-dir> --plan-count [--adding N]
 
 Lints every NN-MM-PLAN.md in <phase-dir> that has no matching NN-MM-SUMMARY.md (executed
 plans are skipped — resume support; they still count as graph nodes). Exit 0 only when
@@ -17,6 +18,12 @@ there are zero findings; any finding exits 1. Rules (stable ids):
      plan it transitively depends on); every files_new entry is also in files_modified
   R7 every repo-relative path in <context> exists at HEAD or is declared new as in R6
   R8 lite tier only (.planning/config.json "tier": "lite"): a pending plan over 4096 bytes
+
+Plan-count guard (a WARN line, never a finding; exit code unchanged): plans across every
+.planning/phases/* dir (+ --adding N about to be written in <phase-dir>) over
+GUARD_MAX_PLANS, or more than GUARD_MAX_SMALL_PHASES phases holding plans when config.json
+has "tier": "lite" or "one_off": true. Printed on every lint run; --plan-count prints only it
+(exit 0), for /flow-plan to run before it writes plans.
 
 Fail-closed per conventions.md: a check that cannot run is an R0 finding, never a pass.
 Frontmatter parsing is imported from flow-split-plan.py, so the two scripts cannot
@@ -205,6 +212,50 @@ def context_paths(body: str, sp) -> list[str]:
 
 
 LITE_MAX_BYTES = 4096
+# The plan-count guard's thresholds live here and nowhere else.
+GUARD_MAX_PLANS = 8
+GUARD_MAX_SMALL_PHASES = 2
+
+
+def read_config(phase_dir: Path) -> tuple[Path, dict, str | None]:
+    """(config path, its contents, error). No config file is an empty config, not an error."""
+    config = phase_dir.resolve().parents[1] / "config.json"
+    if not config.is_file():
+        return config, {}, None
+    try:
+        data = json.loads(config.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return config, {}, str(exc)
+    if not isinstance(data, dict):
+        return config, {}, "not a JSON object"
+    return config, data, None
+
+
+def plan_count(phase_dir: Path, adding: int, sp) -> str:
+    """The guard's one-line verdict: a `WARN plan-count:` line when over, else an OK line."""
+    counts: dict[str, int] = {}
+    root = phase_dir.resolve().parent
+    if root.is_dir():
+        for d in sorted(root.iterdir()):
+            if d.is_dir():
+                n = sum(1 for f in d.iterdir() if f.is_file() and sp.PLAN_FILENAME_RE.match(f.name))
+                if n:
+                    counts[d.name] = n
+    if adding > 0:
+        counts[phase_dir.name] = counts.get(phase_dir.name, 0) + adding
+    plans, phases = sum(counts.values()), len(counts)
+    config, data, error = read_config(phase_dir)
+    small = data.get("tier") == "lite" or data.get("one_off") is True
+    if plans > GUARD_MAX_PLANS or (small and phases > GUARD_MAX_SMALL_PHASES):
+        return (f"WARN plan-count: {plans} plans across {phases} phases (guard: >{GUARD_MAX_PLANS} "
+                f"plans, or >{GUARD_MAX_SMALL_PHASES} phases on a lite/one-off job). This looks "
+                "like ceremony for the job size - consider /flow-quick or direct execution of the "
+                "remaining work instead of more plans. Continue only if the extra plans carry "
+                "real decisions.")
+    if error:
+        return (f"WARN plan-count: could not read {config} ({error}); {plans} plans across "
+                f"{phases} phases checked against the plan total only")
+    return f"plan-count: {plans} plans across {phases} phases (under the guard)"
 
 
 def lint(phase_dir: Path, repo: Path, sp) -> dict:
@@ -249,14 +300,10 @@ def lint(phase_dir: Path, repo: Path, sp) -> dict:
             valid[pid] = plans[pid]
 
     # R8 — the lite tier makes 4KB a hard cap (plan-format.md). No config, or no tier, is full.
-    config = phase_dir.resolve().parents[1] / "config.json"
-    tier = "full"
-    if config.is_file():
-        try:
-            tier = json.loads(config.read_text(encoding="utf-8")).get("tier") or "full"
-        except (OSError, ValueError, AttributeError) as exc:
-            add("R0", "-", f"could not read tier from {config}: {exc}")
-    if tier == "lite":
+    config, data, error = read_config(phase_dir)
+    if error:
+        add("R0", "-", f"could not read tier from {config}: {error}")
+    if data.get("tier") == "lite":
         for pid in pending:
             size = plan_paths[pid].stat().st_size
             if size > LITE_MAX_BYTES:
@@ -358,6 +405,10 @@ def main() -> int:
     parser.add_argument("--repo", type=Path, default=Path.cwd(),
                         help="repo whose HEAD the paths must exist in (default: cwd)")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
+    parser.add_argument("--plan-count", action="store_true",
+                        help="run only the plan-count guard (always exit 0)")
+    parser.add_argument("--adding", type=int, default=0,
+                        help="plans about to be written in <phase-dir>, for --plan-count")
     args = parser.parse_args()
 
     try:
@@ -367,12 +418,18 @@ def main() -> int:
                                 "message": f"could not load flow-split-plan.py: {exc}"}],
                   "linted": [], "skipped": []}
     else:
+        if args.plan_count:
+            print(plan_count(args.phase_dir, args.adding, sp))
+            return 0
         result = lint(args.phase_dir, args.repo, sp)
+        result["plan_count"] = plan_count(args.phase_dir, 0, sp)
 
     findings = result["findings"]
     if args.json:
         print(json.dumps(result, indent=2))
     else:
+        if result.get("plan_count", "").startswith("WARN"):
+            print(result["plan_count"])
         for f in findings:
             print(f"{f['rule']} {f['plan']}: {f['message']}")
         print(f"{len(findings)} findings, {len(result['linted'])} plans linted, "
