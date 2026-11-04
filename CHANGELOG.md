@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.43.0 (2026-11-04)
+- Haiku lane for `flow-executor` (Claude native only, `hosts.md` → Model tiers): a `/flow-quick` mini-plan or sole-plan wave that edits only docs/config files (no architecture/auth/security/secret/migration/`.github/` paths), with no `<falsify>` or checkpoint task, spawns with the Agent tool's `model: "haiku"`; a CHECKPOINT, missing SUMMARY or failed verify gets one sonnet retry, and the executor is told the model actually passed for its trailer. `agents.models.executor` still wins. `/flow-quick` now passes provider and model to its executor.
+
 ## 0.42.0 (2026-11-04)
 - One-off routing: `/flow-new` defaults a one-off export, dump, report, format/convert, backfill, or one-time script job (no long-lived service, deploy target, or UI) to the lite tier after offering `/flow-quick`, records `"one_off":true`, and says so in one line; `--tier full` opts in. Plan-count guard: `flow-plan-lint.py` prints a non-fatal `WARN plan-count` past 8 plans, or past 2 phases on a lite/one-off job (`--plan-count --adding N` runs it alone); `/flow-plan` runs it before planning and offers to collapse. docs/hooks.md points to the `/flow-hooks` guard table instead of repeating it.
 

@@ -107,10 +107,9 @@ A project overrides any of them with `agents.models.<role>` in
 "agents": { "provider": "native", "models": { "executor": "opus" } }
 ```
 
-When an override exists for a role you are spawning, pass it as the subagent's
-model — it takes precedence over the agent file. Never silently upgrade a role
-to a more expensive tier because a task looks hard; that is a planning problem,
-and quietly spending more is exactly what the declaration exists to prevent.
+When an override exists for a role you are spawning, pass it as the subagent's model — it takes precedence over the agent file. Never silently upgrade a role to a more expensive tier because a task looks hard; that is a planning problem, and quietly spending more is exactly what the declaration exists to prevent. The Haiku lane's one retry below is the only sanctioned upgrade.
+
+**Haiku lane** (Claude native only, and only when `agents.models.executor` is unset; the bridge and Codex have no lane). Spawn `flow-executor` with the Agent tool's `model: "haiku"` when all of these hold, else on its agent file's `sonnet`: the plan is a `/flow-quick` mini-plan or the only plan in its wave; every `files_modified` path ends in `.md`, `.txt`, `.json`, `.yaml`, `.yml` or `.toml` and none contains (any case) `architecture`, `auth`, `secur`, `secret`, `migrat` or `.github/`; and no task has a `<falsify>` or a `checkpoint:*` type. Tell the executor the model you passed, for its trailer. **Escalation**: a haiku executor that returns a CHECKPOINT, no SUMMARY, or a SUMMARY recording a failed `<verify>` is respawned once with `model: "sonnet"` as a continuation with its completed tasks, SHAs and that output, and the run report says `executor haiku→sonnet: <plan> <reason>`. Only then does a checkpoint reach the human or a failure block. The sonnet result is final: never a second retry.
 
 Cross-provider is different: model names are provider-specific, so the peer's
 model is never read from config. Pass `--model` to the bridge only when you
