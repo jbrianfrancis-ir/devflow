@@ -10,13 +10,7 @@ followed its instructions — unless a Claude Code mod stops them first (see
 
 ## What it installs
 
-| Guard | Fires on | Blocks |
-|---|---|---|
-| `base-branch-guard.py` | `Bash` | `git commit`/`git push` while checked out on the project's base branch |
-| `protected-paths-guard.py` | `Edit`/`Write` | an edit to a path matching `protected_paths`, unless `DEVFLOW_PROTECTED_PATH_OK` is set |
-| `secret-scan-guard.py` | `Bash` | `git commit`/`git push` whose diff matches conventions.md's secret pattern class |
-| `dependency-guard.py` | `Bash`/`Edit`/`Write`/`MultiEdit` | an edit that adds a dependency or changes one beyond a routine within-major minor/patch upgrade in a manifest or lockfile, or a package-add command — asks the human, naming the packages |
-| `destructive-git-guard.py` | `Bash` | on any branch: a force push (`--force`, `-f`, `--force-with-lease`, a `+refspec`), `git reset --hard`, `git clean -f`, `git branch -D`, `git checkout .`, `git restore .` |
+The five guards, what each fires on, and what it blocks are listed once, in the table in [`/flow-hooks`](../plugins/devflow/skills/flow-hooks/SKILL.md).
 
 Run `/flow-hooks` (optionally `--only base,secret,paths,deps,destructive` for a subset) in any project — no
 `.planning/` required. It copies the scripts into `.claude/hooks/` and merges idempotent
