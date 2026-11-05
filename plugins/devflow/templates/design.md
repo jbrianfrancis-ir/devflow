@@ -17,4 +17,4 @@ local: {repo path the design system is pulled into, e.g. design-system/}
 <!-- one line per group; executors Read the local spec file before building that component -->
 
 ## Rules
-- {e.g. dark-mode required; density; accessibility floor (WCAG AA); motion rules}
+- {e.g. dark-mode required; density; accessibility floor (WCAG AA); motion rules; IMPACT facts, not adjectives: reading order + headline ratio, margin %, palette roles 60/30/10, one grid, ≤ 2 faces, AVOID: gradients/shadows/…}

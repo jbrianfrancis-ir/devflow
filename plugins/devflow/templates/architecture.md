@@ -21,8 +21,6 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
      `dotnet package search <id> --exact-match`), never from this template.
      Aspire: within-major updates auto-apply; a major bump needs approval. -->
 
-
-
 ## Principles
 <!-- Practice law for THIS project — the rules a plan may not trade away for convenience.
      The stack tables above say what to build with; this says how work is done here.

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.44.0 (2026-11-05)
+- IMPACT visual-design constraints ([source](https://hackernoon.com/the-impact-framework-six-rules-for-better-ai-generated-designs)): new `references/impact.md` (Importance, Margins, Palette, Alignment, Contrast, Typography + an AVOID list, adjective→fact translations, lint order). `/flow-design` fills rules the design system leaves unstated as measurable IMPACT lines (and uses IMPACT defaults in manual mode); the DESIGN.md template's Rules hint asks for facts, not adjectives; `flow-planner` has UI tasks without a DESIGN.md state IMPACT facts in the `<action>`. Optional guidance, no new gate or phase: lite, `/flow-quick` and no-UI work are unaffected.
+
 ## 0.43.0 (2026-11-04)
 - Haiku lane for `flow-executor` (Claude native only, `hosts.md` → Model tiers): a `/flow-quick` mini-plan or sole-plan wave that edits only docs/config files (no architecture/auth/security/secret/migration/`.github/` paths), with no `<falsify>` or checkpoint task, spawns with the Agent tool's `model: "haiku"`; a CHECKPOINT, missing SUMMARY or failed verify gets one sonnet retry, and the executor is told the model actually passed for its trailer. `agents.models.executor` still wins. `/flow-quick` now passes provider and model to its executor.
 
