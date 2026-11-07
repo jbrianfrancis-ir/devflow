@@ -94,7 +94,7 @@ the complete gate list: [docs/autonomy.md](docs/autonomy.md).
   `.planning/config.json` (`"agents": {"provider": "native"}`) — the flag wins over the file.
 - Other keys `.planning/config.json` carries, named not explained: `mode`, `commit_docs`,
   `agents.models.<role>`, `agents.effort.<role>`, `autonomy.max_iterations`, `autonomy.max_repeats`,
-  `autonomy.max_hours`, `git.base`, `git.origin`, `git.upstream`, `git.branch`, `deploy.tool`.
+  `autonomy.max_hours`, `git.base`, `git.origin`, `git.upstream`, `git.branch`, `deploy.tool`, `usage_report`.
 - Provider dispatch, model tiers and per-role effort: [docs/providers.md](docs/providers.md). Loop rails: [docs/autonomy.md](docs/autonomy.md).
 
 ## Documentation

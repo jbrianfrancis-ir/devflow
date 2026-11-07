@@ -1,4 +1,4 @@
-<!-- .planning/phases/NN-slug/VERIFICATION.md — cap 2KB. -->
+<!-- .planning/phases/NN-slug/VERIFICATION.md — cap 2KB. With `usage_report` on, the orchestrator adds the verifier's `usage:` frontmatter line (references/hosts.md → Usage report). -->
 ---
 phase: NN-slug
 status: pass                # pass | gaps | human_needed
