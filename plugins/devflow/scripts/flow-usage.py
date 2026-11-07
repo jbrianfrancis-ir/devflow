@@ -13,8 +13,9 @@ The orchestrator writes them, never the agent: an agent cannot observe its own u
   role         a flow-agent.py role, e.g. "executor"
   n            1, 2, ... — this dispatch's ordinal for that plan (or phase) and role
   kind         "first" (n == 1), "retry" (redoing a failed or dead attempt, incl. the
-               Haiku lane's sonnet escalation) or "continuation" (resumed after a
-               checkpoint answer — more work, not a retry)
+               Haiku lane's sonnet escalation) or "continuation" (more work on the
+               same unit, not a redo: resumed after a checkpoint answer, or a
+               re-verification after gaps — its records are carried forward)
   source       where the numbers came from; each defines tokens its own way:
                  agent-tool    Claude native Agent tool `<usage>`: `subagent_tokens`,
                                `duration_ms` as the host reports them
@@ -39,7 +40,11 @@ A duplicate (location, plan, role, n) exits 2 instead of being counted twice. To
 summed only within one source (they are grouped by it). A sum over values where some are
 unknown renders `partial: <sum of known> (<known>/<total> known)`; all unknown renders
 `unknown`. Duration is summed per dispatch, so parallel work sums past wall-clock time.
-A SUMMARY or VERIFICATION with no `usage` line is listed as not recorded, never as zero.
+A SUMMARY or VERIFICATION with no `usage` line is a unit whose dispatches were not
+recorded: it renders as its own `not recorded` row (executor for a SUMMARY, verifier for a
+VERIFICATION) with every cell `unknown`, so a phase's rows never read as complete when a
+unit is missing, and it is listed in a footer. A plan that never wrote a SUMMARY (a skipped
+dead node) leaves no artifact, so it cannot be seen here at all.
 
 Usage: flow-usage.py --repo PATH [--phase ID]     (ID: a phase dir prefix, or quick)
 Stdlib only. Exit codes: 0 rendered or disabled; 2 bad config or malformed record.
@@ -60,7 +65,7 @@ SOURCES = {"agent-tool", "claude-cli", "codex-cli", "codex-native"}
 PROVIDERS = {"claude", "codex", UNKNOWN}
 KEYS = {"role", "n", "kind", "source", "provider", "model", "tokens", "duration_ms"}
 REQUIRED = {"role", "n", "kind", "source"}
-MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/\[\]-]{0,63}$")
+MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@\[\]-]{0,199}$")
 
 
 class RecordError(Exception):
@@ -159,14 +164,22 @@ def artifacts(planning: Path) -> list[tuple[str, str, Path]]:
     return found
 
 
+NOT_RECORDED = "not recorded"
+
+
 def collect(planning: Path, phase_filter: str | None, roles: set[str]):
-    records, unrecorded, seen = [], [], set()
+    records, unrecorded, seen, matched = [], [], set(), False
     for phase, unit, path in artifacts(planning):
         if phase_filter is not None and phase != phase_filter:
             continue
+        matched = True
         line = next((l for l in frontmatter(path) if l.startswith("usage:")), None)
         if line is None:
             unrecorded.append(f"{phase}/{unit}")
+            records.append({"phase": phase, "role": "verifier" if unit == "VERIFICATION"
+                            else "executor", "n": None, "kind": None, "source": NOT_RECORDED,
+                            "provider": UNKNOWN, "model": UNKNOWN, "tokens": UNKNOWN,
+                            "duration_ms": UNKNOWN})
             continue
         try:
             entries = json.loads(line.partition(":")[2])
@@ -182,6 +195,9 @@ def collect(planning: Path, phase_filter: str | None, roles: set[str]):
                                   f"{record['n']} — it would be counted twice")
             seen.add(key)
             records.append({**record, "phase": phase})
+    if phase_filter is not None and not matched:
+        raise RecordError(f"no SUMMARY or VERIFICATION for phase {phase_filter!r} "
+                          "(use the phase dir's prefix, e.g. 03, or quick)")
     return records, unrecorded
 
 
@@ -201,6 +217,12 @@ def table(records: list[dict], key_fields: tuple[str, ...], headers: tuple[str, 
     columns = headers + ("Dispatches", "Retries", "Tokens", "Duration ms (sum)")
     lines = ["| " + " | ".join(columns) + " |", "|" + "---|" * len(columns)]
     for key, group in groups.items():
+        if key[-1] == NOT_RECORDED:
+            # An unrecorded unit ran at least once; how often, and on what, is unknown.
+            cells = list(key) + [f"{UNKNOWN} ({len(group)} unrecorded)", UNKNOWN, UNKNOWN,
+                                 UNKNOWN]
+            lines.append("| " + " | ".join(cells) + " |")
+            continue
         cells = list(key) + [str(len(group)), str(sum(r["kind"] == "retry" for r in group)),
                              total([r["tokens"] for r in group]),
                              total([r["duration_ms"] for r in group])]

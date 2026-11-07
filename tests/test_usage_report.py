@@ -186,9 +186,12 @@ class UsageReportTest(unittest.TestCase):
             "| 01 | executor | agent-tool | 4 | 1 | partial: 400 (3/4 known) | partial: 47 (3/4 known) |",
             "| 01 | verifier | agent-tool | 1 | 0 | unknown | unknown |",
             "| 02 | executor | agent-tool | 1 | 0 | 0 | 0 |",
+            # 02-02 has no `usage` line: its own all-unknown row, so phase 02 never reads complete.
+            "| 02 | executor | not recorded | unknown (1 unrecorded) | unknown | unknown | unknown |",
             "| Role | Provider | Model | Source | Dispatches | Retries | Tokens | Duration ms (sum) |",
             "| executor | claude | haiku | agent-tool | 4 | 0 | partial: 100 (3/4 known) | partial: 17 (3/4 known) |",
             "| executor | claude | sonnet | agent-tool | 1 | 1 | 300 | 30 |",
+            "| executor | unknown | unknown | not recorded | unknown (1 unrecorded) | unknown | unknown | unknown |",
             "| verifier | claude | opus | agent-tool | 1 | 0 | unknown | unknown |",
         ], rows(run.stdout))
         self.assertIn("Not recorded (no `usage` line; not in the totals): 02/02-02", run.stdout)
@@ -219,6 +222,19 @@ class UsageReportTest(unittest.TestCase):
             run = self.repo.report()
             self.assertEqual(2, run.returncode, bad)
             self.assertIn(needle, run.stderr, bad)
+
+    def test_unmatched_phase_filter_is_an_error_not_an_empty_report(self):
+        self.repo.config(usage_report=True)
+        self.repo.artifact("phases/03-x/03-01-SUMMARY.md", [rec(1, "first", 1, 1)])
+        run = self.repo.report("--phase", "3")
+        self.assertEqual(2, run.returncode)
+        self.assertIn("no SUMMARY or VERIFICATION for phase '3'", run.stderr)
+
+    def test_provider_model_ids_with_version_suffix_are_accepted(self):
+        self.repo.config(usage_report=True)
+        self.repo.artifact("phases/01-a/01-01-SUMMARY.md",
+                           [rec(1, "first", 1, 1, model="claude-sonnet-4-5@20250929")])
+        self.assertEqual(0, self.repo.report().returncode)
 
     def test_quick_tasks_report_as_phase_quick(self):
         self.repo.config(usage_report=True)
