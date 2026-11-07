@@ -36,8 +36,11 @@ Only those two roles are instrumented; every other bridge role renders `not inst
                dispatches than one, after a failed or checkpoint outcome, is the signal.
 
 A value that was not observed is "unknown" (an absent key means the same); a real 0 stays
-0. Nothing else is accepted — no extra keys, no free text — so no prompt, message content
-or secret can ride along in a record. A malformed record exits 2 naming the file.
+0. Nothing else is accepted — no extra keys, no free text: every value is an enum or an
+integer except `model`, which must be id-shaped (<= 64 chars, no segment over 16, at most
+4 word-like segments), so no prompt sentence or credential-length token fits; a few
+hyphenated words still would, which the outgoing-diff secret scan also covers. A
+malformed record exits 2 naming the file.
 
 Writing: `record` is the only writer. It validates the record, requires `n` to be the
 unit's next ordinal (a repeat exits 2 and changes nothing, so re-running a step never
@@ -53,8 +56,8 @@ verification is one verifier unit, and each quick SUMMARY is one executor unit (
 plans have no fixed name, and quick runs no verifier). A unit with no `usage` line is
 `not recorded`: its dispatch count and every value are unknown, it is never folded into
 a total, and every row for that role and phase shows `Coverage k/n` so a sum over the k
-recorded units never reads as the whole phase. A role with no unit at all (the executor of
-a phase dir with no plans yet) renders `no unit`. Tokens are summed only within one
+recorded units never reads as the whole phase. A role with no unit at all (executor and
+verifier of a phase dir with no plans yet) renders `no unit`. Tokens are summed only within one
 source (grouped by it); a sum over values where some are unknown renders
 `partial: <sum of known> (<known>/<total> known)`, all unknown renders `unknown`. Duration
 is summed per dispatch, so parallel work sums past wall-clock time.
@@ -85,7 +88,8 @@ SOURCES = {"agent-tool", "claude-cli", "codex-cli", "codex-native"}
 PROVIDERS = {"claude", "codex", UNKNOWN}
 KEYS = ("role", "n", "source", "provider", "model", "tokens", "duration_ms", "outcome")
 REQUIRED = {"role", "n", "source"}
-MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@\[\]-]{0,199}$")
+MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@\[\]-]{0,63}$")
+SEGMENT_RE = re.compile(r"[._:/@\[\]-]+")
 
 
 class RecordError(Exception):
@@ -152,6 +156,17 @@ def count(value: object, where: str, key: str) -> int | str:
     return value
 
 
+def model_id(value: object) -> bool:
+    """An id-shaped model name: <= 64 chars, no segment over 16 (no credential-length
+    token), at most 4 word-like segments (no sentence). Real ids fit: `sonnet`,
+    `claude-sonnet-4-5@20250929`, `us.anthropic.claude-sonnet-4-5-20250929-v1:0`."""
+    if not isinstance(value, str) or not MODEL_RE.match(value):
+        return False
+    segments = [part for part in SEGMENT_RE.split(value) if part]
+    words = [part for part in segments if part.isalpha() and len(part) >= 3]
+    return all(len(part) <= 16 for part in segments) and len(words) <= 4
+
+
 def check(record: object, where: str, role: str) -> dict:
     if not isinstance(record, dict):
         raise RecordError(f"{where}: a record must be an object")
@@ -173,7 +188,7 @@ def check(record: object, where: str, role: str) -> dict:
     if provider not in PROVIDERS:
         raise RecordError(f"{where}: unknown provider {provider!r}")
     model = record.get("model", UNKNOWN)
-    if not isinstance(model, str) or not (model == UNKNOWN or MODEL_RE.match(model)):
+    if model != UNKNOWN and not model_id(model):
         raise RecordError(f"{where}: model must be a model name or \"unknown\", got {model!r}")
     outcome = record.get("outcome", UNKNOWN)
     if outcome not in OUTCOMES + (UNKNOWN,):
@@ -224,8 +239,9 @@ def units(planning: Path) -> dict[str, dict[str, list[tuple[str, Path | None]]]]
                 summary = directory / f"{plan}-SUMMARY.md"
                 entry["executor"].append((plan, summary if summary.is_file() else None))
             verification = directory / "VERIFICATION.md"
-            entry["verifier"].append(("VERIFICATION",
-                                      verification if verification.is_file() else None))
+            if plans or verification.is_file():  # a phase with no plans expects no verify
+                entry["verifier"].append(("VERIFICATION",
+                                          verification if verification.is_file() else None))
     quick = planning / "quick"
     summaries = sorted(quick.glob("*-SUMMARY.md")) if quick.is_dir() else []
     if summaries:
