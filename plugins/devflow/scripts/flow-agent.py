@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 READ_ONLY_ROLES = {"adjudicator", "mapper", "researcher", "plan-checker", "plan-reviewer",
                    "reviewer", "triager", "verifier"}
@@ -57,6 +58,16 @@ RESULT_SCHEMA = {
     },
     "required": sorted(FIELDS),
 }
+# Opt-in observed usage (`"usage_report": true` in .planning/config.json). Off — the key
+# absent or false — the emitted JSON is byte-for-byte what it was before this existed. On,
+# it gains one `usage` object of numbers and enum strings only: never prompt, output, error
+# or stderr text. Tokens come from the claude peer's `modelUsage`, summed over every model:
+# checked on Claude Code 2.1.319, its top-level `usage` covers only the final message (10
+# in / 149 out on a run whose `modelUsage` showed ~117k, a nested agent included). The
+# codex peer runs without `--json`, so it reports no tokens: `unknown`, never 0. Record
+# and report semantics live in flow-usage.py.
+MODEL_USAGE_KEYS = ("inputTokens", "outputTokens", "cacheReadInputTokens",
+                    "cacheCreationInputTokens")
 
 
 def failure(message: str) -> dict:
@@ -94,6 +105,55 @@ def configured_effort(repo: Path, role: str) -> object:
     agents = config.get("agents") if isinstance(config, dict) else None
     effort = agents.get("effort") if isinstance(agents, dict) else None
     return effort.get(role) if isinstance(effort, dict) else None
+
+
+def configured_usage_report(repo: Path) -> bool:
+    """`usage_report` from the project config: on only when literally true.
+
+    Absent, false, or an unreadable config is off; any other value is an error, so a typo
+    such as "yes" fails loudly instead of quietly reporting nothing."""
+    try:
+        config = json.loads((repo / ".planning" / "config.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(config, dict) or "usage_report" not in config:
+        return False
+    value = config["usage_report"]
+    if not isinstance(value, bool):
+        raise ValueError(f"usage_report must be true or false, got {value!r}")
+    return value
+
+
+def observed_tokens(provider: str, stdout: str) -> int | str:
+    """Cumulative tokens the claude peer reported in `modelUsage`; `unknown` otherwise."""
+    if provider != "claude":
+        return "unknown"
+    try:
+        outer = json.loads(stdout)
+    except json.JSONDecodeError:
+        return "unknown"
+    models = outer.get("modelUsage") if isinstance(outer, dict) else None
+    if not isinstance(models, dict) or not models:
+        return "unknown"
+    total = 0
+    for entry in models.values():
+        if not isinstance(entry, dict):
+            return "unknown"
+        for key in MODEL_USAGE_KEYS:
+            value = entry.get(key)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                return "unknown"
+            total += value
+    return total
+
+
+def usage_record(provider: str, model: str | None, stdout: str, seconds: float,
+                 status: str) -> dict:
+    """What this dispatch was observed to use. `model` is the one requested, if any;
+    `outcome` is the status this bridge emitted for it (a timeout emits FAILED)."""
+    return {"source": f"{provider}-cli", "provider": provider, "model": model or "unknown",
+            "tokens": observed_tokens(provider, stdout),
+            "duration_ms": int(round(seconds * 1000)), "outcome": status.lower()}
 
 
 def resolve_effort(requested: str | None, configured: object, provider: str) -> str | None:
@@ -209,6 +269,15 @@ def emit(value: dict, code: int) -> int:
     return code
 
 
+def finish(value: dict, code: int, usage_on: bool, provider: str, model: str | None,
+           stdout: str, seconds: float) -> int:
+    """Emit the result of a dispatch whose peer process ran; with usage on, attach its usage."""
+    if usage_on:
+        value = {**value, "usage": usage_record(provider, model, stdout, seconds,
+                                                value["status"])}
+    return emit(value, code)
+
+
 def main() -> int:
     args = parse_args()
     repo = Path(args.repo).resolve()
@@ -229,6 +298,10 @@ def main() -> int:
         effort = resolve_effort(args.effort, configured_effort(repo, args.role), provider)
     except ValueError as exc:
         return emit(failure(str(exc)), 2)
+    try:
+        usage_on = configured_usage_report(repo)
+    except ValueError as exc:
+        return emit(failure(str(exc)), 2)
     if shutil.which(provider) is None:
         return emit(failure(f"{provider} CLI is not installed or not on PATH"), 2)
 
@@ -243,6 +316,7 @@ def main() -> int:
         command = build_command(provider, args.role, repo,
                                 prompt_path.read_text(encoding="utf-8"), schema_path,
                                 args.model, scratch, effort)
+        started = time.monotonic()
         try:
             # stdin must be closed: codex exec reads a non-TTY stdin and would
             # otherwise block on an inherited pipe until --timeout expires.
@@ -250,17 +324,22 @@ def main() -> int:
                                  stdin=subprocess.DEVNULL, timeout=args.timeout,
                                  env=os.environ.copy())
         except subprocess.TimeoutExpired:
-            return emit(failure(f"{provider} peer timed out"), 124)
+            return finish(failure(f"{provider} peer timed out"), 124, usage_on, provider,
+                          args.model, "", time.monotonic() - started)
         except OSError as exc:
             return emit(failure(f"could not start {provider} peer: {exc.strerror}"), 2)
+        elapsed = time.monotonic() - started
 
     if run.returncode != 0:
         # Provider stderr can contain repository context; expose only the status.
-        return emit(failure(f"{provider} peer exited with status {run.returncode}"), 2)
+        return finish(failure(f"{provider} peer exited with status {run.returncode}"), 2,
+                      usage_on, provider, args.model, run.stdout, elapsed)
     result = extract_result(provider, run.stdout)
     if result is None:
-        return emit(failure(f"{provider} peer returned malformed structured output"), 2)
-    return emit(result, 0 if result["status"] != "FAILED" else 2)
+        return finish(failure(f"{provider} peer returned malformed structured output"), 2,
+                      usage_on, provider, args.model, run.stdout, elapsed)
+    return finish(result, 0 if result["status"] != "FAILED" else 2,
+                  usage_on, provider, args.model, run.stdout, elapsed)
 
 
 if __name__ == "__main__":
