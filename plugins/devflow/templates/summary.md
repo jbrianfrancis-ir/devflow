@@ -1,4 +1,4 @@
-<!-- .planning/phases/NN-slug/NN-MM-SUMMARY.md — cap 1.5KB. Frontmatter first: others read only frontmatter. With `usage_report` on, the orchestrator adds a `usage:` line after the run (references/hosts.md → Usage report); the executor never writes one. -->
+<!-- .planning/phases/NN-slug/NN-MM-SUMMARY.md — cap 1.5KB. Frontmatter first: others read only frontmatter. With `usage_report` on, the orchestrator adds a `usage:` line with `scripts/flow-usage.py record` (references/hosts.md → Usage report); the executor never writes one. -->
 ---
 plan: NN-MM
 status: complete            # complete | partial | blocked

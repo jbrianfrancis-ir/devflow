@@ -147,11 +147,13 @@ def observed_tokens(provider: str, stdout: str) -> int | str:
     return total
 
 
-def usage_record(provider: str, model: str | None, stdout: str, seconds: float) -> dict:
-    """What this dispatch was observed to use. `model` is the one requested, if any."""
+def usage_record(provider: str, model: str | None, stdout: str, seconds: float,
+                 status: str) -> dict:
+    """What this dispatch was observed to use. `model` is the one requested, if any;
+    `outcome` is the status this bridge emitted for it (a timeout emits FAILED)."""
     return {"source": f"{provider}-cli", "provider": provider, "model": model or "unknown",
             "tokens": observed_tokens(provider, stdout),
-            "duration_ms": int(round(seconds * 1000))}
+            "duration_ms": int(round(seconds * 1000)), "outcome": status.lower()}
 
 
 def resolve_effort(requested: str | None, configured: object, provider: str) -> str | None:
@@ -271,7 +273,8 @@ def finish(value: dict, code: int, usage_on: bool, provider: str, model: str | N
            stdout: str, seconds: float) -> int:
     """Emit the result of a dispatch whose peer process ran; with usage on, attach its usage."""
     if usage_on:
-        value = {**value, "usage": usage_record(provider, model, stdout, seconds)}
+        value = {**value, "usage": usage_record(provider, model, stdout, seconds,
+                                                value["status"])}
     return emit(value, code)
 
 
@@ -337,6 +340,7 @@ def main() -> int:
                       usage_on, provider, args.model, run.stdout, elapsed)
     return finish(result, 0 if result["status"] != "FAILED" else 2,
                   usage_on, provider, args.model, run.stdout, elapsed)
+
 
 if __name__ == "__main__":
     sys.exit(main())
