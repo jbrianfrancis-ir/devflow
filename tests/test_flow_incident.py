@@ -146,7 +146,7 @@ class PastedTextIsData(IntakeCase):
         todos = self.repo.read(".planning/TODOS.md")
         self.assertNotIn("FAKE", out)
         self.assertNotIn("FAKE", todos)
-        self.assertIn("release unattributed (deployed, not a proven cause)", todos)
+        self.assertIn("release unattributed (no release identified; nothing assumed)", todos)
         # A forged note must not suppress the real one either.
         debug = next((self.repo.root / ".planning/debug").glob("*.md"))
         debug.write_text(debug.read_text().replace("status: open", "status: resolved"))
@@ -316,7 +316,7 @@ class ReleaseAttribution(IntakeCase):
         self.assertIn("Status: **attributed**", self.repo.record())
         self.assertIn("| release-20261105-1", self.repo.record())
         todo = self.repo.read(".planning/TODOS.md")
-        self.assertIn(f"release attributed to release-20261105-1 {self.repo.sha['c5'][:12]} (deployed, not a proven cause)", todo)
+        self.assertIn(f"release attributed to release-20261105-1 {self.repo.sha['c5'][:12]} (deployed at incident time, not a proven cause)", todo)
 
     def test_release_within_a_day_of_the_incident_is_ambiguous(self):
         self.ok("--route", "debug", "--link", "https://x.invalid/i/3", "--at", "2026-11-04T23:30+00:00")
@@ -529,7 +529,7 @@ class Routing(IntakeCase):
         lines = self.repo.read(".planning/TODOS.md").splitlines()
         self.assertEqual(lines[1], "- [ ] 2026-11-01: SYNTHETIC older item")
         self.assertRegex(lines[2], r"^- \[ \] 2026-11-08: production incident inc-[0-9a-f]{12} — release "
-                                   r"unattributed \(deployed, not a proven cause\) — \.planning/incidents/inc-[0-9a-f]{12}\.md$")
+                                   r"unattributed \(no release identified; nothing assumed\) — \.planning/incidents/inc-[0-9a-f]{12}\.md$")
         self.assertFalse((self.repo.root / ".planning/debug").exists())
 
 

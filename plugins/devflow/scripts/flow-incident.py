@@ -488,6 +488,14 @@ def find_todo(planning: Path, inc: str) -> tuple[Path | None, Path | None]:
     return None, None
 
 
+def hedge(attribution: str) -> str:
+    """The caveat for a one-line attribution: a named release is what was deployed, never a
+    cause; an unattributed one names nothing, so says so instead."""
+    if attribution.startswith(("attributed", "ambiguous")):
+        return "deployed at incident time, not a proven cause"
+    return "no release identified; nothing assumed"
+
+
 def next_debug(planning: Path, inc: str) -> Path:
     debug = planning / "debug"
     numbers = [int(m.group(1)) for m in (re.match(r"^(\d{3,})-", p.name) for p in debug.glob("*.md")) if m] \
@@ -508,7 +516,7 @@ def add_debug(planning: Path, inc: str, today: str, attribution: str, prior: Pat
         "<!-- Exactly three, of different cause kinds, once the repro fails. Status: untested | testing | refuted | confirmed -->",
         "", "## Evidence log",
         f"- {today}: incident intake — .planning/incidents/{inc}.md; release {attribution} "
-        f"(deployed at incident time, not a proven cause){recurrence}", "",
+        f"({hedge(attribution)}){recurrence}", "",
         "## Resolution", "{root cause + fix commit — fill when resolved}", ""]))
     return path
 
@@ -518,7 +526,7 @@ def add_todo(planning: Path, inc: str, today: str, attribution: str, prior: Path
     text = path.read_text(encoding="utf-8") if path.is_file() else "# Todos\n"
     recurrence = " — recurrence; the earlier todo is done" if prior else ""
     line = (f"- [ ] {today}: production incident {inc} — release {attribution} "
-            f"(deployed, not a proven cause){recurrence} — .planning/incidents/{inc}.md")
+            f"({hedge(attribution)}){recurrence} — .planning/incidents/{inc}.md")
     write_atomic(path, text.rstrip("\n") + "\n" + line + "\n")
     return path
 
@@ -607,7 +615,7 @@ def main(argv=None) -> int:
     print(f"incident: {inc} ({state})")
     print(f"record: {record_path.relative_to(repo)}")
     print(f"route: {args.route} -> {pointer.relative_to(repo)} ({outcome})")
-    print(f"attribution: {attribution} — deployed at incident time, not a proven cause")
+    print(f"attribution: {attribution} — {hedge(attribution)}")
     return 0
 
 
