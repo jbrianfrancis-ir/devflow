@@ -142,9 +142,12 @@ class PastedTextIsData(IntakeCase):
     def test_secret_shaped_values_never_reach_planning(self):
         values = ["00000000-1111-2222-3333-444444444444", "hunter2hunter2", "AKIAABCDEFGHIJKLMNOP",
                   "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzeW50aGV0aWMifQ.c2lnbmF0dXJl", "c2FzLXNpZw",
-                  "SYNTHACCOUNTKEY0123", "SYNTHIKEY4567"]
+                  "SYNTHACCOUNTKEY0123", "SYNTHIKEY4567", "SYNTHFUNCCODE0123", "SYNTHQUERYKEY89"]
         text = (f"SYNTHETIC InstrumentationKey={values[0]};IngestionEndpoint=https://x.invalid/\n"
-                f"db password={values[1]}\nkey {values[2]}\nAuthorization: Bearer {values[3]}")
+                f"db password={values[1]}\nkey {values[2]}\nAuthorization: Bearer {values[3]}\n"
+                # Regression: review of 3db9c59 — query keys were redacted in --link only.
+                f"webhook https://fn.example.invalid/api/hook?code={values[7]}&key={values[8]}\n"
+                "status code: 500; partition key: p1")
         self.ok("--route", "todo", "--text-file", self.repo.paste(text),
                 "--link", f"https://portal.example.invalid/blob?sv=1&sig={values[4]}&x=1"
                           f"&AccountKey={values[5]}&instrumentationKey={values[6]}")
@@ -153,7 +156,8 @@ class PastedTextIsData(IntakeCase):
             self.assertNotIn(value, written)
         record = self.repo.record()
         self.assertIn("[REDACTED:", record)
-        self.assertIn("4 secret-shaped value(s) redacted", record)
+        self.assertIn("6 secret-shaped value(s) redacted", record)
+        self.assertIn("status code: 500; partition key: p1", record)
         self.assertIn("3 sensitive query value(s) redacted", record)
         self.assertIsNone(SECRET_SCAN.search(record))
 
@@ -307,7 +311,7 @@ class Idempotence(IntakeCase):
         second = self.ok("--route", "debug", "--text-file", again, "--at", "2026-11-01", today="2026-11-09")
         self.assertEqual(self.repo.planning_files(), before, "a repeat intake changed .planning/")
         self.assertIn("(new)", first)
-        self.assertIn("already present, unchanged", second)
+        self.assertIn("already open, unchanged", second)
         self.ok("--route", "todo", "--text-file", alert)
         self.ok("--route", "todo", "--text-file", alert)
         todos = self.repo.read(".planning/TODOS.md")
@@ -322,6 +326,31 @@ class Idempotence(IntakeCase):
         self.ok("--route", "todo", "--text-file", self.repo.paste(head + " tail-B", "b.txt"))
         self.assertEqual(len(list((self.repo.root / ".planning/incidents").glob("*.md"))), 2)
         self.assertEqual(self.repo.read(".planning/TODOS.md").count("production incident inc-"), 2)
+
+    def test_recurrence_after_close_opens_a_new_entry_once(self):
+        # Regression: review of 3db9c59 — a recurrence silently resumed a resolved session.
+        alert = self.repo.paste("SYNTHETIC alert: Http 500 rate > 5% on synthetic-api")
+        self.ok("--route", "debug", "--text-file", alert, "--at", "2026-11-03")
+        first = next((self.repo.root / ".planning/debug").glob("*.md"))
+        first.write_text(first.read_text().replace("status: open", "status: resolved"))
+        out = self.ok("--route", "debug", "--text-file", alert, "--at", "2026-11-20", today="2026-11-21")
+        self.assertIn("earlier entry 001-", out)
+        sessions = sorted((self.repo.root / ".planning/debug").glob("*.md"))
+        self.assertEqual([p.name[:4] for p in sessions], ["001-", "002-"])
+        self.assertIn("recurrence — earlier session 001-", sessions[1].read_text())
+        self.assertIn("release attributed to release-20261105-1", sessions[1].read_text())
+        self.assertRegex(self.repo.record(), r"Recurrence 2026-11-21: release attributed to release-20261105-1")
+        before = self.repo.planning_files()
+        self.ok("--route", "debug", "--text-file", alert, today="2026-11-22")
+        self.assertEqual(self.repo.planning_files(), before, "repeat of an open recurrence changed .planning/")
+        todos = self.repo.root / ".planning/TODOS.md"
+        self.ok("--route", "todo", "--text-file", alert)
+        todos.write_text(todos.read_text().replace("- [ ]", "- [x]"))
+        self.ok("--route", "todo", "--text-file", alert)
+        self.ok("--route", "todo", "--text-file", alert)
+        lines = [l for l in todos.read_text().splitlines() if "production incident inc-" in l]
+        self.assertEqual([l[:5] for l in lines], ["- [x]", "- [ ]"])
+        self.assertIn("recurrence; the earlier todo is done", lines[1])
 
     def test_alert_id_identifies_a_refired_alert(self):
         self.ok("--route", "todo", "--id", "SYN-77", "--text-file", self.repo.paste("fired 10:00", "a.txt"))

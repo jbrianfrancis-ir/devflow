@@ -39,9 +39,14 @@ the incident is order-unknown and makes the result ambiguous. The release named 
 deployed when the incident happened. That is not the cause: no SHA or PR here is called
 causative, and the newest release is never picked just for being newest.
 
-Idempotent: the incident id is `--id` when given, else a hash of the redacted input. A repeat
-intake keeps the existing record (attribution is not recomputed) and adds a pointer only for a
-route that has none yet, so the same incident never gets two debug sessions or two todos.
+Idempotent: the incident id is `--id` when given, else a hash of the redacted input. While
+the route's entry is open (debug `status: open`, todo `- [ ]`), a repeat intake changes
+nothing, so one incident never gets two open debug sessions or two open todos. The other
+route can still be added for the same occurrence, keeping the record's attribution. Once
+the entry is closed (resolved / checked off), the same alert again is a recurrence: a new
+entry naming the closed one, attributed afresh from this run's --at/--version, and a
+Recurrence line appended to the record. A re-fired alert whose text differs (a new
+timestamp) hashes differently; pass the alert's own id as --id to tie the two together.
 
 Gates unchanged: this writes three kinds of file under `.planning/` and nothing else. It
 never commits, tags, pushes, deploys, or touches SIGNOFF.md, PIPELINE.md, DECISIONS.md or
@@ -71,7 +76,15 @@ LINK_RE = re.compile(r"^https?://[^\s<>`\"'\\|]+$")
 PR_RES = (re.compile(r"^Merge pull request #(\d+)\b"), re.compile(r"\(#(\d+)\)\s*$"))
 # ANSI escapes first, then C0/C1 controls and bidi/zero-width marks (newline and tab kept).
 CONTROL_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|[\x00-\x08\x0b-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2066-\u2069]")
+# One key list for `key=value` / `key: value` pairs; a query string (`?code=`, `&key=`) also
+# redacts the short names, which in prose ("status code: 500") are not secrets.
+CREDENTIAL_KEYS = (r"password|passwd|pwd|secret|token|apikey|api_key|api-key|accountkey|sharedaccesskey|"
+                   r"sharedaccesssignature|instrumentationkey|connectionstring|connection_string|"
+                   r"client_secret|access_token|sig")
+QUERY_KEYS = CREDENTIAL_KEYS + r"|code|key"
+LINK_SECRET = re.compile(rf"(?i)([?&;](?:{QUERY_KEYS})=)[^&#;\s\"'<>]*")
 SECRET_PATTERNS = (  # shapes from conventions.md's secret scan, plus Azure-specific keys
+    ("query", LINK_SECRET),
     ("private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)")),
     ("jwt", re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(?:\.[A-Za-z0-9_-]*)?")),
     ("aws-key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
@@ -79,14 +92,8 @@ SECRET_PATTERNS = (  # shapes from conventions.md's secret scan, plus Azure-spec
     ("slack-token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}")),
     ("bearer", re.compile(r"(?i)(\bbearer )(?!\[REDACTED)[A-Za-z0-9._~+/=-]{8,}")),
     ("credential", re.compile(
-        r"(?i)(\b(?:password|passwd|pwd|secret|token|apikey|api_key|api-key|accountkey|"
-        r"sharedaccesskey|instrumentationkey|connectionstring|connection_string|client_secret|"
-        r"access_token|sig)[\"' ]*[=:] ?[\"']?)(?!\[REDACTED)[^\s\"';&,]+")),
+        rf"(?i)(\b(?:{CREDENTIAL_KEYS})[\"' ]*[=:] ?[\"']?)(?!\[REDACTED)[^\s\"';&,]+")),
 )
-LINK_SECRET = re.compile(
-    r"(?i)([?&;](?:sig|code|token|access_token|key|api[_-]?key|apikey|secret|client_secret|password|passwd|"
-    r"pwd|accountkey|sharedaccesskey|sharedaccesssignature|instrumentationkey|connectionstring|"
-    r"connection_string)=)[^&#;]*")
 
 
 class InputError(Exception):
@@ -410,16 +417,36 @@ def existing_attribution(record_path: Path) -> str:
     return "unknown (no attribution line in the existing record)"
 
 
-def route_debug(planning: Path, inc: str, today: str, attribution: str) -> tuple[Path, bool]:
+def find_debug(planning: Path, inc: str) -> tuple[Path | None, Path | None]:
+    """(open session for this incident, latest resolved one)."""
+    open_path = closed = None
+    for path in sorted((planning / "debug").glob("*.md")) if (planning / "debug").is_dir() else []:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if re.search(rf"(?m)^incident: {re.escape(inc)}$", text):
+            if re.search(r"(?m)^status: resolved\b", text):
+                closed = path
+            else:
+                open_path = open_path or path
+    return open_path, closed
+
+
+def find_todo(planning: Path, inc: str) -> tuple[Path | None, Path | None]:
+    """(TODOS.md when it has an open item for this incident, TODOS.md when only done ones)."""
+    path = planning / "TODOS.md"
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    if re.search(rf"(?m)^- \[ \] .*\bproduction incident {re.escape(inc)}\b", text):
+        return path, None
+    if re.search(rf"(?m)^- \[[xX]\] .*\bproduction incident {re.escape(inc)}\b", text):
+        return None, path
+    return None, None
+
+
+def add_debug(planning: Path, inc: str, today: str, attribution: str, prior: Path | None) -> Path:
     debug = planning / "debug"
-    numbers = []
-    for path in sorted(debug.glob("*.md")) if debug.is_dir() else []:
-        if re.search(rf"(?m)^incident: {re.escape(inc)}$", path.read_text(encoding="utf-8", errors="replace")):
-            return path, False
-        match = re.match(r"^(\d{3,})-", path.name)
-        if match:
-            numbers.append(int(match.group(1)))
+    numbers = [int(m.group(1)) for m in (re.match(r"^(\d{3,})-", p.name) for p in debug.glob("*.md")) if m] \
+        if debug.is_dir() else []
     path = debug / f"{max(numbers, default=0) + 1:03d}-incident-{inc}.md"
+    recurrence = f"; recurrence — earlier session {prior.name} is resolved" if prior else ""
     write_atomic(path, "\n".join([
         "<!-- .planning/debug/NNN-slug.md — persistent debug state; resumable across sessions. -->",
         "---", "status: open                # open | resolved",
@@ -430,20 +457,19 @@ def route_debug(planning: Path, inc: str, today: str, attribution: str) -> tuple
         "<!-- Exactly three, of different cause kinds, once the repro fails. Status: untested | testing | refuted | confirmed -->",
         "", "## Evidence log",
         f"- {today}: incident intake — .planning/incidents/{inc}.md; release {attribution} "
-        "(deployed at incident time, not a proven cause)", "",
+        f"(deployed at incident time, not a proven cause){recurrence}", "",
         "## Resolution", "{root cause + fix commit — fill when resolved}", ""]))
-    return path, True
+    return path
 
 
-def route_todo(planning: Path, inc: str, today: str, attribution: str) -> tuple[Path, bool]:
+def add_todo(planning: Path, inc: str, today: str, attribution: str, prior: Path | None) -> Path:
     path = planning / "TODOS.md"
     text = path.read_text(encoding="utf-8") if path.is_file() else "# Todos\n"
-    if re.search(rf"(?m)^- \[[ xX]\] .*\b{re.escape(inc)}\b", text):
-        return path, False
+    recurrence = " — recurrence; the earlier todo is done" if prior else ""
     line = (f"- [ ] {today}: production incident {inc} — release {attribution} "
-            f"(deployed, not a proven cause) — .planning/incidents/{inc}.md")
+            f"(deployed, not a proven cause){recurrence} — .planning/incidents/{inc}.md")
     write_atomic(path, text.rstrip("\n") + "\n" + line + "\n")
-    return path, True
+    return path
 
 
 def main(argv=None) -> int:
@@ -483,20 +509,35 @@ def main(argv=None) -> int:
         print(f"flow-incident: {exc}", file=sys.stderr)
         return 2
     record_path = planning / "incidents" / f"{inc}.md"
-    if record_path.is_file():
-        state, attribution = "existing, kept; attribution not recomputed", existing_attribution(record_path)
+    find, add = (find_debug, add_debug) if args.route == "debug" else (find_todo, add_todo)
+    open_pointer, closed_pointer = find(planning, inc)
+    if open_pointer:  # a repeat while this route's entry is open: nothing to add
+        state, attribution = "existing, kept", existing_attribution(record_path) if record_path.is_file() else "unknown"
+        pointer, outcome = open_pointer, "already open, unchanged"
     else:
-        records = release_records(repo, planning)
-        result = attribute(repo, records, args.version, day)
-        write_atomic(record_path, render_record(inc, today, text, redactions or 0, cut or 0, link,
-                                                link_redactions, args.at, repo, records, result,
-                                                *signoffs(repo, planning), github_slug(repo)))
-        state, attribution = "new", summary(result)
-    route = route_debug if args.route == "debug" else route_todo
-    pointer, created = route(planning, inc, today, attribution)
+        records = result = None
+        if not record_path.is_file() or closed_pointer:
+            # New incident, or a recurrence after its entry was closed: attribute this occurrence.
+            records = release_records(repo, planning)
+            result = attribute(repo, records, args.version, day)
+        if not record_path.is_file():
+            write_atomic(record_path, render_record(inc, today, text, redactions or 0, cut or 0, link,
+                                                    link_redactions, args.at, repo, records, result,
+                                                    *signoffs(repo, planning), github_slug(repo)))
+            state, attribution = "new", summary(result)
+        elif closed_pointer:
+            state, attribution = "recurrence, attributed afresh", summary(result)
+        else:  # same occurrence on another route: keep the record's attribution
+            state, attribution = "existing, kept; attribution not recomputed", existing_attribution(record_path)
+        pointer = add(planning, inc, today, attribution, closed_pointer)
+        if closed_pointer:
+            with record_path.open("a", encoding="utf-8") as handle:
+                handle.write(f"\nRecurrence {today}: release {attribution} (facts used: {result['basis']}) "
+                             f"— {pointer.relative_to(repo)}\n")
+        outcome = "added" + (f"; earlier entry {closed_pointer.name} is closed" if closed_pointer else "")
     print(f"incident: {inc} ({state})")
     print(f"record: {record_path.relative_to(repo)}")
-    print(f"route: {args.route} -> {pointer.relative_to(repo)} ({'added' if created else 'already present, unchanged'})")
+    print(f"route: {args.route} -> {pointer.relative_to(repo)} ({outcome})")
     print(f"attribution: {attribution} — deployed at incident time, not a proven cause")
     return 0
 
