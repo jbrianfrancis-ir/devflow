@@ -141,18 +141,20 @@ class PastedTextIsData(IntakeCase):
 
     def test_secret_shaped_values_never_reach_planning(self):
         values = ["00000000-1111-2222-3333-444444444444", "hunter2hunter2", "AKIAABCDEFGHIJKLMNOP",
-                  "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzeW50aGV0aWMifQ.c2lnbmF0dXJl", "c2FzLXNpZw"]
+                  "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzeW50aGV0aWMifQ.c2lnbmF0dXJl", "c2FzLXNpZw",
+                  "SYNTHACCOUNTKEY0123", "SYNTHIKEY4567"]
         text = (f"SYNTHETIC InstrumentationKey={values[0]};IngestionEndpoint=https://x.invalid/\n"
                 f"db password={values[1]}\nkey {values[2]}\nAuthorization: Bearer {values[3]}")
         self.ok("--route", "todo", "--text-file", self.repo.paste(text),
-                "--link", f"https://portal.example.invalid/blob?sv=1&sig={values[4]}&x=1")
+                "--link", f"https://portal.example.invalid/blob?sv=1&sig={values[4]}&x=1"
+                          f"&AccountKey={values[5]}&instrumentationKey={values[6]}")
         written = "\n".join(b.decode() for b in self.repo.planning_files().values())
         for value in values:
             self.assertNotIn(value, written)
         record = self.repo.record()
         self.assertIn("[REDACTED:", record)
         self.assertIn("4 secret-shaped value(s) redacted", record)
-        self.assertIn("1 sensitive query value(s) redacted", record)
+        self.assertIn("3 sensitive query value(s) redacted", record)
         self.assertIsNone(SECRET_SCAN.search(record))
 
 
@@ -249,6 +251,31 @@ class ReleaseAttribution(IntakeCase):
         self.assertIn("Status: **unattributed**", record)
         self.assertIn("version `1.2.3` does not resolve to a commit here", record)
 
+    def test_two_tags_on_one_sha_are_one_build_not_ambiguity(self):
+        # Regression: review of b29b846 — a re-tag made an exact --version match "ambiguous".
+        self.repo.git("tag", "release-20261106-1", self.repo.sha["c5"])
+        self.ok("--route", "debug", "--link", "https://x.invalid/i/13", "--version", "release-20261105-1")
+        record = self.repo.record()
+        self.assertIn("Status: **attributed**", record)
+        self.assertIn("| release-20261105-1", record)
+        self.assertIn("| release-20261106-1", record)
+
+    def test_previous_release_off_this_history_gives_no_pr_range(self):
+        # Regression: review of b29b846 — a side-branch tag sorted as "previous" gave a bogus range.
+        self.repo.git("checkout", "-q", "-b", "side", self.repo.sha["c1"])
+        self.repo.commit("s1", "Merge pull request #99 from synthetic-org/side")
+        self.repo.git("tag", "release-20261103-1", self.repo.sha["s1"])
+        self.repo.git("checkout", "-q", "main")
+        self.ok("--route", "debug", "--link", "https://x.invalid/i/14", "--version", "release-20261105-1")
+        row = next(l for l in self.repo.record().splitlines() if l.startswith("| release-20261105-1"))
+        self.assertIn("could not check: previous release release-20261103-1 is not an ancestor", row)
+
+    def test_signoff_in_another_shape_is_reported_not_hidden(self):
+        (self.repo.root / ".planning/deploy/SIGNOFF.md").write_text(
+            "| approver | sha |\n|---|---|\n| SYNTHETIC Carol | " + self.repo.sha["c5"] + " |\n")
+        self.ok("--route", "debug", "--link", "https://x.invalid/i/15", "--version", "release-20261105-1")
+        self.assertIn("1 more with no parseable `sha:` line (shown as no sign-off)", self.repo.record())
+
     def test_release_without_a_uat_record_says_so(self):
         self.repo.commit("c7", "Merge pull request #14 from synthetic-org/unsigned")
         self.repo.git("tag", "release-20261112-1", self.repo.sha["c7"])
@@ -287,6 +314,14 @@ class Idempotence(IntakeCase):
         self.assertEqual(todos.count("production incident inc-"), 1, todos)
         self.assertEqual(len(list((self.repo.root / ".planning/debug").glob("*.md"))), 1)
         self.assertEqual(len(list((self.repo.root / ".planning/incidents").glob("*.md"))), 1)
+
+    def test_long_alerts_that_differ_past_the_storage_cap_stay_distinct(self):
+        # Regression: review of b29b846 — the id was hashed after truncation.
+        head = "SYNTHETIC " + "x" * 17000
+        self.ok("--route", "todo", "--text-file", self.repo.paste(head + " tail-A", "a.txt"))
+        self.ok("--route", "todo", "--text-file", self.repo.paste(head + " tail-B", "b.txt"))
+        self.assertEqual(len(list((self.repo.root / ".planning/incidents").glob("*.md"))), 2)
+        self.assertEqual(self.repo.read(".planning/TODOS.md").count("production incident inc-"), 2)
 
     def test_alert_id_identifies_a_refired_alert(self):
         self.ok("--route", "todo", "--id", "SYN-77", "--text-file", self.repo.paste("fired 10:00", "a.txt"))

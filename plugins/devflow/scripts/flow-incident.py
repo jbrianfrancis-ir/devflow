@@ -84,7 +84,9 @@ SECRET_PATTERNS = (  # shapes from conventions.md's secret scan, plus Azure-spec
         r"access_token|sig)[\"' ]*[=:] ?[\"']?)(?!\[REDACTED)[^\s\"';&,]+")),
 )
 LINK_SECRET = re.compile(
-    r"(?i)([?&](?:sig|code|token|access_token|key|api[_-]?key|secret|password|client_secret)=)[^&#]*")
+    r"(?i)([?&;](?:sig|code|token|access_token|key|api[_-]?key|apikey|secret|client_secret|password|passwd|"
+    r"pwd|accountkey|sharedaccesskey|sharedaccesssignature|instrumentationkey|connectionstring|"
+    r"connection_string)=)[^&#;]*")
 
 
 class InputError(Exception):
@@ -102,8 +104,8 @@ def redact(text: str) -> tuple[str, int]:
     return text, total
 
 
-def read_text(path: str) -> tuple[str, int, int]:
-    """(clean text, redactions, chars truncated). Read as bytes and decoded: never run."""
+def read_text(path: str) -> tuple[str, int]:
+    """(clean text, redactions). Read as bytes and decoded: never run."""
     try:
         raw = Path(path).read_bytes()
     except OSError as exc:
@@ -112,9 +114,7 @@ def read_text(path: str) -> tuple[str, int, int]:
     text = CONTROL_RE.sub("", text).strip()
     if not text:
         raise InputError("--text-file is empty")
-    text, redactions = redact(text)
-    cut = max(0, len(text) - MAX_TEXT)
-    return text[:MAX_TEXT], redactions, cut
+    return redact(text)
 
 
 def clean_link(link: str) -> tuple[str, int]:
@@ -214,7 +214,9 @@ def release_records(repo: Path, planning: Path) -> list[dict]:
     return sorted(records, key=lambda r: (r["date"], r["order"], r["name"]))
 
 
-def signoffs(repo: Path, planning: Path) -> list[dict]:
+def signoffs(repo: Path, planning: Path) -> tuple[list[dict], int]:
+    """(parsed sign-offs, versions with no parseable `sha:` line). An unparsed version is
+    reported, so a sign-off in another shape never reads as no sign-off at all."""
     rel = ".planning/deploy/SIGNOFF.md"
     texts = []
     current = planning / "deploy" / "SIGNOFF.md"
@@ -224,7 +226,7 @@ def signoffs(repo: Path, planning: Path) -> list[dict]:
         blob = git(repo, "show", f"{commit}:{rel}")
         if blob:
             texts.append(blob)
-    found, seen = [], set()
+    found, seen, unparsed = [], set(), 0
     for text in texts:
         fields = {}
         for line in text.splitlines():
@@ -233,26 +235,29 @@ def signoffs(repo: Path, planning: Path) -> list[dict]:
                 fields[match.group(1).lower()] = match.group(2).strip()
         sha = SHA_RE.search(fields.get("sha", ""))
         if not sha:
+            unparsed += 1
             continue
         entry = (sha.group(0), fields.get("approver", "?"), fields.get("date", "?"),
                  fields.get("round", "?"), fields.get("approved-for-production", "?"))
         if entry not in seen:
             seen.add(entry)
             found.append(dict(zip(("sha", "approver", "date", "round", "approved"), entry)))
-    return found
+    return found, unparsed
 
 
-def shipped_prs(repo: Path, records: list[dict], record: dict) -> list[int] | None:
-    """PR numbers on the first-parent line since the previous release record, or None when
-    the release SHA is not in local history."""
+def shipped_prs(repo: Path, records: list[dict], record: dict) -> list[int] | str:
+    """PR numbers on the first-parent line since the previous release record, or the reason
+    they could not be read."""
     if resolve(repo, record["sha"]) is None:
-        return None
+        return "could not check: SHA not in local history"
     earlier = [r for r in records[:records.index(record)]
                if not same_sha(r["sha"], record["sha"]) and resolve(repo, r["sha"])]
+    if earlier and git(repo, "merge-base", "--is-ancestor", earlier[-1]["sha"], record["sha"]) is None:
+        return f"could not check: previous release {earlier[-1]['name']} is not an ancestor of this one"
     span = f"{earlier[-1]['sha']}..{record['sha']}" if earlier else record["sha"]
     out = git(repo, "log", "--first-parent", "--max-count=500", "--format=%s", span)
     if out is None:
-        return None
+        return "could not check: git log failed"
     prs = []
     for subject in out.splitlines():
         for pattern in PR_RES:
@@ -265,13 +270,18 @@ def shipped_prs(repo: Path, records: list[dict], record: dict) -> list[int] | No
 
 # --- attribution -------------------------------------------------------------
 
-def by_time(records: list[dict], day: dt.date) -> tuple[list[dict], bool]:
-    """(candidates, order_known). Records are day-granular with no timezone, so one dated
-    within a day of the incident may have gone out before or after it."""
+def by_time(records: list[dict], day: dt.date) -> tuple[list[dict], bool, bool]:
+    """(candidates, order_known, has_before). Records are day-granular with no timezone, so
+    one dated within a day of the incident may have gone out before or after it."""
     one = dt.timedelta(days=1)
     before = [r for r in records if r["date"] < day - one]
     near = [r for r in records if abs(r["date"] - day) <= one]
-    return (before[-1:] + near), not near
+    return (before[-1:] + near), not near, bool(before)
+
+
+def one_build(candidates: list[dict]) -> bool:
+    """True when every candidate is the same commit: several tags on one SHA are one build."""
+    return bool(candidates) and all(same_sha(r["sha"], candidates[0]["sha"]) for r in candidates)
 
 
 def attribute(repo: Path, records: list[dict], version: str | None, day: dt.date | None) -> dict:
@@ -284,7 +294,7 @@ def attribute(repo: Path, records: list[dict], version: str | None, day: dt.date
             notes.append(f"version `{version}` "
                          + ("matches no release record" if full else "does not resolve to a commit here"))
         basis.append(f"version `{version}`")
-    time_hits, order_known = (by_time(records, day) if day else ([], True))
+    time_hits, order_known, has_before = (by_time(records, day) if day else ([], True, False))
     if day:
         basis.append(f"incident date {day.isoformat()}")
         if not time_hits:
@@ -296,17 +306,17 @@ def attribute(repo: Path, records: list[dict], version: str | None, day: dt.date
         if not both:
             notes.append("the version's release record could not have been deployed on the incident date")
         candidates = both or by_version + [r for r in time_hits if r not in by_version]
-        status = "attributed" if both and len(candidates) == 1 else "ambiguous"
+        status = "attributed" if both and one_build(candidates) else "ambiguous"
     elif by_version:
         candidates = by_version
-        status = "attributed" if len(candidates) == 1 else "ambiguous"
+        status = "attributed" if one_build(candidates) else "ambiguous"
     elif time_hits:
         candidates = time_hits
-        if version is not None or not order_known or len(time_hits) > 1:
+        if version is not None or not one_build(time_hits) or not has_before:
             status = "ambiguous"
         else:
             status = "attributed"
-        if not order_known and len(time_hits) == 1:
+        if not has_before:
             notes.append("or no release was deployed yet")
     else:
         status = "unattributed"
@@ -335,7 +345,7 @@ def summary(result: dict) -> str:
 
 
 def render_record(inc: str, today: str, text, redactions: int, cut: int, link, link_redactions: int,
-                  at_raw, repo: Path, records, result, signed, slug) -> str:
+                  at_raw, repo: Path, records, result, signed, unparsed: int, slug) -> str:
     lines = [f"<!-- .planning/incidents/{inc}.md — written by flow-incident.py; one per incident. -->",
              "---", f"incident: {inc}", f"received: {today}",
              "source: " + "+".join(k for k, v in (("text", text), ("link", link)) if v),
@@ -368,8 +378,8 @@ def render_record(inc: str, today: str, text, redactions: int, cut: int, link, l
                                  f"{cell(s['round'])}, approved-for-production {cell(s['approved'])}"
                                  for s in uat) or "none recorded for this SHA"
             prs = shipped_prs(repo, records, record)
-            if prs is None:
-                pr_cell = "could not check: SHA not in local history"
+            if isinstance(prs, str):
+                pr_cell = prs
             elif not prs:
                 pr_cell = "none found in commit subjects"
             else:
@@ -380,7 +390,8 @@ def render_record(inc: str, today: str, text, redactions: int, cut: int, link, l
         lines.append("")
     lines.append(f"Records read: {sum(r['source'].startswith('release tag') for r in records)} release tag(s), "
                  f"PIPELINE.md prod row {'used' if any('PIPELINE' in r['source'] for r in records) else 'absent or unparsed'}, "
-                 f"{len(signed)} SIGNOFF.md version(s).")
+                 f"{len(signed)} SIGNOFF.md version(s)"
+                 + (f", {unparsed} more with no parseable `sha:` line (shown as no sign-off)" if unparsed else "") + ".")
     return "\n".join(lines) + "\n"
 
 
@@ -457,7 +468,7 @@ def main(argv=None) -> int:
             raise InputError(f"{repo} is not a readable git repository")
         text = redactions = cut = None
         if args.text_file is not None:
-            text, redactions, cut = read_text(args.text_file)
+            text, redactions = read_text(args.text_file)
         link, link_redactions = None, 0
         if args.link is not None:
             link, link_redactions = clean_link(args.link)
@@ -465,7 +476,9 @@ def main(argv=None) -> int:
             raise InputError("--version must be a SHA or tag name")
         day = parse_at(args.at) if args.at is not None else None
         today = args.today or dt.date.today().isoformat()
-        inc = incident_id(args.id, text, link)
+        inc = incident_id(args.id, text, link)  # over the full text; only the stored copy is capped
+        if text is not None:
+            cut, text = max(0, len(text) - MAX_TEXT), text[:MAX_TEXT]
     except InputError as exc:
         print(f"flow-incident: {exc}", file=sys.stderr)
         return 2
@@ -477,7 +490,7 @@ def main(argv=None) -> int:
         result = attribute(repo, records, args.version, day)
         write_atomic(record_path, render_record(inc, today, text, redactions or 0, cut or 0, link,
                                                 link_redactions, args.at, repo, records, result,
-                                                signoffs(repo, planning), github_slug(repo)))
+                                                *signoffs(repo, planning), github_slug(repo)))
         state, attribution = "new", summary(result)
     route = route_debug if args.route == "debug" else route_todo
     pointer, created = route(planning, inc, today, attribution)

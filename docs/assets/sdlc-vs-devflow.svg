@@ -109,8 +109,6 @@
   <path class="flow" marker-end="url(#arr)" d="M1392 706 V776 H1320"/>
   <path class="flow" marker-end="url(#arr)" d="M1054 776 H976 V712"/>
   <path class="flow" marker-end="url(#arr)" d="M976 622 V574"/>
-  <path class="flow" marker-end="url(#arr)" d="M976 484 V414 H1048"/>
-  <text x="966" y="446" text-anchor="end" class="blue" font-size="13.5" font-weight="600">next cycle</text>
 
   <g transform="translate(1054,372)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-doc" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt mono" font-size="16">/flow-new</text><text x="68" y="60" class="bs">requirements + roadmap</text></g>
   <g transform="translate(1262,484)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-layers" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt mono" font-size="16">/flow-plan N</text><text x="68" y="60" class="bs">plans, then plan-check</text></g>
