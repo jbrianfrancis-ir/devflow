@@ -441,11 +441,15 @@ def find_todo(planning: Path, inc: str) -> tuple[Path | None, Path | None]:
     return None, None
 
 
-def add_debug(planning: Path, inc: str, today: str, attribution: str, prior: Path | None) -> Path:
+def next_debug(planning: Path, inc: str) -> Path:
     debug = planning / "debug"
     numbers = [int(m.group(1)) for m in (re.match(r"^(\d{3,})-", p.name) for p in debug.glob("*.md")) if m] \
         if debug.is_dir() else []
-    path = debug / f"{max(numbers, default=0) + 1:03d}-incident-{inc}.md"
+    return debug / f"{max(numbers, default=0) + 1:03d}-incident-{inc}.md"
+
+
+def add_debug(planning: Path, inc: str, today: str, attribution: str, prior: Path | None) -> Path:
+    path = next_debug(planning, inc)
     recurrence = f"; recurrence — earlier session {prior.name} is resolved" if prior else ""
     write_atomic(path, "\n".join([
         "<!-- .planning/debug/NNN-slug.md — persistent debug state; resumable across sessions. -->",
@@ -501,6 +505,8 @@ def main(argv=None) -> int:
         if args.version is not None and not REV_RE.match(args.version):
             raise InputError("--version must be a SHA or tag name")
         day = parse_at(args.at) if args.at is not None else None
+        if args.today is not None and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", args.today):
+            raise InputError("--today must be YYYY-MM-DD")
         today = args.today or dt.date.today().isoformat()
         inc = incident_id(args.id, text, link)  # over the full text; only the stored copy is capped
         if text is not None:
@@ -529,11 +535,16 @@ def main(argv=None) -> int:
             state, attribution = "recurrence, attributed afresh", summary(result)
         else:  # same occurrence on another route: keep the record's attribution
             state, attribution = "existing, kept; attribution not recomputed", existing_attribution(record_path)
-        pointer = add(planning, inc, today, attribution, closed_pointer)
         if closed_pointer:
-            with record_path.open("a", encoding="utf-8") as handle:
-                handle.write(f"\nRecurrence {today}: release {attribution} (facts used: {result['basis']}) "
-                             f"— {pointer.relative_to(repo)}\n")
+            # Record first, then the pointer (as for a new incident): a run interrupted between
+            # the two leaves no open entry, so a rerun redoes both and this line is not doubled.
+            target = next_debug(planning, inc) if args.route == "debug" else planning / "TODOS.md"
+            note = (f"Recurrence {today}: release {attribution} (facts used: {result['basis']}) "
+                    f"— {target.relative_to(repo)}")
+            body = record_path.read_text(encoding="utf-8")
+            if note not in body:
+                write_atomic(record_path, body.rstrip("\n") + "\n\n" + note + "\n")
+        pointer = add(planning, inc, today, attribution, closed_pointer)
         outcome = "added" + (f"; earlier entry {closed_pointer.name} is closed" if closed_pointer else "")
     print(f"incident: {inc} ({state})")
     print(f"record: {record_path.relative_to(repo)}")

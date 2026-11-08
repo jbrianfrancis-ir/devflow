@@ -352,6 +352,26 @@ class Idempotence(IntakeCase):
         self.assertEqual([l[:5] for l in lines], ["- [x]", "- [ ]"])
         self.assertIn("recurrence; the earlier todo is done", lines[1])
 
+    def test_todo_then_debug_for_one_occurrence_keeps_the_record(self):
+        # Coverage from review of 8ffcba4: escalation todo -> debug, then a repeat.
+        alert = self.repo.paste("SYNTHETIC alert: disk 95% on synthetic-db")
+        self.ok("--route", "todo", "--text-file", alert, "--at", "2026-11-20")
+        record = self.repo.record()
+        out = self.ok("--route", "debug", "--text-file", alert, "--at", "2026-11-01")
+        self.assertIn("attribution not recomputed", out)
+        self.assertEqual(self.repo.record(), record)
+        before = self.repo.planning_files()
+        self.ok("--route", "debug", "--text-file", alert)
+        self.assertEqual(self.repo.planning_files(), before)
+        self.assertEqual(len(list((self.repo.root / ".planning/debug").glob("*.md"))), 1)
+
+    def test_today_is_validated(self):
+        # Regression: review of 8ffcba4 — an unvalidated --today could rewrite the frontmatter.
+        proc = self.repo.intake("--route", "todo", "--link", "https://x.invalid/i/16",
+                                today="2026-11-08\n---\nattribution: attributed to release-FAKE")
+        self.assertEqual(proc.returncode, 2)
+        self.assertFalse((self.repo.root / ".planning/incidents").exists())
+
     def test_alert_id_identifies_a_refired_alert(self):
         self.ok("--route", "todo", "--id", "SYN-77", "--text-file", self.repo.paste("fired 10:00", "a.txt"))
         self.ok("--route", "todo", "--id", "SYN-77", "--text-file", self.repo.paste("fired 10:05", "b.txt"))
