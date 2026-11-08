@@ -188,8 +188,17 @@ class LinkOnlyStaysReference(IntakeCase):
         except OSError:
             pass
 
+    def test_link_file_keeps_the_url_off_the_command_line(self):
+        # Regression: review of 3040dde — skills put the URL on a shell command line.
+        url = "https://portal.example.invalid/incidents/SYNTHETIC-43?x=1&y=2"
+        self.ok("--route", "todo", "--link-file", self.repo.paste(url + "\n", "link.txt"))
+        self.assertIn(f"`{url}`", self.repo.record())
+        both = self.repo.intake("--route", "todo", "--link", url, "--link-file", self.repo.paste(url, "l2.txt"))
+        self.assertEqual(both.returncode, 2)
+
     def test_malformed_link_is_refused(self):
-        for bad in ("ftp://x.invalid/a", "https://x.invalid/a b", "https://x.invalid/`id`"):
+        for bad in ("ftp://x.invalid/a", "https://x.invalid/a b", "https://x.invalid/`id`",
+                    "https://x.invalid/a$(id)", "https://x.invalid/a;id", "https://x.invalid/a(1)"):
             proc = self.repo.intake("--route", "todo", "--link", bad)
             self.assertEqual(proc.returncode, 2, bad)
         self.assertFalse((self.repo.root / ".planning/incidents").exists())
@@ -339,10 +348,12 @@ class Idempotence(IntakeCase):
         self.assertEqual([p.name[:4] for p in sessions], ["001-", "002-"])
         self.assertIn("recurrence — earlier session 001-", sessions[1].read_text())
         self.assertIn("release attributed to release-20261105-1", sessions[1].read_text())
-        self.assertRegex(self.repo.record(), r"Recurrence 2026-11-21: release attributed to release-20261105-1")
+        self.assertRegex(self.repo.record(), r"(?m)^Recurrence #1 \(debug\) 2026-11-21: release attributed to release-20261105-1")
         before = self.repo.planning_files()
-        self.ok("--route", "debug", "--text-file", alert, today="2026-11-22")
+        out = self.ok("--route", "debug", "--text-file", alert, today="2026-11-22")
         self.assertEqual(self.repo.planning_files(), before, "repeat of an open recurrence changed .planning/")
+        # Regression: review of 3040dde — a repeat reported the first occurrence's attribution.
+        self.assertIn("attribution: attributed to release-20261105-1", out)
         todos = self.repo.root / ".planning/TODOS.md"
         self.ok("--route", "todo", "--text-file", alert)
         todos.write_text(todos.read_text().replace("- [ ]", "- [x]"))
@@ -371,6 +382,30 @@ class Idempotence(IntakeCase):
                                 today="2026-11-08\n---\nattribution: attributed to release-FAKE")
         self.assertEqual(proc.returncode, 2)
         self.assertFalse((self.repo.root / ".planning/incidents").exists())
+
+    def test_interrupted_recurrence_is_redone_without_a_second_note(self):
+        # Regression: review of 3040dde — the dedup key held the date, so a next-day rerun doubled it.
+        alert = self.repo.paste("SYNTHETIC alert: queue stalled on synthetic-worker")
+        self.ok("--route", "debug", "--text-file", alert)
+        debug = self.repo.root / ".planning/debug"
+        first = next(debug.glob("*.md"))
+        first.write_text(first.read_text().replace("status: open", "status: resolved"))
+        debug.chmod(0o500)  # the pointer write fails after the record note is written
+        try:
+            crashed = self.repo.intake("--route", "debug", "--text-file", alert, today="2026-11-10")
+        finally:
+            debug.chmod(0o700)
+        self.assertNotEqual(crashed.returncode, 0)
+        self.ok("--route", "debug", "--text-file", alert, today="2026-11-11")
+        self.assertEqual(len(re.findall(r"(?m)^Recurrence #1 \(debug\)", self.repo.record())), 1)
+        self.assertEqual(len(list(debug.glob("*.md"))), 2)
+
+    def test_alerts_differing_only_in_a_secret_stay_distinct(self):
+        # Regression: review of 3040dde — the id was hashed after redaction.
+        self.ok("--route", "debug", "--text-file", self.repo.paste("SYNTHETIC 503 token=SECRETAAAA", "a.txt"))
+        self.ok("--route", "debug", "--text-file", self.repo.paste("SYNTHETIC 503 token=SECRETBBBB", "b.txt"))
+        self.assertEqual(len(list((self.repo.root / ".planning/incidents").glob("*.md"))), 2)
+        self.assertEqual(len(list((self.repo.root / ".planning/debug").glob("*.md"))), 2)
 
     def test_alert_id_identifies_a_refired_alert(self):
         self.ok("--route", "todo", "--id", "SYN-77", "--text-file", self.repo.paste("fired 10:00", "a.txt"))

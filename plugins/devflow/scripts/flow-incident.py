@@ -2,7 +2,8 @@
 """Incident intake: a production alert or incident opens the next DevFlow cycle.
 
 Input is one incident, given as pasted alert text or ServiceMonitor output saved to a file
-(`--text-file`), an App Insights or incident link (`--link`), or both. The output is one
+(`--text-file`), an App Insights or incident link saved to a file (`--link-file`; `--link`
+for a URL typed by hand), or both. The output is one
 incident record, `.planning/incidents/<id>.md`, plus one pointer to it on the route the human
 chose:
 
@@ -39,7 +40,8 @@ the incident is order-unknown and makes the result ambiguous. The release named 
 deployed when the incident happened. That is not the cause: no SHA or PR here is called
 causative, and the newest release is never picked just for being newest.
 
-Idempotent: the incident id is `--id` when given, else a hash of the redacted input. While
+Idempotent: the incident id is `--id` when given, else a hash of the input taken before redaction (only a 12-hex
+digest prefix is stored, so alerts differing only in a secret stay distinct). While
 the route's entry is open (debug `status: open`, todo `- [ ]`), a repeat intake changes
 nothing, so one incident never gets two open debug sessions or two open todos. The other
 route can still be added for the same occurrence, keeping the record's attribution. Once
@@ -72,7 +74,10 @@ SHA_RE = re.compile(r"\b[0-9a-f]{7,40}\b")
 DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 REV_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$")
-LINK_RE = re.compile(r"^https?://[^\s<>`\"'\\|]+$")
+# No shell metacharacters either ($ ( ) ; ! * & is allowed only as a query separator): a link
+# should reach this script from a file (--link-file), but one typed on a command line must not
+# be able to carry a command substitution.
+LINK_RE = re.compile(r"^https?://[^\s<>`\"'\\|$();!*]+$")
 PR_RES = (re.compile(r"^Merge pull request #(\d+)\b"), re.compile(r"\(#(\d+)\)\s*$"))
 # ANSI escapes first, then C0/C1 controls and bidi/zero-width marks (newline and tab kept).
 CONTROL_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|[\x00-\x08\x0b-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2066-\u2069]")
@@ -111,8 +116,8 @@ def redact(text: str) -> tuple[str, int]:
     return text, total
 
 
-def read_text(path: str) -> tuple[str, int]:
-    """(clean text, redactions). Read as bytes and decoded: never run."""
+def read_text(path: str) -> tuple[str, str, int]:
+    """(clean text, redacted text, redactions). Read as bytes and decoded: never run."""
     try:
         raw = Path(path).read_bytes()
     except OSError as exc:
@@ -121,13 +126,14 @@ def read_text(path: str) -> tuple[str, int]:
     text = CONTROL_RE.sub("", text).strip()
     if not text:
         raise InputError("--text-file is empty")
-    return redact(text)
+    return (text, *redact(text))
 
 
 def clean_link(link: str) -> tuple[str, int]:
     link = link.strip()
     if len(link) > 2048 or not LINK_RE.match(link):
-        raise InputError("--link must be one http(s) URL with no spaces, quotes, backticks or <>")
+        raise InputError("--link must be one http(s) URL with no spaces, quotes, backticks, <>, "
+                         "| $ ( ) ; ! * (percent-encode them)")
     return LINK_SECRET.subn(r"\1REDACTED", link)
 
 
@@ -142,6 +148,8 @@ def parse_at(value: str) -> dt.date:
 
 
 def incident_id(explicit: str | None, text: str | None, link: str | None) -> str:
+    """Hashes the input BEFORE redaction, so alerts differing only in a secret-shaped value
+    stay distinct; only a 12-hex digest prefix is stored."""
     if explicit is not None:
         if not ID_RE.match(explicit):
             raise InputError("--id must be 1-64 of A-Z a-z 0-9 . _ - (starting alphanumeric)")
@@ -411,10 +419,27 @@ def write_atomic(path: Path, text: str) -> None:
 
 
 def existing_attribution(record_path: Path) -> str:
+    """The latest occurrence's attribution: the last Recurrence line, else the frontmatter."""
+    found = "unknown (no attribution line in the existing record)"
     for line in record_path.read_text(encoding="utf-8").splitlines():
-        if line.startswith("attribution: "):
-            return line.split(": ", 1)[1]
-    return "unknown (no attribution line in the existing record)"
+        first = line.startswith("attribution: ") and found.startswith("unknown")
+        later = re.match(r"^Recurrence #\d+ \(\w+\) [\d-]+: release (.+?) \(facts used:", line)
+        if first:
+            found = line.split(": ", 1)[1]
+        elif later:
+            found = later.group(1)
+    return found
+
+
+def entry_count(planning: Path, inc: str, route: str) -> int:
+    """How many entries this incident already has on a route (open or closed)."""
+    if route == "debug":
+        debug = planning / "debug"
+        return sum(bool(re.search(rf"(?m)^incident: {re.escape(inc)}$", p.read_text(encoding="utf-8", errors="replace")))
+                   for p in debug.glob("*.md")) if debug.is_dir() else 0
+    todos = planning / "TODOS.md"
+    text = todos.read_text(encoding="utf-8") if todos.is_file() else ""
+    return len(re.findall(rf"(?m)^- \[[ xX]\] .*\bproduction incident {re.escape(inc)}\b", text))
 
 
 def find_debug(planning: Path, inc: str) -> tuple[Path | None, Path | None]:
@@ -482,6 +507,7 @@ def main(argv=None) -> int:
     parser.add_argument("--route", required=True, choices=("debug", "todo"))
     parser.add_argument("--text-file", help="file holding the pasted alert / ServiceMonitor output")
     parser.add_argument("--link", help="App Insights or incident URL — recorded, never fetched")
+    parser.add_argument("--link-file", help="file holding that one URL, so it never sits on a command line")
     parser.add_argument("--at", help="incident time the alert states (ISO 8601)")
     parser.add_argument("--version", help="deployed SHA or release tag the alert states")
     parser.add_argument("--id", help="incident id the alert states (else a content hash)")
@@ -490,15 +516,22 @@ def main(argv=None) -> int:
     repo = Path(args.repo).resolve()
     planning = repo / ".planning"
     try:
+        if args.link is not None and args.link_file is not None:
+            raise InputError("give --link or --link-file, not both")
+        if args.link_file is not None:
+            try:
+                args.link = Path(args.link_file).read_text(encoding="utf-8").strip()
+            except (OSError, UnicodeDecodeError):
+                raise InputError("cannot read --link-file")
         if args.text_file is None and args.link is None:
-            raise InputError("give --text-file, --link, or both")
+            raise InputError("give --text-file, --link/--link-file, or both")
         if not planning.is_dir():
             raise InputError(f"no .planning/ under {repo}: not a DevFlow project")
         if git(repo, "rev-parse", "--git-dir") is None:
             raise InputError(f"{repo} is not a readable git repository")
-        text = redactions = cut = None
+        raw_text = text = redactions = cut = None
         if args.text_file is not None:
-            text, redactions = read_text(args.text_file)
+            raw_text, text, redactions = read_text(args.text_file)
         link, link_redactions = None, 0
         if args.link is not None:
             link, link_redactions = clean_link(args.link)
@@ -508,7 +541,7 @@ def main(argv=None) -> int:
         if args.today is not None and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", args.today):
             raise InputError("--today must be YYYY-MM-DD")
         today = args.today or dt.date.today().isoformat()
-        inc = incident_id(args.id, text, link)  # over the full text; only the stored copy is capped
+        inc = incident_id(args.id, raw_text, args.link and args.link.strip())  # before redaction and cap
         if text is not None:
             cut, text = max(0, len(text) - MAX_TEXT), text[:MAX_TEXT]
     except InputError as exc:
@@ -536,13 +569,16 @@ def main(argv=None) -> int:
         else:  # same occurrence on another route: keep the record's attribution
             state, attribution = "existing, kept; attribution not recomputed", existing_attribution(record_path)
         if closed_pointer:
-            # Record first, then the pointer (as for a new incident): a run interrupted between
-            # the two leaves no open entry, so a rerun redoes both and this line is not doubled.
+            # Record first, then the pointer (as for a new incident). The note is keyed by the
+            # recurrence's ordinal on this route, which a rerun after an interruption between the
+            # two writes computes again unchanged (no new entry was added), so it is never doubled.
+            ordinal = entry_count(planning, inc, args.route)
             target = next_debug(planning, inc) if args.route == "debug" else planning / "TODOS.md"
-            note = (f"Recurrence {today}: release {attribution} (facts used: {result['basis']}) "
-                    f"— {target.relative_to(repo)}")
+            key = f"Recurrence #{ordinal} ({args.route}) "
             body = record_path.read_text(encoding="utf-8")
-            if note not in body:
+            if not re.search(rf"(?m)^{re.escape(key)}", body):
+                note = (f"{key}{today}: release {attribution} (facts used: {result['basis']}) "
+                        f"— {target.relative_to(repo)}")
                 write_atomic(record_path, body.rstrip("\n") + "\n\n" + note + "\n")
         pointer = add(planning, inc, today, attribution, closed_pointer)
         outcome = "added" + (f"; earlier entry {closed_pointer.name} is closed" if closed_pointer else "")
