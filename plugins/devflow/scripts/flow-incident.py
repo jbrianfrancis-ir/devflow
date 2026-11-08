@@ -107,7 +107,10 @@ SECRET_PATTERNS = (  # shapes from conventions.md's secret scan, plus Azure-spec
     ("bearer", re.compile(r"(?i)(\bbearer )(?!\[REDACTED)[A-Za-z0-9._~+/=-]{8,}")),
     ("credential", re.compile(
         # No left word boundary, like conventions.md's scan: DB_PASSWORD=, AWS_SECRET_ACCESS_KEY=.
-        rf"(?i)((?:{CREDENTIAL_KEYS})[\"' ]*[=:] *[\"']?)(?!\[REDACTED)[^\s\"';&,]+")),
+        # An unquoted value counts when it is 12+ characters or holds a non-letter, so prose
+        # like "Token: expired" or "Secret: rotated" is kept and "password=hunter2" is not.
+        rf"(?i)((?:{CREDENTIAL_KEYS})[\"' ]*[=:] *[\"']?)(?!\[REDACTED)"
+        rf"(?=[^\s\"';&,]{{12}}|[^\s\"';&,]*[^A-Za-z\s\"';&,])[^\s\"';&,]+")),
 )
 
 
@@ -461,7 +464,7 @@ def entry_count(planning: Path, inc: str, route: str) -> int:
                    for p in debug.glob("*.md")) if debug.is_dir() else 0
     todos = planning / "TODOS.md"
     text = todos.read_text(encoding="utf-8") if todos.is_file() else ""
-    return len(re.findall(rf"(?m)^- \[[ xX]\] .*\bproduction incident {re.escape(inc)}\b", text))
+    return len(re.findall(rf"(?m)^- \[[ xX]\] .*\bproduction incident {re.escape(inc)}(?![A-Za-z0-9._-])", text))
 
 
 def find_debug(planning: Path, inc: str) -> tuple[Path | None, Path | None]:
@@ -481,9 +484,9 @@ def find_todo(planning: Path, inc: str) -> tuple[Path | None, Path | None]:
     """(TODOS.md when it has an open item for this incident, TODOS.md when only done ones)."""
     path = planning / "TODOS.md"
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
-    if re.search(rf"(?m)^- \[ \] .*\bproduction incident {re.escape(inc)}\b", text):
+    if re.search(rf"(?m)^- \[ \] .*\bproduction incident {re.escape(inc)}(?![A-Za-z0-9._-])", text):
         return path, None
-    if re.search(rf"(?m)^- \[[xX]\] .*\bproduction incident {re.escape(inc)}\b", text):
+    if re.search(rf"(?m)^- \[[xX]\] .*\bproduction incident {re.escape(inc)}(?![A-Za-z0-9._-])", text):
         return None, path
     return None, None
 

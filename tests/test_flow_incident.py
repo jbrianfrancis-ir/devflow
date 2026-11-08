@@ -247,6 +247,17 @@ class SecretScanParity(IntakeCase):
         self.assertIsNone(hit, hit and hit.group(0))
 
 
+class RedactionKeepsProse(IntakeCase):
+    def test_status_words_after_credential_labels_are_kept(self):
+        # Regression: review of 7d100eb — "Token: expired" was redacted, inflating the count.
+        prose = "Token: expired, redeploy needed\nSecret: rotated an hour ago\nPassword: unknown, escalate"
+        self.ok("--route", "todo", "--text-file", self.repo.paste(prose + "\npassword=hunter2"))
+        record = self.repo.record()
+        self.assertIn(prose, record)
+        self.assertNotIn("hunter2", record)
+        self.assertIn("1 secret-shaped value(s) redacted", record)
+
+
 class LinkOnlyStaysReference(IntakeCase):
     def test_control_characters_are_stripped_from_links(self):
         # Regression: review of 15429ef — ESC / bidi / zero-width marks survived in a link.
@@ -497,6 +508,14 @@ class Idempotence(IntakeCase):
         self.ok("--route", "debug", "--text-file", self.repo.paste("SYNTHETIC 503 token=SECRETBBBB", "b.txt"))
         self.assertEqual(len(list((self.repo.root / ".planning/incidents").glob("*.md"))), 2)
         self.assertEqual(len(list((self.repo.root / ".planning/debug").glob("*.md"))), 2)
+
+    def test_ids_ending_in_punctuation_stay_idempotent(self):
+        # Regression: review of 7d100eb — a trailing `\b` never matched after "-" or ".".
+        for alert_id in ("SYN-77-", "SYN.78."):
+            self.ok("--route", "todo", "--id", alert_id, "--text-file", self.repo.paste("fired 10:00", "a.txt"))
+            self.ok("--route", "todo", "--id", alert_id, "--text-file", self.repo.paste("fired 10:05", "b.txt"))
+            todos = self.repo.read(".planning/TODOS.md")
+            self.assertEqual(todos.count(f"production incident inc-{alert_id.lower()} "), 1, todos)
 
     def test_alert_id_identifies_a_refired_alert(self):
         self.ok("--route", "todo", "--id", "SYN-77", "--text-file", self.repo.paste("fired 10:00", "a.txt"))
