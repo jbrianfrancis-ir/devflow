@@ -483,7 +483,7 @@ def main(argv=None) -> int:
     pointer, created = route(planning, inc, today, attribution)
     print(f"incident: {inc} ({state})")
     print(f"record: {record_path.relative_to(repo)}")
-    print(f"route: {args.route} -> {pointer.relative_to(repo)} ({'created' if created else 'already present, unchanged'})")
+    print(f"route: {args.route} -> {pointer.relative_to(repo)} ({'added' if created else 'already present, unchanged'})")
     print(f"attribution: {attribution} — deployed at incident time, not a proven cause")
     return 0
 
