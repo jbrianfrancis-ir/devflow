@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2830" viewBox="0 0 1600 2830" role="img" aria-labelledby="t d">
   <title id="t">SDLC with a copilot vs DevFlow</title>
-  <desc id="d">Side-by-side comparison of a conventional lifecycle with an AI coding assistant and the DevFlow loop: stages, the DevFlow artifact chain, which gates are written rules versus enforced, trade-offs, and when to use each. Sources: docs/sdlc-vs-devflow.md.</desc>
+  <desc id="d">Side-by-side comparison of a conventional lifecycle with an AI coding assistant and the DevFlow loop: stages, the DevFlow artifact chain, which gates are written rules versus enforced, trade-offs, and when to use each. Sources: the repo README.md and docs/; claim-by-claim source mapping in PR #72.</desc>
   <style>
     svg { font-family: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Liberation Sans', sans-serif; }
     .serif { font-family: Georgia, 'Times New Roman', 'Liberation Serif', serif; }
@@ -283,6 +283,6 @@
 
   <!-- Footer -->
   <line x1="48" y1="2784" x2="1552" y2="2784" stroke="#D8D2C4" stroke-width="1.2"/>
-  <text x="48" y="2812" class="muted" font-size="15">Every claim is sourced in <tspan class="mono">docs/sdlc-vs-devflow.md</tspan> · DevFlow 0.45.0</text>
+  <text x="48" y="2812" class="muted" font-size="15">Sources: repo <tspan class="mono">README.md</tspan> and <tspan class="mono">docs/</tspan> · source mapping in PR #72 · DevFlow 0.45.0</text>
   <text x="1552" y="2812" text-anchor="end" class="muted" font-size="15">github.com/jbrianfrancis-ir/devflow</text>
 </svg>
