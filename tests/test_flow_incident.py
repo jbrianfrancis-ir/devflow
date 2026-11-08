@@ -162,7 +162,28 @@ class PastedTextIsData(IntakeCase):
         self.assertIsNone(SECRET_SCAN.search(record))
 
 
+class SpacedCredentialLabels(IntakeCase):
+    def test_labels_with_spaces_or_other_compounds_are_redacted(self):
+        # Regression: review of 15429ef — "API Key:", "Secret Key:", auth_token ... passed verbatim.
+        values = ["AIzaSyD1234567890abcdefghijklmno", "SYNTHSECRETKEY0001", "SYNTHCLIENTSECRET02",
+                  "SYNTHAUTHTOKEN0003", "SYNTHPRIVATEKEY0004", "SYNTHIKEY-0005", "SYNTHSAS0006"]
+        labels = ["API Key", "Secret Key", "ClientSecret", "auth_token", "private_key",
+                  "Instrumentation Key", "Shared Access Signature"]
+        text = "SYNTHETIC ALERT: auth failures\n" + "\n".join(f"{l}: {v}" for l, v in zip(labels, values))
+        self.ok("--route", "todo", "--text-file", self.repo.paste(text))
+        record = self.repo.record()
+        for value in values:
+            self.assertNotIn(value, record)
+        self.assertIn(f"{len(values)} secret-shaped value(s) redacted", record)
+
+
 class LinkOnlyStaysReference(IntakeCase):
+    def test_control_characters_are_stripped_from_links(self):
+        # Regression: review of 15429ef — ESC / bidi / zero-width marks survived in a link.
+        url = "https://x.invalid/a\x1b[31mb\u202ec\u200bd"
+        self.ok("--route", "todo", "--link-file", self.repo.paste(url, "link.txt"))
+        self.assertIn("`https://x.invalid/abcd`", self.repo.record())
+
     def test_link_is_recorded_not_fetched(self):
         server = socket.socket()
         server.bind(("127.0.0.1", 0))

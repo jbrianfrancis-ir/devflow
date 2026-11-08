@@ -83,9 +83,11 @@ PR_RES = (re.compile(r"^Merge pull request #(\d+)\b"), re.compile(r"\(#(\d+)\)\s
 CONTROL_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|[\x00-\x08\x0b-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2066-\u2069]")
 # One key list for `key=value` / `key: value` pairs; a query string (`?code=`, `&key=`) also
 # redacts the short names, which in prose ("status code: 500") are not secrets.
-CREDENTIAL_KEYS = (r"password|passwd|pwd|secret|token|apikey|api_key|api-key|accountkey|sharedaccesskey|"
-                   r"sharedaccesssignature|instrumentationkey|connectionstring|connection_string|"
-                   r"client_secret|access_token|sig")
+# Compound names match with or without a separator ("API Key", "api_key", "ApiKey").
+CREDENTIAL_KEYS = (r"password|passwd|pwd|secret(?:[ _-]?key)?|token|api[ _-]?key|account[ _-]?key|"
+                   r"shared[ _-]?access[ _-]?(?:key|signature)|instrumentation[ _-]?key|"
+                   r"connection[ _-]?string|client[ _-]?secret|access[ _-]?token|auth[ _-]?token|"
+                   r"private[ _-]?key|sig")
 QUERY_KEYS = CREDENTIAL_KEYS + r"|code|key"
 LINK_SECRET = re.compile(rf"(?i)([?&;](?:{QUERY_KEYS})=)[^&#;\s\"'<>]*")
 SECRET_PATTERNS = (  # shapes from conventions.md's secret scan, plus Azure-specific keys
@@ -130,7 +132,7 @@ def read_text(path: str) -> tuple[str, str, int]:
 
 
 def clean_link(link: str) -> tuple[str, int]:
-    link = link.strip()
+    link = CONTROL_RE.sub("", link).strip()
     if len(link) > 2048 or not LINK_RE.match(link):
         raise InputError("--link must be one http(s) URL with no spaces, quotes, backticks, <>, "
                          "| $ ( ) ; ! * (percent-encode them)")
