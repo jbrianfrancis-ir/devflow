@@ -212,6 +212,23 @@ class UriAndPortalKeyRedaction(IntakeCase):
         self.assertIn("partition key: p1; status code: 500; see https://x.invalid/a:b user@example.invalid", record)
 
 
+class EnvDumpRedaction(IntakeCase):
+    def test_env_var_style_names_are_redacted_like_the_repo_secret_scan(self):
+        # Regression: review of 5f4a5b1 — `\b` skipped DB_PASSWORD= and friends.
+        values = ["SynthDbPass123456", "SynthAwsSecretXXXXXXXXXXXXXXXX", "SynthStripe0001",
+                  "SynthRedisTok002", "SynthCamel003", "SYNTHSTORAGEKEY1=="]
+        names = ["DB_PASSWORD=", "AWS_SECRET_ACCESS_KEY=", "STRIPE_API_KEY=", "REDIS_AUTH_TOKEN=",
+                 "dbPassword: ", "Key 1: "]
+        keep = "status code: 500; partition key: p1; tokens: 5; SharedAccessKeyName=RootManageSharedAccessKey"
+        text = "SYNTHETIC crash env dump:\n" + "\n".join(n + v for n, v in zip(names, values)) + "\n" + keep
+        self.ok("--route", "todo", "--text-file", self.repo.paste(text))
+        record = self.repo.record()
+        for value in values:
+            self.assertNotIn(value, record)
+        self.assertIn(keep, record)
+        self.assertIsNone(SECRET_SCAN.search(record))
+
+
 class LinkOnlyStaysReference(IntakeCase):
     def test_control_characters_are_stripped_from_links(self):
         # Regression: review of 15429ef — ESC / bidi / zero-width marks survived in a link.

@@ -86,8 +86,8 @@ CONTROL_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|[\x00-\x08\x0b-\x1f\x7f-\x9f\u2
 # Compound names match with or without a separator ("API Key", "api_key", "ApiKey").
 CREDENTIAL_KEYS = (r"password|passwd|pwd|secret(?:[ _-]?key)?|token|api[ _-]?key|account[ _-]?key|"
                    r"shared[ _-]?access[ _-]?(?:key|signature)|instrumentation[ _-]?key|"
-                   r"connection[ _-]?string|client[ _-]?secret|access[ _-]?token|auth[ _-]?token|"
-                   r"private[ _-]?key|(?:primary|secondary)[ _-]?key|key[12]|sig")
+                   r"connection[ _-]?string|client[ _-]?secret|access[ _-]?(?:token|key)|auth[ _-]?token|"
+                   r"private[ _-]?key|(?:primary|secondary)[ _-]?key|key[ _-]?[12]|sig")
 QUERY_KEYS = CREDENTIAL_KEYS + r"|code|key"
 LINK_SECRET = re.compile(rf"(?i)([?&;](?:{QUERY_KEYS})=)[^&#;\s\"'<>]*")
 # The password in a URI's userinfo: postgres://user:PASSWORD@host, amqp://u:PASSWORD@h.
@@ -102,7 +102,8 @@ SECRET_PATTERNS = (  # shapes from conventions.md's secret scan, plus Azure-spec
     ("slack-token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}")),
     ("bearer", re.compile(r"(?i)(\bbearer )(?!\[REDACTED)[A-Za-z0-9._~+/=-]{8,}")),
     ("credential", re.compile(
-        rf"(?i)(\b(?:{CREDENTIAL_KEYS})[\"' ]*[=:] ?[\"']?)(?!\[REDACTED)[^\s\"';&,]+")),
+        # No left word boundary, like conventions.md's scan: DB_PASSWORD=, AWS_SECRET_ACCESS_KEY=.
+        rf"(?i)((?:{CREDENTIAL_KEYS})[\"' ]*[=:] ?[\"']?)(?!\[REDACTED)[^\s\"';&,]+")),
 )
 
 
