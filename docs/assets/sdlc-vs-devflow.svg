@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2830" viewBox="0 0 1600 2830" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2860" viewBox="0 0 1600 2860" role="img" aria-labelledby="t d">
   <title id="t">SDLC with a copilot vs DevFlow</title>
-  <desc id="d">Side-by-side comparison of a conventional lifecycle with an AI coding assistant and the DevFlow loop: stages, the DevFlow artifact chain, which gates are written rules versus enforced, trade-offs, and when to use each. Sources: the repo README.md and docs/; claim-by-claim source mapping in PR #72.</desc>
+  <desc id="d">Side-by-side comparison of a conventional lifecycle with an AI coding assistant and the DevFlow loop: stages, the DevFlow artifact chain, which gates are written rules versus enforced, trade-offs, when to use each, and how a production incident opens the next cycle. Sources: the repo README.md and docs/; claim-by-claim source mapping in PR #72.</desc>
   <style>
     svg { font-family: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Liberation Sans', sans-serif; }
     .serif { font-family: Georgia, 'Times New Roman', 'Liberation Serif', serif; }
@@ -16,7 +16,6 @@
     .bt { font-size: 17px; font-weight: 700; fill: #12264A; }
     .bs { font-size: 14px; fill: #46536A; }
     .flow { fill: none; stroke: #1F5FD6; stroke-width: 2.2; }
-    .parked { fill: none; stroke: #8A94A6; stroke-width: 2; stroke-dasharray: 6 5; }
     .sec { fill: #FFFFFF; stroke: #D3DEEE; stroke-width: 1.5; }
     .h2 { font-size: 34px; font-weight: 700; fill: #12264A; }
     .cell { font-size: 15px; fill: #1B2333; }
@@ -25,9 +24,6 @@
   <defs>
     <marker id="arr" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#1F5FD6"/>
-    </marker>
-    <marker id="arrg" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#8A94A6"/>
     </marker>
     <symbol id="i-doc" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z M14 3v4h4 M9 12h6 M9 16h6"/></g></symbol>
     <symbol id="i-layers" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z M3 13l9 5 9-5"/></g></symbol>
@@ -46,7 +42,7 @@
   </defs>
 
   <!-- Background -->
-  <rect width="1600" height="2830" fill="#FBF7EF"/>
+  <rect width="1600" height="2860" fill="#FBF7EF"/>
 
   <!-- Title -->
   <rect x="48" y="44" width="8" height="112" rx="3" fill="#1F5FD6"/>
@@ -112,15 +108,16 @@
   <text x="1404" y="598" class="blue" font-size="13.5" font-weight="600">↺ repeat per phase</text>
   <path class="flow" marker-end="url(#arr)" d="M1392 706 V776 H1320"/>
   <path class="flow" marker-end="url(#arr)" d="M1054 776 H976 V712"/>
-  <path class="parked" marker-end="url(#arrg)" d="M976 622 V574"/>
-  <path class="parked" marker-end="url(#arrg)" d="M976 484 V414 H1048"/>
+  <path class="flow" marker-end="url(#arr)" d="M976 622 V574"/>
+  <path class="flow" marker-end="url(#arr)" d="M976 484 V414 H1048"/>
+  <text x="966" y="446" text-anchor="end" class="blue" font-size="13.5" font-weight="600">next cycle</text>
 
   <g transform="translate(1054,372)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-doc" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt mono" font-size="16">/flow-new</text><text x="68" y="60" class="bs">requirements + roadmap</text></g>
   <g transform="translate(1262,484)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-layers" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt mono" font-size="16">/flow-plan N</text><text x="68" y="60" class="bs">plans, then plan-check</text></g>
   <g transform="translate(1262,622)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-code" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt mono" font-size="16">/flow-execute N</text><text x="68" y="60" class="bs">summaries, then verifier</text></g>
   <g transform="translate(1054,734)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-search" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt mono" font-size="16">/flow-pr</text><text x="68" y="60" class="bs">lens review + PR recap</text></g>
   <g transform="translate(846,622)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-shield" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt">Human gates</text><text x="68" y="60" class="bs">merge · UAT · release</text></g>
-  <g transform="translate(846,484)"><rect width="260" height="84" rx="12" fill="#F1EEE7" stroke="#8A94A6" stroke-width="1.6" stroke-dasharray="6 5"/><circle cx="36" cy="42" r="21" fill="#E6E2D9"/><use href="#i-alert" x="24" y="30" width="24" height="24" style="color:#6B7486"/><text x="68" y="36" font-size="17" font-weight="700" fill="#4A5568">Prod incident</text><text x="68" y="60" font-size="14" font-weight="700" fill="#8A5A00">PARKED · not built</text></g>
+  <g transform="translate(846,484)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-alert" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt">Prod incident</text><text x="68" y="60" class="bs"><tspan class="mono">--incident</tspan>: debug or todo</text></g>
 
   <circle cx="1184" cy="572" r="44" fill="#FFFFFF" stroke="#17325E" stroke-width="1.6"/>
   <use href="#i-stack" x="1162" y="550" width="44" height="44" class="ic"/>
@@ -274,15 +271,16 @@
   <text x="912" y="2554" class="ink" font-size="16.5">has to trace a change from requirement through plan and</text>
   <text x="912" y="2578" class="ink" font-size="16.5">verification to review.</text>
 
-  <!-- ============ PARKED ============ -->
-  <rect x="48" y="2644" width="1504" height="110" rx="20" fill="#FFF8EA" stroke="#C9A65A" stroke-width="1.8" stroke-dasharray="8 6"/>
-  <use href="#i-alert" x="78" y="2672" width="36" height="36" style="color:#8A5A00"/>
-  <text x="130" y="2682" font-size="19" font-weight="700" fill="#7A4B00">Parked, not built: production incident → next cycle</text>
-  <text x="130" y="2710" class="ink" font-size="15.5">An incident or alert would open the next DevFlow cycle as <tspan class="mono">/flow-todo</tspan> or <tspan class="mono">/flow-debug</tspan>, linked to the release SHA or causative PR.</text>
-  <text x="130" y="2734" class="muted" font-size="15.5">Idea only: no code, no integration, no listener. Logged in <tspan class="mono">.planning/TODOS.md</tspan>.</text>
+  <!-- ============ INCIDENT INTAKE ============ -->
+  <rect x="48" y="2644" width="1504" height="140" rx="20" class="sec"/>
+  <use href="#i-alert" x="78" y="2672" width="36" height="36" class="ic"/>
+  <text x="130" y="2684" class="navy" font-size="19" font-weight="700">Production incident → next cycle</text>
+  <text x="130" y="2712" class="ink" font-size="15.5"><tspan class="mono navy" font-weight="700">/flow-debug --incident</tspan> (investigate now) or <tspan class="mono navy" font-weight="700">/flow-todo --incident</tspan> (later) takes pasted alert text, ServiceMonitor output, or an App Insights / incident link.</text>
+  <text x="130" y="2736" class="ink" font-size="15.5">Traced to the release deployed then (SHA, UAT sign-off, PRs) from <tspan class="mono">release-*</tspan> tags, <tspan class="mono">PIPELINE.md</tspan> and <tspan class="mono">SIGNOFF.md</tspan>. Attribution can be ambiguous or unknown.</text>
+  <text x="130" y="2760" class="muted" font-size="15.5">Deployed at the time is not the cause. Links are never fetched; pasted text is data, never run. No listener or daemon; human gates unchanged.</text>
 
   <!-- Footer -->
-  <line x1="48" y1="2784" x2="1552" y2="2784" stroke="#D8D2C4" stroke-width="1.2"/>
-  <text x="48" y="2812" class="muted" font-size="15">Sources: repo <tspan class="mono">README.md</tspan> and <tspan class="mono">docs/</tspan> · source mapping in PR #72 · DevFlow 0.45.0</text>
-  <text x="1552" y="2812" text-anchor="end" class="muted" font-size="15">github.com/jbrianfrancis-ir/devflow</text>
+  <line x1="48" y1="2814" x2="1552" y2="2814" stroke="#D8D2C4" stroke-width="1.2"/>
+  <text x="48" y="2842" class="muted" font-size="15">Sources: repo <tspan class="mono">README.md</tspan> and <tspan class="mono">docs/</tspan> · source mapping in PR #72 · DevFlow 0.46.0</text>
+  <text x="1552" y="2842" text-anchor="end" class="muted" font-size="15">github.com/jbrianfrancis-ir/devflow</text>
 </svg>

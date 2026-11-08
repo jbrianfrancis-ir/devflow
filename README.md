@@ -34,7 +34,7 @@ codex plugin add devflow@devflow
 
 What happens inside a phase — the wave graph, the smoke gate, state files: [docs/execution-model.md](docs/execution-model.md).
 
-![Side-by-side chart comparing a traditional SDLC with a coding copilot against the DevFlow loop and where each keeps project context, plus the DevFlow artifact chain, human gates and guardrails, trade-offs, and when to use each](docs/assets/sdlc-vs-devflow.png) ([editable SVG](docs/assets/sdlc-vs-devflow.svg))
+![Side-by-side chart comparing a traditional SDLC with a coding copilot against the DevFlow loop and where each keeps project context, plus the DevFlow artifact chain, human gates and guardrails, trade-offs, when to use each, and how a production incident opens the next cycle](docs/assets/sdlc-vs-devflow.png) ([editable SVG](docs/assets/sdlc-vs-devflow.svg))
 ### Running it hands-off
 
 Steps 2–4 are the loop, and you don't have to type each one. Every skill ends in a
@@ -66,12 +66,12 @@ the complete gate list: [docs/autonomy.md](docs/autonomy.md).
 | core | `/flow-verify N` | Re-verify a phase; walk through batched human checks |
 | auto | `/flow-next` | Advance exactly one step — the driver for `/goal` and `/loop` |
 | ad-hoc | `/flow-quick <task>` | Small task with Flow guarantees, no ceremony |
-| ad-hoc | `/flow-debug <symptom>` | Hypothesis-driven debugging with session-resumable state |
+| ad-hoc | `/flow-debug <symptom>` | Hypothesis-driven debugging with session-resumable state; `--incident <alert or link>` opens a session from a production alert, traced to the release deployed then (SHA, UAT sign-off, PRs) |
 | ad-hoc | `/flow-oracle <question>` | Second opinion from an external model — curated context bundle, `--panel` cross-check, resumable consults |
 | ad-hoc | `/flow-status` | Position + next command (`--all` for the fleet board, `--pause` to stop cleanly, `--reset-run` to re-arm the loop rails) |
 | ad-hoc | `/flow-audit` | Read-only cross-artifact consistency check — coverage both ways, drift, open clarifications, principle conflicts (`--docs` checks README/docs claims against the tree; `--drift` checks plan, STATE and decisions against the code and git history) |
 | parallel | `/flow-workstream` | Run phases side by side — one git worktree per stream (`new`, `list`, `drop`) |
-| ad-hoc | `/flow-todo <idea>` | Capture without derailing |
+| ad-hoc | `/flow-todo <idea>` | Capture without derailing; `--incident <alert or link>` captures a production alert for later, with the same release trace |
 | ad-hoc | `/flow-undo <sha>` | Explicit-only undo of unpublished commits on a feature branch — preview, human confirmation, apply with a backup ref; refuses published work, merges, and the base branch |
 | ad-hoc | `/flow-second-opinion <pr-url>` | Explicit-only, read-only second-opinion PR review by Grok Build and Codex CLI (trial to 2026-10-30) — allowlisted non-fork repos only, local report and trial log, one combined PR comment only with `--post` ([docs](docs/second-opinion.md)) |
 | policy | `/flow-test-policy` | Test-layer policy for agent work — integration/behavior as the feedback driver, thin units for pure logic or regression pins only, no coverage theater and no classic unit-TDD by default ([policy](plugins/devflow/references/test-policy.md)) |
