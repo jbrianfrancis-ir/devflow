@@ -10,4 +10,4 @@ Counting rules (git-tracked files only): **skills** = `plugins/devflow/skills/*/
 | agents | 13 |
 | commands | 0 |
 | hooks | 5 |
-| prompt_lines | 4548 |
+| prompt_lines | 4580 |
