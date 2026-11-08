@@ -177,6 +177,22 @@ class SpacedCredentialLabels(IntakeCase):
         self.assertIn(f"{len(values)} secret-shaped value(s) redacted", record)
 
 
+class UriAndPortalKeyRedaction(IntakeCase):
+    def test_connection_uri_passwords_and_portal_key_labels_are_redacted(self):
+        # Regression: review of e3781e2 — DSN userinfo and Key1/Primary Key passed verbatim.
+        values = ["SynthPgPass9", "SynthMqPass8", "SYNTHKEY1VALUE==", "SYNTHPRIMARY==", "SynthLinkPw7"]
+        text = (f"connect ECONNREFUSED postgres://orders_svc:{values[0]}@db.invalid:5432/orders\n"
+                f"amqp://worker:{values[1]}@mq.invalid\nKey1: {values[2]}\nPrimary Key: {values[3]}\n"
+                "partition key: p1; status code: 500; see https://x.invalid/a:b user@example.invalid")
+        self.ok("--route", "todo", "--text-file", self.repo.paste(text),
+                "--link-file", self.repo.paste(f"https://svc:{values[4]}@portal.example.invalid/i/1", "l.txt"))
+        record = self.repo.record()
+        for value in values:
+            self.assertNotIn(value, record)
+        self.assertIn("4 secret-shaped value(s) redacted", record)
+        self.assertIn("partition key: p1; status code: 500; see https://x.invalid/a:b user@example.invalid", record)
+
+
 class LinkOnlyStaysReference(IntakeCase):
     def test_control_characters_are_stripped_from_links(self):
         # Regression: review of 15429ef — ESC / bidi / zero-width marks survived in a link.

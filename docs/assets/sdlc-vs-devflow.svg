@@ -109,13 +109,15 @@
   <path class="flow" marker-end="url(#arr)" d="M1392 706 V776 H1320"/>
   <path class="flow" marker-end="url(#arr)" d="M1054 776 H976 V712"/>
   <path class="flow" marker-end="url(#arr)" d="M976 622 V574"/>
+  <path class="flow" marker-end="url(#arr)" d="M976 484 V444"/>
+  <g transform="translate(906,388)"><rect width="140" height="50" rx="14" fill="#EEF4FD" stroke="#A9C3EA" stroke-width="1.4"/><text x="70" y="21" text-anchor="middle" class="mono navy" font-size="13.5" font-weight="700">/flow-debug</text><text x="70" y="40" text-anchor="middle" class="mono navy" font-size="13.5" font-weight="700">or /flow-todo</text></g>
 
   <g transform="translate(1054,372)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-doc" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt mono" font-size="16">/flow-new</text><text x="68" y="60" class="bs">requirements + roadmap</text></g>
   <g transform="translate(1262,484)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-layers" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt mono" font-size="16">/flow-plan N</text><text x="68" y="60" class="bs">plans, then plan-check</text></g>
   <g transform="translate(1262,622)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-code" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt mono" font-size="16">/flow-execute N</text><text x="68" y="60" class="bs">summaries, then verifier</text></g>
   <g transform="translate(1054,734)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-search" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt mono" font-size="16">/flow-pr</text><text x="68" y="60" class="bs">lens review + PR recap</text></g>
   <g transform="translate(846,622)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-shield" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt">Human gates</text><text x="68" y="60" class="bs">merge · UAT · release</text></g>
-  <g transform="translate(846,484)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-alert" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt">Prod incident</text><text x="68" y="60" class="bs"><tspan class="mono">--incident</tspan>: debug or todo</text></g>
+  <g transform="translate(846,484)"><rect width="260" height="84" rx="12" class="box"/><circle cx="36" cy="42" r="21" class="ibg"/><use href="#i-alert" x="24" y="30" width="24" height="24" class="ic"/><text x="68" y="36" class="bt">Prod incident</text><text x="68" y="60" class="bs">you paste it: <tspan class="mono">--incident</tspan></text></g>
 
   <circle cx="1184" cy="572" r="44" fill="#FFFFFF" stroke="#17325E" stroke-width="1.6"/>
   <use href="#i-stack" x="1162" y="550" width="44" height="44" class="ic"/>

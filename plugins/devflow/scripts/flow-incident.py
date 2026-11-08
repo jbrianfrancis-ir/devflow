@@ -87,10 +87,13 @@ CONTROL_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|[\x00-\x08\x0b-\x1f\x7f-\x9f\u2
 CREDENTIAL_KEYS = (r"password|passwd|pwd|secret(?:[ _-]?key)?|token|api[ _-]?key|account[ _-]?key|"
                    r"shared[ _-]?access[ _-]?(?:key|signature)|instrumentation[ _-]?key|"
                    r"connection[ _-]?string|client[ _-]?secret|access[ _-]?token|auth[ _-]?token|"
-                   r"private[ _-]?key|sig")
+                   r"private[ _-]?key|(?:primary|secondary)[ _-]?key|key[12]|sig")
 QUERY_KEYS = CREDENTIAL_KEYS + r"|code|key"
 LINK_SECRET = re.compile(rf"(?i)([?&;](?:{QUERY_KEYS})=)[^&#;\s\"'<>]*")
+# The password in a URI's userinfo: postgres://user:PASSWORD@host, amqp://u:PASSWORD@h.
+URI_PASSWORD = re.compile(r"(?i)(\b[a-z][a-z0-9+.-]*://[^/\s:@]+:)(?!\[REDACTED)[^/\s@]+(?=@)")
 SECRET_PATTERNS = (  # shapes from conventions.md's secret scan, plus Azure-specific keys
+    ("uri-password", URI_PASSWORD),
     ("query", LINK_SECRET),
     ("private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)")),
     ("jwt", re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(?:\.[A-Za-z0-9_-]*)?")),
@@ -136,7 +139,9 @@ def clean_link(link: str) -> tuple[str, int]:
     if len(link) > 2048 or not LINK_RE.match(link):
         raise InputError("--link must be one http(s) URL with no spaces, quotes, backticks, <>, "
                          "| $ ( ) ; ! * (percent-encode them)")
-    return LINK_SECRET.subn(r"\1REDACTED", link)
+    link, n_userinfo = URI_PASSWORD.subn(r"\1REDACTED", link)
+    link, n_query = LINK_SECRET.subn(r"\1REDACTED", link)
+    return link, n_userinfo + n_query
 
 
 def parse_at(value: str) -> dt.date:
