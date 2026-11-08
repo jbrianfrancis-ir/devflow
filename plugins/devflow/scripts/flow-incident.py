@@ -425,15 +425,25 @@ def write_atomic(path: Path, text: str) -> None:
     os.replace(tmp, path)
 
 
+def record_regions(body: str) -> tuple[list[str], list[str]]:
+    """(frontmatter lines, lines appended after the record) — the only parts of a record this
+    script wrote itself. The pasted text sits in between and can imitate any line, so nothing
+    is ever read back from there. Everything after the LAST `Records read:` line is ours."""
+    lines = body.splitlines()
+    marks = [i for i, line in enumerate(lines) if line == "---"]
+    front = lines[marks[0] + 1:marks[1]] if len(marks) >= 2 and marks[0] <= 1 else []
+    tail_at = max((i for i, line in enumerate(lines) if line.startswith("Records read: ")), default=len(lines))
+    return front, lines[tail_at + 1:]
+
+
 def existing_attribution(record_path: Path) -> str:
-    """The latest occurrence's attribution: the last Recurrence line, else the frontmatter."""
-    found = "unknown (no attribution line in the existing record)"
-    for line in record_path.read_text(encoding="utf-8").splitlines():
-        first = line.startswith("attribution: ") and found.startswith("unknown")
+    """The latest occurrence's attribution: the last Recurrence note, else the frontmatter."""
+    front, tail = record_regions(record_path.read_text(encoding="utf-8"))
+    found = next((line.split(": ", 1)[1] for line in front if line.startswith("attribution: ")),
+                 "unknown (no attribution line in the existing record)")
+    for line in tail:
         later = re.match(r"^Recurrence #\d+ \(\w+\) [\d-]+: release (.+?) \(facts used:", line)
-        if first:
-            found = line.split(": ", 1)[1]
-        elif later:
+        if later:
             found = later.group(1)
     return found
 
@@ -583,7 +593,7 @@ def main(argv=None) -> int:
             target = next_debug(planning, inc) if args.route == "debug" else planning / "TODOS.md"
             key = f"Recurrence #{ordinal} ({args.route}) "
             body = record_path.read_text(encoding="utf-8")
-            if not re.search(rf"(?m)^{re.escape(key)}", body):
+            if not any(line.startswith(key) for line in record_regions(body)[1]):
                 note = (f"{key}{today}: release {attribution} (facts used: {result['basis']}) "
                         f"— {target.relative_to(repo)}")
                 write_atomic(record_path, body.rstrip("\n") + "\n\n" + note + "\n")
