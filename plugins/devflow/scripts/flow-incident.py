@@ -95,15 +95,19 @@ URI_PASSWORD = re.compile(r"(?i)(\b[a-z][a-z0-9+.-]*://[^/\s:@]+:)(?!\[REDACTED)
 SECRET_PATTERNS = (  # shapes from conventions.md's secret scan, plus Azure-specific keys
     ("uri-password", URI_PASSWORD),
     ("query", LINK_SECRET),
+    # A quoted value may hold spaces; the quotes go too, so the placeholder is not itself a
+    # quoted 8+ character value that conventions.md's scan would flag.
+    ("quoted-credential", re.compile(
+        rf"(?i)((?:{CREDENTIAL_KEYS})[\"' ]*[=:] *)([\"'])(?!\[REDACTED)[^\"'\n]+\2")),
     ("private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)")),
-    ("jwt", re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(?:\.[A-Za-z0-9_-]*)?")),
-    ("aws-key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
+    ("jwt", re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(?:\.[A-Za-z0-9_-]*)?|eyJ[A-Za-z0-9_-]{17,}")),
+    ("aws-key", re.compile(r"AKIA[0-9A-Z]{16}")),
     ("github-token", re.compile(r"\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,})")),
     ("slack-token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}")),
     ("bearer", re.compile(r"(?i)(\bbearer )(?!\[REDACTED)[A-Za-z0-9._~+/=-]{8,}")),
     ("credential", re.compile(
         # No left word boundary, like conventions.md's scan: DB_PASSWORD=, AWS_SECRET_ACCESS_KEY=.
-        rf"(?i)((?:{CREDENTIAL_KEYS})[\"' ]*[=:] ?[\"']?)(?!\[REDACTED)[^\s\"';&,]+")),
+        rf"(?i)((?:{CREDENTIAL_KEYS})[\"' ]*[=:] *[\"']?)(?!\[REDACTED)[^\s\"';&,]+")),
 )
 
 

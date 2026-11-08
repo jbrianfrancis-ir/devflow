@@ -229,6 +229,24 @@ class EnvDumpRedaction(IntakeCase):
         self.assertIsNone(SECRET_SCAN.search(record))
 
 
+class SecretScanParity(IntakeCase):
+    def test_nothing_the_repo_secret_scan_flags_survives_intake(self):
+        # Every SYNTHETIC line below trips conventions.md's scan; after intake none may.
+        # The unterminated private-key header goes last: it redacts to the end of the text.
+        lines = ["AKIA" + "SYNTHETIC0123456"[:16],
+                 "ghp_" + "S" * 36, "github_pat_" + "S" * 30, "xoxb-" + "S" * 20,
+                 "header eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9", 'password = "synthetic pass phrase"',
+                 "secret: 'SyntheticSecret1'", "token:    SyntheticTokenValue0001",
+                 "api-key=SyntheticApiKeyValue0002", "Connection_String: SyntheticConnStr000003",
+                 "DB_PASSWORD=SyntheticDbPassword04", "x_api_key: 'SyntheticKeyQuoted05'",
+                 "-----BEGIN RSA PRIVATE KEY-----"]
+        for line in lines:
+            self.assertIsNotNone(SECRET_SCAN.search(line), f"fixture does not trip the scan: {line}")
+        self.ok("--route", "todo", "--text-file", self.repo.paste("SYNTHETIC alert\n" + "\n".join(lines)))
+        hit = SECRET_SCAN.search(self.repo.record())
+        self.assertIsNone(hit, hit and hit.group(0))
+
+
 class LinkOnlyStaysReference(IntakeCase):
     def test_control_characters_are_stripped_from_links(self):
         # Regression: review of 15429ef — ESC / bidi / zero-width marks survived in a link.
