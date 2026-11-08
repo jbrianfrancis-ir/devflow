@@ -17,7 +17,6 @@ Token-efficient spec-driven development for Claude Code and local Codex clients.
 codex plugin marketplace add jbrianfrancis-ir/devflow
 codex plugin add devflow@devflow
 ```
-
 ## Quick start
 
 1. `/flow-new` — run it in the repo you want to work in (new or existing). It asks a bounded round of
@@ -35,6 +34,7 @@ codex plugin add devflow@devflow
 
 What happens inside a phase — the wave graph, the smoke gate, state files: [docs/execution-model.md](docs/execution-model.md).
 
+![Side-by-side chart comparing a traditional SDLC with a coding copilot against the DevFlow loop and where each keeps project context, plus the DevFlow artifact chain, human gates and guardrails, trade-offs, and when to use each](docs/assets/sdlc-vs-devflow.png) ([editable SVG](docs/assets/sdlc-vs-devflow.svg))
 ### Running it hands-off
 
 Steps 2–4 are the loop, and you don't have to type each one. Every skill ends in a
