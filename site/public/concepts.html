@@ -5,28 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DevFlow concepts: state, waves, verification, gates, providers</title>
 <meta name="description" content="The ideas DevFlow is built on: durable .planning/ state, dependency waves, a verifier that abstains, human gates, the FLOW status line, and providers.">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0c0b0a">
 <link rel="stylesheet" href="assets/site.css">
 </head>
 <body class="page-concepts">
 <a class="skip" href="#main">Skip to content</a>
-<div class="frame">
-<header class="rail">
-<a class="mark" href="index.html">
-<span class="mark-word">DevFlow</span>
-<span class="mark-sub">spec-driven development<br>for Claude Code and Codex</span>
-</a>
+<header class="top">
+<div class="top-in">
+<a class="mark" href="index.html"><span class="mark-glyph" aria-hidden="true"></span>DevFlow</a>
 <nav class="nav" aria-label="Site">
-<ol role="list">
-<li><a href="index.html"><span class="num">00</span>Overview</a></li>
-<li><a href="start.html"><span class="num">01</span>Install</a></li>
-<li><a href="first-workflow.html"><span class="num">02</span>First workflow</a></li>
-<li><a href="concepts.html" aria-current="page"><span class="num">03</span>Concepts</a></li>
-<li><a href="commands.html"><span class="num">04</span>Commands</a></li>
-<li><a href="feedback.html"><span class="num">05</span>Feedback</a></li>
-</ol>
+<ul role="list">
+<li><a href="index.html">Overview</a></li>
+<li><a href="start.html">Install</a></li>
+<li><a href="first-workflow.html">First workflow</a></li>
+<li><a href="concepts.html" aria-current="page">Concepts</a></li>
+<li><a href="commands.html">Commands</a></li>
+<li><a href="feedback.html">Feedback</a></li>
+</ul>
 </nav>
-<p class="rail-foot"><a href="https://github.com/jbrianfrancis-ir/devflow">Source on GitHub</a><br>MIT licensed</p>
+<div class="top-cta">
+<a class="top-gh" href="https://github.com/jbrianfrancis-ir/devflow">GitHub</a>
+<a class="pill" href="start.html">Install</a>
+</div>
+</div>
 </header>
 <main id="main" tabindex="-1">
 <header class="page-head">
@@ -84,9 +86,20 @@
 
 </main>
 <footer class="foot">
+<div class="foot-in">
 <p>DevFlow is an open-source plugin, MIT licensed. <a href="https://github.com/jbrianfrancis-ir/devflow">Repository</a> · <a href="https://github.com/jbrianfrancis-ir/devflow/issues">Issues</a> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/CHANGELOG.md">Changelog</a></p>
 <p>Every terminal block on this site is unedited output from a real run, apart from the path substitutions listed on the <a href="first-workflow.html#how-captured">first-workflow page</a>.</p>
-</footer>
 </div>
+</footer>
+<script>
+for (const box of document.querySelectorAll("[data-copy]")) {
+  const btn = box.querySelector(".copy"), pre = box.querySelector("pre");
+  if (!btn || !pre || !navigator.clipboard) continue;
+  btn.hidden = false;
+  btn.addEventListener("click", () => navigator.clipboard.writeText(pre.textContent).then(
+    () => { btn.textContent = "Copied"; setTimeout(() => { btn.textContent = "Copy"; }, 2000); },
+    () => { btn.textContent = "Select to copy"; }));
+}
+</script>
 </body>
 </html>

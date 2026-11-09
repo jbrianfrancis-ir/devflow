@@ -4,8 +4,9 @@
     python3 site/build.py            # write site/public/
     python3 site/build.py --check    # exit 1 if site/public/ is not what a build would write
 
-Stdlib only. The output is static HTML/CSS plus copied images with no JavaScript, so
-site/public/ can be served by any static host.
+Stdlib only. The output is static HTML/CSS plus copied images, with one inline script that
+adds copy buttons to install commands (the commands stay visible and selectable without it),
+so site/public/ can be served by any static host.
 
 Sources, each with one owner so the site cannot drift from the repo:
 - command reference: plugins/devflow/skills/*/SKILL.md frontmatter (name, description,
@@ -267,9 +268,9 @@ def fill(body, data, path):
 
 def nav(current):
     items = []
-    for i, (slug, file, label) in enumerate(PAGES):
+    for slug, file, label in PAGES:
         here = ' aria-current="page"' if slug == current else ""
-        items.append(f'<li><a href="{file}"{here}><span class="num">{i:02d}</span>{esc(label)}</a></li>')
+        items.append(f'<li><a href="{file}"{here}>{esc(label)}</a></li>')
     return "\n".join(items)
 
 
