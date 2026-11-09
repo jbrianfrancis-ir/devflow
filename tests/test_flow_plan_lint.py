@@ -326,6 +326,21 @@ class R9TruncatedBody(LintCase):
         result = self.run_lint()
         self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_tags_named_in_prose_pass(self):
+        # Review finding: a plan about plans names the tags mid-sentence, with or without
+        # backticks; only line-anchored structural tags count.
+        text = plan("01-01").replace(
+            "<action>do it</action>",
+            "<action>keep one <tasks> block with a </task> per <task>, and one `</tasks>`\n"
+            "  `<tasks>` stays first</action>")
+        self.write("01-01-PLAN.md", text)
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_bare_trailing_angle_bracket(self):
+        self.write("01-01-PLAN.md", plan("01-01") + "\n<")
+        self.assertFinding(self.run_lint(), "R9", "01-01", "ends inside a tag")
+
     def test_executed_plan_is_not_checked(self):
         self.write("01-01-PLAN.md", plan("01-01")[:-20])
         self.write("01-01-SUMMARY.md", "---\nplan: 01-01\nstatus: complete\n---\n")
@@ -359,6 +374,11 @@ class R10AbsoluteVerifyPath(LintCase):
                                  "--repo", str(self.repo)], capture_output=True, text=True,
                                 env={**os.environ, "HOME": home})
         self.assertFinding(result, "R10", "01-01", "<falsify> names the absolute path ~/repo")
+
+    def test_colon_joined_path_list(self):
+        self.write("01-01-PLAN.md", self.with_verify(
+            "01-01", f"PYTHONPATH={self.repo.resolve()}:$PYTHONPATH python3 -m pytest"))
+        self.assertFinding(self.run_lint(), "R10", "01-01", "<verify> names the absolute path")
 
     def test_other_absolute_paths_and_prefix_siblings_pass(self):
         self.write("01-01-PLAN.md", self.with_verify(

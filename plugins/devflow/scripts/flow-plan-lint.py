@@ -56,10 +56,16 @@ LIST_KEYS = ("depends_on", "files_modified", "requirements")
 CONTEXT_PATH_RE = re.compile(r"^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.[A-Za-z0-9]+$")
 CONTEXT_SPLIT_RE = re.compile(r"[\s,;()`\"'\[\]]+")
 COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
-TASK_OPEN_RE = re.compile(r"<task\b")  # \b: never matches <tasks>
-# A trailing `<` that starts a tag name and is never closed: `...</ta`, `<verify>npm te` is
-# not one (its `<` is closed). Prose such as `a < b` does not start a tag name.
-TAG_TAIL_RE = re.compile(r"<(?:/?[A-Za-z][\w:-]*)[^<>]*$")
+CODE_SPAN_RE = re.compile(r"`[^`\n]*`")
+# R9 counts structural tags only where templates/plan.md puts them: <tasks>, </tasks> and
+# <task ...> open a line, </task> ends one. A tag named mid-sentence in an <action> is prose.
+TASKS_OPEN_RE = re.compile(r"(?m)^[ \t]*<tasks>[ \t]*$")
+TASKS_CLOSE_RE = re.compile(r"(?m)^[ \t]*</tasks>[ \t]*$")
+TASK_OPEN_RE = re.compile(r"(?m)^[ \t]*<task\b")  # \b: never matches <tasks>
+TASK_CLOSE_RE = re.compile(r"(?m)</task>[ \t]*$")
+# A trailing `<` that starts a tag and is never closed: `...</ta`, a bare `<` or `</`.
+# `<verify>npm te` is not one (its `<` is closed), and prose such as `a < b` starts no tag.
+TAG_TAIL_RE = re.compile(r"<(?:/?[A-Za-z][\w:-]*[^<>]*|/?)$")
 CHECK_TAG_RE = re.compile(r"<(verify|falsify)>(.*?)</\1>", re.S)
 
 
@@ -229,17 +235,17 @@ def truncation(body: str) -> list[str]:
     problems = []
     if TAG_TAIL_RE.search(body.rstrip()):
         problems.append("file ends inside a tag - the write was cut off; rewrite the plan")
-    text = COMMENT_RE.sub("", body)
+    text = CODE_SPAN_RE.sub("", COMMENT_RE.sub("", body))
     if "<!--" in text:
         problems.append("unclosed <!-- comment - everything after it is hidden")
         text = text.split("<!--", 1)[0]
-    opens, closes = text.count("<tasks>"), text.count("</tasks>")
-    if opens != 1 or closes != 1 or text.index("</tasks>") < text.index("<tasks>"):
-        problems.append(f"expected one <tasks>...</tasks> block, found {opens} <tasks> and "
-                        f"{closes} </tasks>")
+    opens, closes = list(TASKS_OPEN_RE.finditer(text)), list(TASKS_CLOSE_RE.finditer(text))
+    if len(opens) != 1 or len(closes) != 1 or closes[0].start() < opens[0].end():
+        problems.append(f"expected one <tasks>...</tasks> block, found {len(opens)} <tasks> "
+                        f"and {len(closes)} </tasks>")
         return problems
-    block = text[text.index("<tasks>"):text.index("</tasks>")]
-    started, closed = len(TASK_OPEN_RE.findall(block)), block.count("</task>")
+    block = text[opens[0].end():closes[0].start()]
+    started, closed = len(TASK_OPEN_RE.findall(block)), len(TASK_CLOSE_RE.findall(block))
     if started == 0:
         problems.append("<tasks> holds no <task>")
     elif started != closed:
@@ -262,11 +268,14 @@ def absolute_roots(repo: Path) -> list[str] | None:
     toplevel, common = Path(lines[0]), Path(lines[1])
     roots = {toplevel, common.parent if common.name == ".git" else common}
     spellings = set()
-    home = Path.home()
+    try:
+        home = Path.home()
+    except RuntimeError:  # no resolvable home: the ~/$HOME spellings cannot exist to check
+        home = None
     for root in roots:
         for path in {root, root.resolve()}:
             spellings.add(str(path))
-            if path != home and home in path.parents:
+            if home is not None and path != home and home in path.parents:
                 rel = path.relative_to(home).as_posix()
                 spellings.update({f"~/{rel}", f"$HOME/{rel}", f"${{HOME}}/{rel}"})
     return sorted(spellings, key=len, reverse=True)
@@ -278,7 +287,7 @@ def absolute_path_hits(body: str, roots: list[str]) -> list[str]:
     hits = []
     for tag, inner in CHECK_TAG_RE.findall(COMMENT_RE.sub("", body)):
         for root in roots:
-            if re.search(re.escape(root) + r"(?=$|[/\s\"'`;&|)])", inner):
+            if re.search(re.escape(root) + r"(?=$|[/\s\"'`;:&|)])", inner):
                 hits.append(f"<{tag}> names the absolute path {root} - executors run in a "
                             f"worktree, so it would check the main checkout instead; use a "
                             f"repo-relative path")

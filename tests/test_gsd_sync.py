@@ -41,7 +41,7 @@ class GsdSyncContracts(unittest.TestCase):
         step = read("skills/flow-uat/SKILL.md").split("5. **Acceptance**", 1)[1].split("\n", 1)[0]
         for phrase in ("only the human gives", "only with a reason (none → fail)",
                        "smoke and route-sweep rows cannot be deferred", "SIGNOFF.md lists it",
-                       "TODOS.md line"):
+                       "TODOS.md line", "If every REQ/SC case is deferred, nothing was accepted: no sign-off"):
             self.assertIn(phrase, step)
         self.assertEqual(read("templates/uat-plan.md").count("[ ] deferred (human only; reason required)"), 2)
 
