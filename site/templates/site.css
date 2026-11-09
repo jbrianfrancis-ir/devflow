@@ -242,8 +242,7 @@ section > h2 .sec { font-family: var(--mono); font-size: var(--step--1); color: 
   padding-block: var(--space-section) var(--space-l);
   border: 0;
 }
-.hero h1 { font-size: var(--step-5); max-inline-size: 15ch; }
-.hero h1 em { font-style: italic; color: var(--accent); }
+.hero h1 { font-size: var(--step-5); max-inline-size: 30ch; }
 .actions { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center; margin-block-start: var(--space-m); font-family: var(--sans); }
 .btn {
   display: inline-flex;
