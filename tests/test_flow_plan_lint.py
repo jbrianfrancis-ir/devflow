@@ -3,9 +3,11 @@
 Each test builds a throwaway git repo under the system temp dir (never inside this repo),
 commits a small tree, writes a phase dir of hand-written plans shaped like
 templates/plan.md, and runs the real CLI against it. One passing phase, then one failing
-fixture per rule R0-R7, each asserting the rule id and the plan it lands on.
+fixture per rule R0-R10, each asserting the rule id and the plan it lands on.
 """
 import json
+import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -286,6 +288,148 @@ class LiteTier(LintCase):
         self.config("{not json")
         self.write("01-01-PLAN.md", plan("01-01"))
         self.assertFinding(self.run_lint(), "R0", "-", "could not read tier")
+
+
+class R9TruncatedBody(LintCase):
+    """R9: a plan cut off mid-write still has valid frontmatter; the body must be whole."""
+
+    def test_ends_inside_a_tag(self):
+        text = plan("01-01")
+        self.write("01-01-PLAN.md", text[:text.index("</task>") + len("</ta")])
+        result = self.run_lint()
+        self.assertFinding(result, "R9", "01-01", "ends inside a tag")
+        self.assertFinding(result, "R9", "01-01", "0 </tasks>")
+
+    def test_cut_between_tasks(self):
+        text = plan("01-01")
+        cut = text.index("</task>") + len("</task>\n")
+        self.write("01-01-PLAN.md", text[:cut] + '<task type="auto">\n  <name>Task 2: more</name>\n')
+        self.assertFinding(self.run_lint(), "R9", "01-01", "expected one <tasks>")
+
+    def test_unclosed_task_inside_closed_block(self):
+        text = plan("01-01").replace("</task>\n</tasks>", '</task>\n<task type="auto">\n</tasks>')
+        self.write("01-01-PLAN.md", text)
+        self.assertFinding(self.run_lint(), "R9", "01-01", "2 <task> opened but 1 closed")
+
+    def test_no_task_and_unclosed_comment(self):
+        empty = re.sub(r"<task .*?</task>\n", "", plan("01-01"), flags=re.S)
+        self.write("01-01-PLAN.md", empty)
+        self.assertFinding(self.run_lint(), "R9", "01-01", "holds no <task>")
+        self.write("01-01-PLAN.md", plan("01-01").replace("</tasks>", "<!-- note\n</tasks>"))
+        self.assertFinding(self.run_lint(), "R9", "01-01", "unclosed <!-- comment")
+
+    def test_prose_angle_bracket_and_comments_pass(self):
+        text = plan("01-01").replace("<action>do it</action>",
+                                     "<action>keep a < b and x<-1 true</action>") \
+                            .replace("</tasks>", "<!-- type=\"checkpoint:decision\" <task> -->\n</tasks>")
+        self.write("01-01-PLAN.md", text + "\n")
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_tags_named_in_prose_pass(self):
+        # Review finding: a plan about plans names the tags mid-sentence, with or without
+        # backticks; only line-anchored structural tags count.
+        text = plan("01-01").replace(
+            "<action>do it</action>",
+            "<action>keep one <tasks> block with a </task> per <task>, and one `</tasks>`\n"
+            "  `<tasks>` stays first</action>")
+        self.write("01-01-PLAN.md", text)
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_tags_in_a_fenced_example_pass(self):
+        fence = "```"
+        example = (f"<action>copy this shape:\n{fence}xml\n<tasks>\n<task type=\"auto\">\n"
+                   f"  <verify>true</verify>\n</task>\n</tasks>\n{fence}\n"
+                   "</action>")
+        self.write("01-01-PLAN.md", plan("01-01").replace("<action>do it</action>", example))
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_unclosed_fence_fails_closed(self):
+        # Round-3 review: an unclosed fence must not hide a stray structural tag.
+        text = plan("01-01").replace("<action>do it</action>",
+                                     "<action>example:\n```\n<tasks>\nleft open</action>")
+        self.write("01-01-PLAN.md", text)
+        result = self.run_lint()
+        self.assertFinding(result, "R9", "01-01", "unclosed ``` code fence")
+        self.assertFinding(result, "R9", "01-01", "found 2 <tasks>")
+
+    def test_code_span_opening_a_line_is_not_a_fence(self):
+        # A real plan in this repo opens a line with ```` ``` ```` (an inline span).
+        text = plan("01-01").replace("<action>do it</action>",
+                                     "<action>shapes:\n   ```` ``` ```` / `~~~` / blank</action>")
+        self.write("01-01-PLAN.md", text)
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_bare_trailing_angle_bracket(self):
+        self.write("01-01-PLAN.md", plan("01-01") + "\n<")
+        self.assertFinding(self.run_lint(), "R9", "01-01", "ends inside a tag")
+
+    def test_executed_plan_is_not_checked(self):
+        self.write("01-01-PLAN.md", plan("01-01")[:-20])
+        self.write("01-01-SUMMARY.md", "---\nplan: 01-01\nstatus: complete\n---\n")
+        self.write("01-02-PLAN.md", plan("01-02", wave=2, depends_on="[01-01]"))
+        self.assertEqual(self.run_lint().returncode, 0)
+
+
+class R10AbsoluteVerifyPath(LintCase):
+    """R10: a <verify>/<falsify> naming the checkout's absolute path escapes the worktree."""
+
+    def with_verify(self, pid, command):
+        return plan(pid).replace("<verify>true</verify>", f"<verify>{command}</verify>")
+
+    def test_main_checkout_path_from_a_linked_worktree(self):
+        tree = Path(self.tempdir.name) / "wt"
+        git(self.repo, "worktree", "add", "-q", "--detach", str(tree))
+        phase = tree / ".planning/phases/01-demo"
+        phase.mkdir(parents=True)
+        (phase / "01-01-PLAN.md").write_text(
+            self.with_verify("01-01", f"cd {self.repo} && python3 -m pytest"), encoding="utf-8")
+        result = subprocess.run([sys.executable, str(SCRIPT), str(phase), "--repo", str(tree)],
+                                capture_output=True, text=True)
+        self.assertFinding(result, "R10", "01-01", f"absolute path {self.repo.resolve()}")
+
+    def test_falsify_and_home_spelling(self):
+        text = plan("01-01").replace("<falsify>false</falsify>",
+                                     "<falsify>sed -i s/1/2/ ~/repo/src/a.py</falsify>")
+        self.write("01-01-PLAN.md", text)
+        home = str(Path(self.tempdir.name).resolve())
+        result = subprocess.run([sys.executable, str(SCRIPT), str(self.phase),
+                                 "--repo", str(self.repo)], capture_output=True, text=True,
+                                env={**os.environ, "HOME": home})
+        self.assertFinding(result, "R10", "01-01", "<falsify> names the absolute path ~/repo")
+
+    def test_colon_joined_path_list(self):
+        self.write("01-01-PLAN.md", self.with_verify(
+            "01-01", f"PYTHONPATH={self.repo.resolve()}:$PYTHONPATH python3 -m pytest"))
+        self.assertFinding(self.run_lint(), "R10", "01-01", "<verify> names the absolute path")
+
+    def test_fenced_verify_script_is_checked(self):
+        # Round-3 review: a real <verify> is often a fenced script; R10 must read it.
+        self.write("01-01-PLAN.md", self.with_verify(
+            "01-01", f"\nPrints nothing:\n```\ncd {self.repo.resolve()} && true\n```\n"))
+        self.assertFinding(self.run_lint(), "R10", "01-01", "<verify> names the absolute path")
+
+    def test_path_ending_a_sentence_or_list(self):
+        for command in (f"ls {self.repo.resolve()}, then stop", f"[{self.repo.resolve()}]",
+                        f"run it in {self.repo.resolve()}."):
+            self.write("01-01-PLAN.md", self.with_verify("01-01", command))
+            self.assertFinding(self.run_lint(), "R10", "01-01", "<verify> names the absolute path")
+
+    def test_other_absolute_paths_and_prefix_siblings_pass(self):
+        self.write("01-01-PLAN.md", self.with_verify(
+            "01-01", f"python3 -m pytest > /tmp/out.txt && test -d {self.repo}-other && test -d {self.repo}.bak"))
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_non_git_repo_is_could_not_check(self):
+        other = Path(self.tempdir.name) / "plain"
+        other.mkdir()
+        self.write("01-01-PLAN.md", plan("01-01"))
+        self.assertFinding(self.run_lint(repo=other), "R0", "-", "could not check absolute paths")
+
 
 if __name__ == "__main__":
     unittest.main()

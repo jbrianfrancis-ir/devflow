@@ -18,6 +18,14 @@ there are zero findings; any finding exits 1. Rules (stable ids):
      plan it transitively depends on); every files_new entry is also in files_modified
   R7 every repo-relative path in <context> exists at HEAD or is declared new as in R6
   R8 lite tier only (.planning/config.json "tier": "lite"): a pending plan over 4096 bytes
+  R9 the body is complete: one <tasks>...</tasks> block holding at least one <task>, every
+     <task> closed, no unclosed <!-- comment or code fence, and the file does not end
+     inside a tag (tags inside a closed fence or `code span` are examples). A
+     host can cap a write and still report it as successful; a plan cut off mid-task
+     otherwise passes every frontmatter rule above.
+  R10 no <verify>/<falsify> names the repo's absolute path (this checkout or its main
+     worktree, also spelled from ~ or $HOME). An executor runs in a worktree, so a verify
+     that cd's to the main checkout passes against code the task never changed.
 
 Plan-count guard (a WARN line, never a finding; exit code unchanged): plans across every
 .planning/phases/* dir (+ --adding N about to be written in <phase-dir>) over
@@ -48,6 +56,21 @@ LIST_KEYS = ("depends_on", "files_modified", "requirements")
 # none of the placeholder/glob punctuation that marks it as a family rather than a file.
 CONTEXT_PATH_RE = re.compile(r"^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.[A-Za-z0-9]+$")
 CONTEXT_SPLIT_RE = re.compile(r"[\s,;()`\"'\[\]]+")
+COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+# R9 only: a closed fence or inline code span is an example, never structure. R10 strips
+# neither, because a real <verify> script is often a fenced block.
+FENCE_LINE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
+CODE_SPAN_RE = re.compile(r"`[^`\n]*`")
+# R9 counts structural tags only where templates/plan.md puts them: <tasks>, </tasks> and
+# <task ...> open a line, </task> ends one. A tag named mid-sentence in an <action> is prose.
+TASKS_OPEN_RE = re.compile(r"(?m)^[ \t]*<tasks>[ \t]*$")
+TASKS_CLOSE_RE = re.compile(r"(?m)^[ \t]*</tasks>[ \t]*$")
+TASK_OPEN_RE = re.compile(r"(?m)^[ \t]*<task\b")  # \b: never matches <tasks>
+TASK_CLOSE_RE = re.compile(r"(?m)</task>[ \t]*$")
+# A trailing `<` that starts a tag and is never closed: `...</ta`, a bare `<` or `</`.
+# `<verify>npm te` is not one (its `<` is closed), and prose such as `a < b` starts no tag.
+TAG_TAIL_RE = re.compile(r"<(?:/?[A-Za-z][\w:-]*[^<>]*|/?)$")
+CHECK_TAG_RE = re.compile(r"<(verify|falsify)>(.*?)</\1>", re.S)
 
 
 def load_split_plan():
@@ -211,6 +234,96 @@ def context_paths(body: str, sp) -> list[str]:
     return found
 
 
+def strip_fences(text: str) -> tuple[str, str | None]:
+    """Drop closed code fences (CommonMark: a backtick opener's info string has no backtick,
+    so ```` ``` ```` opening a line is a code span; a closer is the same character, at least
+    as long, and nothing else). Returns (text, the marker of a fence left open, or None)."""
+    kept, fence = [], None
+    for line in text.split("\n"):
+        m = FENCE_LINE_RE.match(line)
+        if fence is None:
+            if m and not (m.group(1)[0] == "`" and "`" in m.group(2)):
+                fence = m.group(1)
+            else:
+                kept.append(line)
+        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) \
+                and not m.group(2).strip():
+            fence = None
+    return "\n".join(kept), fence
+
+
+def truncation(body: str) -> list[str]:
+    """R9: why this body looks cut off or incomplete; empty when it is whole."""
+    problems = []
+    if TAG_TAIL_RE.search(body.rstrip()):
+        problems.append("file ends inside a tag - the write was cut off; rewrite the plan")
+    text = COMMENT_RE.sub("", body)
+    stripped, unclosed = strip_fences(text)
+    if unclosed:
+        # Fail closed: an unclosed fence would swallow real structure, so count it all.
+        problems.append(f"unclosed {unclosed} code fence - it hides what follows")
+    else:
+        text = stripped
+    text = CODE_SPAN_RE.sub("", text)
+    if "<!--" in text:
+        problems.append("unclosed <!-- comment - everything after it is hidden")
+        text = text.split("<!--", 1)[0]
+    opens, closes = list(TASKS_OPEN_RE.finditer(text)), list(TASKS_CLOSE_RE.finditer(text))
+    if len(opens) != 1 or len(closes) != 1 or closes[0].start() < opens[0].end():
+        problems.append(f"expected one <tasks>...</tasks> block, found {len(opens)} <tasks> "
+                        f"and {len(closes)} </tasks>")
+        return problems
+    block = text[opens[0].end():closes[0].start()]
+    started, closed = len(TASK_OPEN_RE.findall(block)), len(TASK_CLOSE_RE.findall(block))
+    if started == 0:
+        problems.append("<tasks> holds no <task>")
+    elif started != closed:
+        problems.append(f"{started} <task> opened but {closed} closed")
+    return problems
+
+
+def absolute_roots(repo: Path) -> list[str] | None:
+    """R10: every spelling of this checkout's and its main worktree's absolute path,
+    longest first; None when git cannot say where the main worktree is."""
+    try:
+        out = subprocess.run(["git", "-C", str(repo), "rev-parse", "--path-format=absolute",
+                              "--show-toplevel", "--git-common-dir"],
+                             capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    lines = out.stdout.splitlines()
+    if out.returncode != 0 or len(lines) != 2:
+        return None
+    toplevel, common = Path(lines[0]), Path(lines[1])
+    roots = {toplevel, common.parent if common.name == ".git" else common}
+    spellings = set()
+    try:
+        home = Path.home()
+    except RuntimeError:  # no resolvable home: the ~/$HOME spellings cannot exist to check
+        home = None
+    for root in roots:
+        for path in {root, root.resolve()}:
+            spellings.add(str(path))
+            if home is not None and path != home and home in path.parents:
+                rel = path.relative_to(home).as_posix()
+                spellings.update({f"~/{rel}", f"$HOME/{rel}", f"${{HOME}}/{rel}"})
+    return sorted(spellings, key=len, reverse=True)
+
+
+def absolute_path_hits(body: str, roots: list[str]) -> list[str]:
+    """R10: one message per <verify>/<falsify> naming a root; a root must end at a path
+    boundary, so /repo does not match /repo-other."""
+    hits = []
+    for tag, inner in CHECK_TAG_RE.findall(COMMENT_RE.sub("", body)):
+        for root in roots:
+            if re.search(re.escape(root) + r"(?=$|[/\s\"'`;:,&|)\]}]|\.(?:\s|$))", inner):
+                hits.append(f"<{tag}> names the absolute path {root} - executors run in a "
+                            f"worktree, so it would check the main checkout instead; use a "
+                            f"repo-relative path")
+                break
+    return hits
+
+
 LITE_MAX_BYTES = 4096
 # The plan-count guard's thresholds live here and nowhere else.
 GUARD_MAX_PLANS = 8
@@ -298,6 +411,21 @@ def lint(phase_dir: Path, repo: Path, sp) -> dict:
             add("R1", pid, problem)
         if not problems:
             valid[pid] = plans[pid]
+
+    # R9 — a body cut off mid-write; R10 — a verify that would leave the worktree.
+    parsed = [pid for pid in pending if plans.get(pid)]
+    for pid in parsed:
+        for problem in truncation(plans[pid]["body"]):
+            add("R9", pid, problem)
+    if parsed:
+        roots = absolute_roots(repo)
+        if roots is None:
+            add("R0", "-", f"could not check absolute paths (R10): git could not resolve the "
+                           f"worktree roots of {repo}")
+        else:
+            for pid in parsed:
+                for hit in absolute_path_hits(plans[pid]["body"], roots):
+                    add("R10", pid, hit)
 
     # R8 — the lite tier makes 4KB a hard cap (plan-format.md). No config, or no tier, is full.
     config, data, error = read_config(phase_dir)

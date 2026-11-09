@@ -24,13 +24,13 @@ result: pending             # pending | passed | failed
 ### REQ-01: {requirement one-liner}
 Steps: 1. {step} 2. {step}
 Expect: {observable result}
-Result: [ ] pass [ ] fail — notes:
+Result: [ ] pass [ ] fail [ ] deferred (human only; reason required) — notes:
 
 ## Success criteria — one case per SC
 ### SC-01: {criterion, with its threshold}
 How measured: {command, tool, or observation — the number is the pass condition, not an impression}
 Measured: {value} | Threshold: {value}
-Result: [ ] pass [ ] fail — notes:
+Result: [ ] pass [ ] fail [ ] deferred (human only; reason required) — notes:
 
 ## Unverified behavior (backstop truths)
 <!-- From phases' VERIFICATION.md `unverified` lists: behavior the requirements never settled and no test pins
