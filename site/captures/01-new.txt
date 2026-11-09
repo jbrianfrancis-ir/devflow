@@ -1,0 +1,32 @@
+I set up the wordfreq project on a new branch, `flow/wordfreq`, committed the planning files (`fc25755`) and pushed the branch to origin. Nothing was committed to `main`.
+
+**This may be more process than the job needs.** wordfreq is one task with one clear end state, and `/flow-quick` gives the same guarantees without the plan and verify steps. You ran this with `--auto`, so I kept going instead of stopping to ask. To switch, delete the `flow/wordfreq` branch and run `/flow-quick` with the same description.
+
+**How it's set up:**
+- **Lite tier:** one repo, no deploy target, and well under 2k lines of code.
+- **No deploy target:** `deploy.tool: null`, so the harden, UAT and release steps are off. It ships when the PR merges.
+- **Standard library and `unittest` only:** any import of pytest, click, typer or nltk is blocked by a pattern in `ARCHITECTURE.md`.
+
+**Roadmap**
+
+| NN | Phase | Goal | Requirements | Status |
+|----|-------|------|--------------|--------|
+| 01 | wordfreq CLI | A tested `src/wordfreq.py` that prints the top-N words of a UTF-8 file, with clean errors | REQ-01–07, SC-01, SC-02 | pending |
+
+**Please check these, since they're the parts most likely to be wrong:**
+- **Open question (REQ-04):** should `don't` and `well-known` count as one word or be split? My proposed default keeps inner apostrophes and splits on hyphens. `/flow-plan 1` will settle it.
+- **Defaults I picked where your description was silent:**
+  - Output is `word count`, one pair per line, with no header.
+  - Words with equal counts print in alphabetical order.
+  - The option is `-n N`, or `--top N`.
+  - An empty file prints nothing and exits 0.
+  - It runs as `python3 src/wordfreq.py FILE`, with no install step.
+  - It needs Python 3.10 or later.
+  - Bad input (missing file, invalid UTF-8, an N that isn't a positive number) prints one line on stderr and exits non-zero, with no traceback.
+- **Speed target (SC-01):** a 10 MB file finishes in under 5 seconds. This is my own target, not yours.
+
+**To keep going:**
+- Drive it to completion: `/goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns`, then `/flow-next`
+- Or run it in the background: `/loop /flow-next`
+
+FLOW: CONTINUE | initialized, 1 phase | next: /flow-plan 1

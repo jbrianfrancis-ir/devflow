@@ -1,0 +1,25 @@
+The planner is still working on the revision. I'll pick this up when it reports back.
+
+The checker is re-checking the revised plan. I'll finish closing the step once it reports.
+
+I've recorded your option 1 answer and written the gap plan. It's committed as `6cb9f16` on `flow/wordfreq` but not executed yet, so the traceback isn't fixed until `/flow-execute 1` runs.
+
+**Your answer is now in the project files**
+- `REQUIREMENTS.md`: the REQ-04 open question is gone. The rule is now "inner apostrophes stay in the word, hyphens split it" (`don't` stays one word, `well-known` gives `well` + `known`). REQ-07 now allows argparse's two-line usage errors as an exception. These are logged as D-04 and D-05 in `PROJECT.md`.
+- `DECISIONS.md` has the question and your answer word for word. A local hook blocks your email address in my commands, so the `by:` line has only your name; the commit's author field still carries the email.
+- The gate is cleared and the loop counter is reset.
+
+**Gap plan `01-02`** (runs after 01-01, which it builds on):
+- **Task 1:** in `src/wordfreq.py`, the narrow list of caught file errors becomes a broad `except OSError`. Paths like `sample.txt/foo` and very long filenames then get the normal one-line "cannot read file" message instead of a traceback. Invalid UTF-8 keeps its own message.
+- **Task 2:** five new tests:
+  - one for each of those two path cases;
+  - one pinning `don't well-known` → `don't`, `known`, `well`;
+  - two for argparse usage errors (no FILE, and `-n` with no value): exit code 2, exactly 2 stderr lines starting `usage: wordfreq` and `wordfreq: error:`, empty stdout.
+
+**Plan check:** the first check found 4 blocking problems, including a Task 1 check that relied on tests only Task 2 writes, and a check that would pass even if no new tests were added. One revision fixed all four. The second check passed, lint finds nothing, and the plan is 4094 bytes, just under the 4096-byte limit.
+
+**Left alone on purpose:**
+- Three lines in the already-executed `01-01-PLAN.md` still read as if the apostrophe question were open and every bad input gave one line. I didn't edit that finished plan; `01-02` now holds the settled rules.
+- The `chmod 0` test still fails when run as root, for example in some CI setups. You didn't ask for that fix, so I left it out. It's noted in STATE in case `/flow-ci` hits it later.
+
+FLOW: CONTINUE | phase 1 gap plan 01-02 ready (wave 2), gate answered | next: /flow-execute 1

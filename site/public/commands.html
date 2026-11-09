@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevFlow command reference</title>
+<meta name="description" content="Every DevFlow command, generated from the skill files in the repository.">
+<meta name="color-scheme" content="light">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body class="page-commands">
+<a class="skip" href="#main">Skip to content</a>
+<div class="frame">
+<header class="rail">
+<a class="mark" href="index.html">
+<span class="mark-word">DevFlow</span>
+<span class="mark-sub">spec-driven development<br>for Claude Code and Codex</span>
+</a>
+<nav class="nav" aria-label="Site">
+<ol role="list">
+<li><a href="index.html"><span class="num">00</span>Overview</a></li>
+<li><a href="start.html"><span class="num">01</span>Install</a></li>
+<li><a href="first-workflow.html"><span class="num">02</span>First workflow</a></li>
+<li><a href="concepts.html"><span class="num">03</span>Concepts</a></li>
+<li><a href="commands.html" aria-current="page"><span class="num">04</span>Commands</a></li>
+<li><a href="feedback.html"><span class="num">05</span>Feedback</a></li>
+</ol>
+</nav>
+<p class="rail-foot"><a href="https://github.com/jbrianfrancis-ir/devflow">Source on GitHub</a><br>MIT licensed</p>
+</header>
+<main id="main" tabindex="-1">
+<header class="page-head">
+<p class="eyebrow">04<span class="sep">/</span>Commands</p>
+<h1>Command reference</h1>
+<p class="lede">Claude Code invokes each command as <code>/flow-…</code>, Codex as <code>$flow-…</code>. A checkout loaded with <code>--plugin-dir</code> namespaces them as <code>/devflow:flow-…</code>.</p>
+</header>
+<div class="breakout cmd-ref">
+<p class="lede-small">26 commands, generated from each skill's <code>SKILL.md</code> frontmatter. Groups follow the README's Commands table.</p>
+<nav aria-label="Command groups"><ul class="toc" role="list"><li><a href="#group-core">core</a> <span class="count">5</span></li><li><a href="#group-auto">auto</a> <span class="count">1</span></li><li><a href="#group-ad-hoc">ad-hoc</a> <span class="count">7</span></li><li><a href="#group-parallel">parallel</a> <span class="count">1</span></li><li><a href="#group-memory">memory</a> <span class="count">1</span></li><li><a href="#group-design">design</a> <span class="count">1</span></li><li><a href="#group-guardrails">guardrails</a> <span class="count">1</span></li><li><a href="#group-integrate">integrate</a> <span class="count">2</span></li><li><a href="#group-triage">triage</a> <span class="count">1</span></li><li><a href="#group-deploy">deploy</a> <span class="count">4</span></li><li><a href="#group-deploy-opt-in">deploy (opt-in)</a> <span class="count">2</span></li></ul></nav>
+<section class="cmd-group" aria-labelledby="group-core">
+<h2 id="group-core">core</h2>
+<article class="cmd" id="cmd-flow-new">
+<h3><code>/flow-new</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-new</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-new/SKILL.md">source</a></p>
+
+<p>Initialize a Flow project (greenfield or existing repo) — creates .planning/ with requirements, roadmap, and state. Use when starting Flow work in a repo that has no .planning/ directory. Supports --provider native|claude|codex and --tier full|lite.</p>
+</article>
+<article class="cmd" id="cmd-flow-migrate">
+<h3><code>/flow-migrate</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-migrate</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-migrate/SKILL.md">source</a></p>
+<p class="badge">Explicit-only: the host will not let the model start it. A person types it.</p>
+<p>Convert a GSD (open-gsd/gsd-core) project&#x27;s .planning/ to DevFlow format - history and context preserved, originals archived. Use once per GSD project, instead of /flow-new. Supports --provider native|claude|codex.</p>
+</article>
+<article class="cmd" id="cmd-flow-plan">
+<h3><code>/flow-plan</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-plan</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-plan/SKILL.md">source</a></p>
+
+<p>Plan one roadmap phase - discuss decisions, optional research, write plans, check them. Args - phase number, plus optional --auto (no questions), --gaps (replan from verification gaps), --research, --panel (parallel scope/feasibility/coherence review of the plans), --review (publish the plan graph as a review page). Use before executing a phase. Supports --provider native|claude|codex.</p>
+</article>
+<article class="cmd" id="cmd-flow-execute">
+<h3><code>/flow-execute</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-execute</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-execute/SKILL.md">source</a></p>
+
+<p>Execute all plans of a phase in dependency waves via parallel executor subagents, then verify. Args - phase number, optional --auto (skip confirmations). Use after /flow-plan. Supports --provider native|claude|codex.</p>
+</article>
+<article class="cmd" id="cmd-flow-verify">
+<h3><code>/flow-verify</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-verify</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-verify/SKILL.md">source</a></p>
+
+<p>Re-verify an executed phase against its must_haves and walk the user through batched human checks. Args - phase number. Use standalone after changes, or when /flow-execute ended with human checks pending. Supports --provider native|claude|codex.</p>
+</article>
+</section>
+<section class="cmd-group" aria-labelledby="group-auto">
+<h2 id="group-auto">auto</h2>
+<article class="cmd" id="cmd-flow-next">
+<h3><code>/flow-next</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-next</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-next/SKILL.md">source</a></p>
+
+<p>Advance the project exactly one step (plan, execute, replan gaps, or harden) and stop with a FLOW status line. The driver for autonomous operation via /goal or /loop. Use to make progress without deciding what comes next.</p>
+</article>
+</section>
+<section class="cmd-group" aria-labelledby="group-ad-hoc">
+<h2 id="group-ad-hoc">ad-hoc</h2>
+<article class="cmd" id="cmd-flow-quick">
+<h3><code>/flow-quick</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-quick</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-quick/SKILL.md">source</a></p>
+
+<p>Do a small ad-hoc task with Flow guarantees (atomic commits, deviation rules, logged) without phase ceremony. Args - task description. Use for fixes and small features outside the roadmap. Supports --provider native|claude|codex.</p>
+</article>
+<article class="cmd" id="cmd-flow-debug">
+<h3><code>/flow-debug</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-debug</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-debug/SKILL.md">source</a></p>
+
+<p>Systematic debugging with persistent hypothesis state that survives sessions. Args - symptom description, --incident &lt;pasted alert, ServiceMonitor output, or App Insights/incident link&gt;, or no args to resume the newest open debug file. Use when cause is unknown. Supports --provider native|claude|codex.</p>
+</article>
+<article class="cmd" id="cmd-flow-oracle">
+<h3><code>/flow-oracle</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-oracle</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-oracle/SKILL.md">source</a></p>
+
+<p>Ask an external frontier model for a second opinion via a curated context bundle. Args - question, plus optional --panel (multi-model cross-check), --followup NNN, or no args to resume the newest open consult. Use when stuck or before a high-stakes decision. Supports --provider native|claude|codex.</p>
+</article>
+<article class="cmd" id="cmd-flow-status">
+<h3><code>/flow-status</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-status</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-status/SKILL.md">source</a></p>
+
+<p>Show where the project is and what to run next; --all boards every DevFlow project on the machine, --pause records a clean stopping point, --reset-run re-arms the autonomous loop rails. Use at session start, when lost, when tracking parallel work, or before stepping away.</p>
+</article>
+<article class="cmd" id="cmd-flow-audit">
+<h3><code>/flow-audit</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-audit</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-audit/SKILL.md">source</a></p>
+
+<p>Read-only consistency check across REQUIREMENTS, ROADMAP, plans, SUMMARYs, VERIFICATION and STATE - coverage both ways, drift, unmeasurable criteria, open clarifications, principle conflicts. Use before executing a phase, before /flow-harden, or when planning docs feel out of sync. Modes - --docs (README/docs claims vs the tree, before a docs-only PR), --drift (plan, STATE, decisions and CLAUDE.md vs code and git history), --export (agent-activity evidence pack for a compliance review).</p>
+</article>
+<article class="cmd" id="cmd-flow-todo">
+<h3><code>/flow-todo</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-todo</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-todo/SKILL.md">source</a></p>
+
+<p>Capture an idea or task for later without derailing current work; no args lists open items. Args - the idea text, or --incident &lt;pasted alert, ServiceMonitor output, or App Insights/incident link&gt;.</p>
+</article>
+<article class="cmd" id="cmd-flow-undo">
+<h3><code>/flow-undo</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-undo</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-undo/SKILL.md">source</a></p>
+<p class="badge">Explicit-only: the host will not let the model start it. A person types it.</p>
+<p>Undo unpublished commits on the current feature branch - preview what would be removed, ask the human, then apply only on explicit confirmation, keeping a backup ref. Args - the commit to return to (SHA or rev). Explicit-only; never touches published work, a merge, or the base branch.</p>
+</article>
+</section>
+<section class="cmd-group" aria-labelledby="group-parallel">
+<h2 id="group-parallel">parallel</h2>
+<article class="cmd" id="cmd-flow-workstream">
+<h3><code>/flow-workstream</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-workstream</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-workstream/SKILL.md">source</a></p>
+<p class="badge">Explicit-only: the host will not let the model start it. A person types it.</p>
+<p>Manage parallel workstreams as git worktrees - new, list, drop. Args - new &lt;slug&gt; [--phase N], list, drop &lt;slug&gt;. Use to run more than one phase or feature at once without two agents fighting over one checkout.</p>
+</article>
+</section>
+<section class="cmd-group" aria-labelledby="group-memory">
+<h2 id="group-memory">memory</h2>
+<article class="cmd" id="cmd-flow-map">
+<h3><code>/flow-map</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-map</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-map/SKILL.md">source</a></p>
+
+<p>Build or refresh codebase memory (MAP.md), distill docs (--docs path), or consolidate learnings (--refresh). Use on existing codebases before planning, or when the map is stale. Supports --provider native|claude|codex.</p>
+</article>
+</section>
+<section class="cmd-group" aria-labelledby="group-design">
+<h2 id="group-design">design</h2>
+<article class="cmd" id="cmd-flow-design">
+<h3><code>/flow-design</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-design</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-design/SKILL.md">source</a></p>
+
+<p>Link a Claude Design (claude.ai/design) design-system project to this repo and pull it locally as hard UI constraints; --refresh re-pulls. Use up front on projects with a UI, or when the design system changed. Supports --provider native|claude|codex.</p>
+</article>
+</section>
+<section class="cmd-group" aria-labelledby="group-guardrails">
+<h2 id="group-guardrails">guardrails</h2>
+<article class="cmd" id="cmd-flow-hooks">
+<h3><code>/flow-hooks</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-hooks</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-hooks/SKILL.md">source</a></p>
+<p class="badge">Explicit-only: the host will not let the model start it. A person types it.</p>
+<p>Scaffold deterministic PreToolUse hooks (base-branch guard, protected-paths guard, secret-scan guard, dependency guard, destructive-git guard) into .claude/settings.json, hardening five of DevFlow&#x27;s instruction-only hard rules so they hold even if an agent ignores them. Args - optional --only base,secret,paths,deps,destructive to install a subset; default installs all five. No .planning/ required.</p>
+</article>
+</section>
+<section class="cmd-group" aria-labelledby="group-integrate">
+<h2 id="group-integrate">integrate</h2>
+<article class="cmd" id="cmd-flow-pr">
+<h3><code>/flow-pr</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-pr</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-pr/SKILL.md">source</a></p>
+
+<p>Push the current feature branch to origin and open a pull request against upstream (or the base branch) from verified work. Use when a phase or body of work is ready to integrate. Args - optional --adversarial (review through the peer provider, then adjudicate findings into a durable ledger). Supports --provider native|claude|codex.</p>
+</article>
+<article class="cmd" id="cmd-flow-ci">
+<h3><code>/flow-ci</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-ci</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-ci/SKILL.md">source</a></p>
+
+<p>Drive an open pull request to green - watch checks, fix failures, triage and answer bot review comments, resolve threads. Args - optional PR number, --auto. Use after /flow-pr, or any time a PR is red or has unread review comments.</p>
+</article>
+</section>
+<section class="cmd-group" aria-labelledby="group-triage">
+<h2 id="group-triage">triage</h2>
+<article class="cmd" id="cmd-flow-triage">
+<h3><code>/flow-triage</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-triage</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-triage/SKILL.md">source</a></p>
+
+<p>Pre-screen open, externally-authored pull requests against ARCHITECTURE.md/REQUIREMENTS.md/conventions.md and produce a merge-readiness summary — flags only the promising ones for human review. Args - optional PR number(s) to screen specific PRs, --all (include every open PR and every verdict tier, not just flagged ones), --export (persist the report under .planning/triage/). Supports --provider native|claude|codex. Prototype: drafts responses, never posts, closes, or merges anything.</p>
+</article>
+</section>
+<section class="cmd-group" aria-labelledby="group-deploy">
+<h2 id="group-deploy">deploy</h2>
+<article class="cmd" id="cmd-flow-harden">
+<h3><code>/flow-harden</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-harden</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-harden/SKILL.md">source</a></p>
+
+<p>Production-hardening pass - audit the codebase against the Aspire production checklist, fix findings via a hardening plan. Use after all roadmap phases are verified, before /flow-uat. Supports --provider native|claude|codex.</p>
+</article>
+<article class="cmd" id="cmd-telemetry-readiness">
+<h3><code>/telemetry-readiness</code></h3>
+<p class="cmd-alt">Codex: <code>$telemetry-readiness</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/telemetry-readiness/SKILL.md">source</a></p>
+
+<p>Check that every deployed service in an Aspire/ACA project emits traces, metrics and logs to a workspace-based Application Insights, and that the Azure sinks exist and are wired to it. Read-only — reports, never fixes. Use at scaffold (advisory), when a service is added, before a PR, and before and after a deploy. Works in DevFlow, GSD and plain repos. Args - --scope code|platform|all, --env &lt;name&gt;, --services &lt;list&gt;.</p>
+</article>
+<article class="cmd" id="cmd-flow-uat">
+<h3><code>/flow-uat</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-uat</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-uat/SKILL.md">source</a></p>
+
+<p>Deploy to the UAT environment on Azure (provisioning on first deploy) and generate the human acceptance test plan whose sign-off gates production. Use after /flow-harden.</p>
+</article>
+<article class="cmd" id="cmd-flow-release">
+<h3><code>/flow-release</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-release</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-release/SKILL.md">source</a></p>
+<p class="badge">Explicit-only: the host will not let the model start it. A person types it.</p>
+<p>Deploy to production on Azure, gated on UAT sign-off matching the current commit. Use after /flow-uat sign-off.</p>
+</article>
+</section>
+<section class="cmd-group" aria-labelledby="group-deploy-opt-in">
+<h2 id="group-deploy-opt-in">deploy (opt-in)</h2>
+<article class="cmd" id="cmd-flow-prod-readiness">
+<h3><code>/flow-prod-readiness</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-prod-readiness</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-prod-readiness/SKILL.md">source</a></p>
+<p class="badge">Explicit-only: the host will not let the model start it. A person types it.</p>
+<p>Read-only production-readiness review of one deployed app&#x27;s platform posture - edge geo-filter, WAF with OWASP rules plus a false-positive check, identity on every request, private database, secrets out of code, audit logging, tested restore, minimum capacity and graceful shutdown, monitoring others can read. Each item gets pass, gap or unknown and an owner. Run once per app before go-live and again after a major infrastructure change; never per PR. Explicit-only. Args - --app &lt;name&gt;, --url &lt;base url&gt;, --env &lt;name&gt;, --out &lt;path&gt;.</p>
+</article>
+<article class="cmd" id="cmd-flow-security-audit">
+<h3><code>/flow-security-audit</code></h3>
+<p class="cmd-alt">Codex: <code>$flow-security-audit</code> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/skills/flow-security-audit/SKILL.md">source</a></p>
+<p class="badge">Explicit-only: the host will not let the model start it. A person types it.</p>
+<p>Optional pre-production security audit gate (Cloudflare harness patterns). Opt-in only — not part of default /flow-* runs. Use when explicitly asked to security-audit / pen-test / full vuln review before UAT/prod. Modes: guidance (default for questions) vs full audit (explicit). Supports --provider native|claude|codex.</p>
+</article>
+</section>
+</div>
+
+</main>
+<footer class="foot">
+<p>DevFlow is an open-source plugin, MIT licensed. <a href="https://github.com/jbrianfrancis-ir/devflow">Repository</a> · <a href="https://github.com/jbrianfrancis-ir/devflow/issues">Issues</a> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/CHANGELOG.md">Changelog</a></p>
+<p>Every terminal block on this site is unedited output from a real run, apart from the path substitutions listed on the <a href="first-workflow.html#how-captured">first-workflow page</a>.</p>
+</footer>
+</div>
+</body>
+</html>

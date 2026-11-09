@@ -1,0 +1,38 @@
+<!--
+title: Give feedback on DevFlow
+description: Report a bug or suggest a change to DevFlow through GitHub Issues, and what to include so it can be acted on.
+-->
+<header class="page-head">
+<p class="eyebrow">05<span class="sep">/</span>Feedback</p>
+<h1>Report what broke, or what got in the way</h1>
+<p class="lede">Feedback goes through GitHub Issues on the DevFlow repository. There is no forum or chat channel, and GitHub Discussions is not turned on for this repository.</p>
+</header>
+
+<section aria-labelledby="h-where">
+<h2 id="h-where"><span class="sec">A</span>Where</h2>
+<ul class="paths" role="list">
+<li><a class="path-link" href="{{repo}}/issues/new?template=bug_report.md">Report a bug</a><p>A command, skill or agent did the wrong thing. The form asks for the command, what happened, what you expected, repro steps, your <code>.planning/</code> state and your environment.</p></li>
+<li><a class="path-link" href="{{repo}}/issues/new?template=feature_request.md">Suggest a change</a><p>Friction, a missing step, a gate in the wrong place. The form asks which skill, agent, reference or template should change, and whether it adds to what each command loads.</p></li>
+<li><a class="path-link" href="{{repo}}/issues">Read open issues</a><p>Search first. If someone already reported it, add your case to theirs.</p></li>
+</ul>
+</section>
+
+<section aria-labelledby="h-what">
+<h2 id="h-what"><span class="sec">B</span>What makes a report useful</h2>
+<div class="defs-wrap">
+<dl class="defs">
+<dt>The FLOW line</dt><dd>The last line the command printed, for example <code>FLOW: BLOCKED | … | next: …</code>. It names the state and the step DevFlow thought came next.</dd>
+<dt>STATE.md Position</dt><dd>The <code>## Position</code> block of <code>.planning/STATE.md</code>, and the frontmatter of any SUMMARY or VERIFICATION file involved.</dd>
+<dt>Versions</dt><dd>The DevFlow version (in the plugin's <code>plugin.json</code>), your host and its version, and the model.</dd>
+<dt>The command</dt><dd>Exactly what you typed, flags included, and whether it ran under <code>/goal</code>, <code>/loop</code> or by hand.</dd>
+</dl>
+</div>
+<div class="note">
+<p>Issues are public. Leave out secrets, tokens, connection strings, customer data and private repository content. Paste the shape of a value, never the value.</p>
+</div>
+</section>
+
+<section aria-labelledby="h-code">
+<h2 id="h-code"><span class="sec">C</span>Changing DevFlow yourself</h2>
+<p>Pull requests are welcome. DevFlow's own rules apply to it: work on a branch, keep the size budget, and include the host smoke receipt from the pull request template when you touch <code>plugins/devflow/</code>. The <a href="start.html#h-tree">one-session load</a> on the install page is how you test a checkout.</p>
+</section>

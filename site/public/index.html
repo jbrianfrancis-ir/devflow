@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevFlow: spec-driven development for Claude Code and Codex</title>
+<meta name="description" content="DevFlow keeps requirements, roadmap and state in .planning/, runs each plan in a fresh-context subagent, and verifies the result against evidence before it opens a pull request.">
+<meta name="color-scheme" content="light">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body class="page-index">
+<a class="skip" href="#main">Skip to content</a>
+<div class="frame">
+<header class="rail">
+<a class="mark" href="index.html">
+<span class="mark-word">DevFlow</span>
+<span class="mark-sub">spec-driven development<br>for Claude Code and Codex</span>
+</a>
+<nav class="nav" aria-label="Site">
+<ol role="list">
+<li><a href="index.html" aria-current="page"><span class="num">00</span>Overview</a></li>
+<li><a href="start.html"><span class="num">01</span>Install</a></li>
+<li><a href="first-workflow.html"><span class="num">02</span>First workflow</a></li>
+<li><a href="concepts.html"><span class="num">03</span>Concepts</a></li>
+<li><a href="commands.html"><span class="num">04</span>Commands</a></li>
+<li><a href="feedback.html"><span class="num">05</span>Feedback</a></li>
+</ol>
+</nav>
+<p class="rail-foot"><a href="https://github.com/jbrianfrancis-ir/devflow">Source on GitHub</a><br>MIT licensed</p>
+</header>
+<main id="main" tabindex="-1">
+<section class="hero">
+<p class="eyebrow">Plugin for Claude Code and Codex<span class="sep">/</span>MIT<span class="sep">/</span>open source</p>
+<h1>A development process for coding agents, from first requirements through release, and back when production breaks.</h1>
+<p class="lede">DevFlow is token-efficient spec-driven development for Claude Code and Codex. It writes your requirements, roadmap and state to <code>.planning/</code>, runs each plan in a fresh-context subagent, and has an independent verifier check the result against commands it actually ran. When the evidence isn't there, the verifier says so instead of guessing.</p>
+<div class="actions">
+<a class="btn" href="start.html">Install DevFlow</a>
+<a class="btn-quiet" href="first-workflow.html">Read a real run, start to finish</a>
+</div>
+</section>
+
+<section aria-labelledby="h-evidence">
+<div class="evidence breakout">
+<h2 id="h-evidence">Every command ends with one line a machine can read</h2>
+<p>These are the last lines of each command in the <a href="first-workflow.html">first-workflow run</a>, copied from its real stdout with Markdown backticks removed. <code>/goal</code> and <code>/loop</code> read the same line to decide whether to keep going or stop and ask you.</p>
+<ol class="ledger" role="list">
+<li><span class="ledger-cmd">/flow-status</span><code class="flow flow-gate">FLOW: GATE | no DevFlow project in this repo, setup needs your answers | next: /flow-new</code></li>
+<li><span class="ledger-cmd">/flow-new --auto</span><code class="flow flow-continue">FLOW: CONTINUE | initialized, 1 phase | next: /flow-plan 1</code></li>
+<li><span class="ledger-cmd">/flow-status</span><code class="flow flow-continue">FLOW: CONTINUE | phase 1/1 not yet planned | next: /flow-plan 1</code></li>
+<li><span class="ledger-cmd">/flow-plan 1 --auto</span><code class="flow flow-continue">FLOW: CONTINUE | phase 1 planned, 1 plans | next: /flow-execute 1</code></li>
+<li><span class="ledger-cmd">/flow-execute 1 --auto</span><code class="flow flow-continue">FLOW: CONTINUE | phase 1 gaps: 1 (REQ-07 traceback on uncaught OSError); 2 human decisions open (REQ-04 apostrophes/hyphens, two-line usage errors) | next: /flow-plan 1 --gaps</code></li>
+<li><span class="ledger-cmd">/flow-status</span><code class="flow flow-continue">FLOW: CONTINUE | phase 1/1, plans 1/1, verify gaps | next: /flow-plan 1 --gaps</code></li>
+<li><span class="ledger-cmd">/flow-next</span><code class="flow flow-gate">FLOW: GATE | phase 1/1 verify gaps — REQ-04 apostrophe/hyphen rule and REQ-07 argparse usage-error rule need a human decision | next: answer the Gate (option 1–4), then /flow-next</code></li>
+<li><span class="ledger-cmd">/flow-next &lt;answer&gt;</span><code class="flow flow-continue">FLOW: CONTINUE | phase 1 gap plan 01-02 ready (wave 2), gate answered | next: /flow-execute 1</code></li>
+<li><span class="ledger-cmd">/flow-next</span><code class="flow flow-gate">FLOW: GATE | phase 1 executed, verify human_needed — SC-01 10 MB &lt;5s timing needs an idle-host run | next: time SC-01 by hand, then /flow-verify 1</code></li>
+<li><span class="ledger-cmd">/flow-verify 1 &lt;result&gt;</span><code class="flow flow-continue">FLOW: CONTINUE | phase 1 verified | next: /flow-pr</code></li>
+<li><span class="ledger-cmd">/flow-pr</span><code class="flow flow-gate">FLOW: GATE | blocking review finding (combining marks / REQ-04 scope vs SC-01) needs a decision | next: pick 1/2/3, then /flow-pr opens the PR</code></li>
+<li><span class="ledger-cmd">/flow-pr &lt;answer&gt;</span><code class="flow flow-blocked">FLOW: BLOCKED | origin is not a GitHub remote, PR cannot be opened | next: add a GitHub remote, then /flow-pr</code></li>
+</ol>
+</div>
+</section>
+
+<section aria-labelledby="h-loop">
+<h2 id="h-loop"><span class="sec">01</span>The loop</h2>
+<p>Each phase of your roadmap goes through the same steps. You can type each one, or let <code>/flow-next</code> pick the next step and run it. It stops at every human gate either way.</p>
+<div class="track-wrap breakout">
+<ol class="track" role="list">
+<li><span class="cmdname">/flow-new</span><p>Asks one bounded round of questions, or works from your description, then writes requirements, a phased roadmap, architecture constraints and state on a new <code>flow/&lt;slug&gt;</code> branch.</p></li>
+<li><span class="cmdname">/flow-plan N</span><p>Settles the phase's open decisions, writes executable plans, and has a plan-checker reject any plan an executor could not run without guessing.</p></li>
+<li><span class="cmdname">/flow-execute N</span><p>Runs the plans in dependency waves, one fresh-context executor per plan with an atomic commit per task, then a separate verifier checks the phase goal.</p></li>
+<li><span class="cmdname">/flow-status</span><p>Reads <code>.planning/</code> and prints where you are and the exact next command. Run it whenever you come back.</p></li>
+<li class="gate-row"><span class="cmdname">/flow-pr</span><p><span class="gate-tag">Human gate</span>Scans for secrets, reviews the outgoing diff through independent lenses, pushes the branch and opens the pull request. Typing <code>/flow-pr</code> yourself is the approval. Under <code>/goal</code> or <code>/loop</code> it stops and asks first. Merging is always yours.</p></li>
+</ol>
+</div>
+</section>
+
+<section aria-labelledby="h-disk">
+<h2 id="h-disk"><span class="sec">02</span>What a session leaves behind</h2>
+<div class="split breakout">
+<div>
+<p>Chat history is not where DevFlow keeps anything. A cold session reads <code>.planning/STATE.md</code> first and knows the phase, what is in flight and the next command.</p>
+<p class="muted">Each file on the right exists in the scratch project from the <a href="first-workflow.html">first-workflow run</a>.</p>
+</div>
+<div class="defs-wrap">
+<dl class="defs">
+<dt>STATE.md</dt><dd>Position, open gate, loop counters, next command. Size-capped and rewritten in place.</dd>
+<dt>REQUIREMENTS.md</dt><dd>REQ-NN requirements, measurable SC-NN success criteria, assumptions, and inline <code>[NEEDS CLARIFICATION]</code> markers.</dd>
+<dt>ROADMAP.md</dt><dd>Phases, each with a one-line goal and the requirement IDs it owns.</dd>
+<dt>ARCHITECTURE.md</dt><dd>Your stack at major versions, forbidden items and principles. Agents treat it as law.</dd>
+<dt>phases/NN-*/</dt><dd>Plans, per-plan SUMMARYs, and the verifier's VERIFICATION.md.</dd>
+<dt>DECISIONS.md</dt><dd>Append-only record of every human gate: what was asked, what was answered, by whom, at which SHA.</dd>
+</dl>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="h-refuses">
+<h2 id="h-refuses"><span class="sec">03</span>What it will not do on its own</h2>
+<p>These hold under <code>/goal</code> and <code>/loop</code> too. The full gate list is in <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/references/autonomy.md">autonomy.md</a>.</p>
+<div class="defs-wrap">
+<dl class="defs">
+<dt>Commit to main</dt><dd>Work lands on a <code>flow/&lt;slug&gt;</code> branch and integrates by pull request.</dd>
+<dt>Open or merge a PR</dt><dd>Opening a pull request upstream and merging one are human gates.</dd>
+<dt>Certify a guess</dt><dd>A truth the requirements never settled goes to you as a human check, not a pass.</dd>
+<dt>Ship a secret</dt><dd>A fail-closed secret scan guards every commit and push. A hit stops the run and the value is never echoed.</dd>
+<dt>Add a dependency</dt><dd>A new package, or a major-version change, waits for your approval and is logged.</dd>
+</dl>
+</div>
+</section>
+
+<section aria-labelledby="h-chart">
+<h2 id="h-chart"><span class="sec">04</span>Next to a traditional SDLC</h2>
+<div class="split breakout chart-split">
+<div>
+<p>The chart compares a traditional SDLC with a coding copilot against the DevFlow loop: where each keeps project context, which artifacts DevFlow produces, where the human gates sit, the trade-offs, and when each is the better fit.</p>
+<p>It also shows how a production incident opens the next cycle.</p>
+<p class="muted">Select the chart for full size, or open the <a href="assets/sdlc-vs-devflow.svg">editable SVG</a>.</p>
+</div>
+<figure class="chart">
+<a href="assets/sdlc-vs-devflow.png"><img src="assets/sdlc-vs-devflow.png" width="1600" height="2860" loading="lazy" alt="Side-by-side chart. Left: a traditional SDLC with a coding copilot, where project context lives in tickets, wikis and people's heads. Right: the DevFlow loop, where context lives in .planning/ files. Below: the DevFlow artifact chain, human gates and guardrails, trade-offs, when to use each approach, and how a production incident opens the next cycle."></a>
+</figure>
+</div>
+</section>
+
+<section aria-labelledby="h-next">
+<h2 id="h-next"><span class="sec">05</span>Start</h2>
+<p>Two commands in Claude Code:</p>
+<pre class="code" tabindex="0">/plugin marketplace add jbrianfrancis-ir/devflow
+/plugin install devflow@devflow</pre>
+<p>Codex and other details are on the <a href="start.html">install page</a>. Then follow the <a href="first-workflow.html">first workflow</a>.</p>
+</section>
+
+</main>
+<footer class="foot">
+<p>DevFlow is an open-source plugin, MIT licensed. <a href="https://github.com/jbrianfrancis-ir/devflow">Repository</a> · <a href="https://github.com/jbrianfrancis-ir/devflow/issues">Issues</a> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/CHANGELOG.md">Changelog</a></p>
+<p>Every terminal block on this site is unedited output from a real run, apart from the path substitutions listed on the <a href="first-workflow.html#how-captured">first-workflow page</a>.</p>
+</footer>
+</div>
+</body>
+</html>

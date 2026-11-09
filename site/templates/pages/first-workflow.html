@@ -1,0 +1,139 @@
+<!--
+title: Your first DevFlow workflow, from a real run
+description: A complete DevFlow cycle on a scratch project, from /flow-new to /flow-pr, with the real terminal output of every command, including the gap the verifier found and the gate it raised.
+-->
+<header class="page-head">
+<p class="eyebrow">02<span class="sep">/</span>First workflow</p>
+<h1>A first workflow, from a real run</h1>
+<p class="lede">One small project taken through a full DevFlow cycle. Every block below is the real output of the command above it, run on {{captured:date}}. Nothing was retried to get a cleaner result: the run found a real bug, stopped at three real gates, and ended blocked on a remote that isn't GitHub. All of it is shown.</p>
+</header>
+
+<section aria-labelledby="h-shows">
+<h2 id="h-shows"><span class="sec">··</span>The run at a glance</h2>
+<div class="defs-wrap">
+<dl class="defs">
+<dt>Plans rejected</dt><dd>Twice. Once for a test check that could not fail, once for a check that depended on work a later task would do.</dd>
+<dt>Gaps found</dt><dd>One real bug that all 14 of the executor's tests missed, found by the verifier.</dd>
+<dt>Abstentions</dt><dd>Two unsettled requirements and one timing taken on a loaded machine. None was certified. Each went to a person.</dd>
+<dt>Human gates</dt><dd>Three, each with its options spelled out, each answer written to <code>DECISIONS.md</code>.</dd>
+<dt>Review</dt><dd>Seven lenses, two rounds, one blocking finding left for a person with the cost of each option measured.</dd>
+<dt>Merges</dt><dd>None. DevFlow never merges. On GitHub it would have opened the PR and handed the merge to a person.</dd>
+</dl>
+</div>
+<p>Under <code>/goal</code> or <code>/loop</code>, each of these gates stops the run the same way, because gates never auto-proceed. To drive a project that way: <code>/goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns</code>, then <code>/flow-next</code>.</p>
+</section>
+
+<section aria-labelledby="h-project">
+<h2 id="h-project"><span class="sec">00</span>The project</h2>
+<p>A tiny Python command-line tool, <code>wordfreq</code>, that prints the most frequent words in a text file. It starts as an empty git repository with one empty commit and an <code>origin</code> remote, which here is a local bare repository rather than GitHub.</p>
+<div class="defs-wrap">
+<dl class="defs">
+<dt>/flow-new</dt><dd>Writes requirements and a roadmap.</dd>
+<dt>/flow-plan 1</dt><dd>Writes and checks the phase's plan.</dd>
+<dt>/flow-execute 1</dt><dd>Builds it, then an independent verifier checks it.</dd>
+<dt>/flow-next</dt><dd>Takes one step on its own, and stops at a gate.</dd>
+<dt>/flow-pr</dt><dd>Reviews the diff and opens a pull request.</dd>
+</dl>
+</div>
+</section>
+
+<section aria-labelledby="h-new">
+<h2 id="h-new"><span class="sec">01</span>Initialize with <code>/flow-new</code></h2>
+<p>Given a description and <code>--auto</code>, <code>/flow-new</code> skips its question round, picks the lite tier because the project is small and deploys nothing, writes <code>.planning/</code> on a new <code>flow/wordfreq</code> branch, commits, and pushes. Note what it does with what you did not say: every default it picked is listed as an assumption for you to check, and the one real open question is marked rather than guessed.</p>
+<div class="breakout">
+{{capture:01-new}}
+</div>
+</section>
+
+<section aria-labelledby="h-status">
+<h2 id="h-status"><span class="sec">02</span>Orient with <code>/flow-status</code></h2>
+<p>Run it in any session, at any time. It reads <code>.planning/</code> and prints the exact next command.</p>
+<div class="breakout">
+{{capture:02-status}}
+</div>
+</section>
+
+<section aria-labelledby="h-plan">
+<h2 id="h-plan"><span class="sec">03</span>Plan with <code>/flow-plan 1</code></h2>
+<p>The planner writes the plan, then a plan-checker tries to reject it. Here it found two blocking problems, including a test check that would have passed even when the tests failed. The planner revised the plan once and it passed.</p>
+<div class="breakout">
+{{capture:03-plan}}
+</div>
+</section>
+
+<section aria-labelledby="h-execute">
+<h2 id="h-execute"><span class="sec">04</span>Execute with <code>/flow-execute 1</code></h2>
+<p>An executor built the tool and its 14 tests, all passing. Then a separate verifier checked the phase against its must-haves and found a gap the tests did not cover: some bad paths still crash with a traceback. It also refused to certify the two behaviours the requirements never settled, and handed them to a person.</p>
+<div class="breakout">
+{{capture:04-execute}}
+</div>
+</section>
+
+<section aria-labelledby="h-status2">
+<h2 id="h-status2"><span class="sec">05</span>Check in with <code>/flow-status</code></h2>
+<p>Status reads the verifier's report and routes to the gap replan. It also noticed two planning files that disagreed with each other, and reported them instead of quietly fixing them.</p>
+<div class="breakout">
+{{capture:05-status}}
+</div>
+</section>
+
+<section aria-labelledby="h-next">
+<h2 id="h-next"><span class="sec">06</span>Hand over to <code>/flow-next</code></h2>
+<p><code>/flow-next</code> takes exactly one step. Under <code>/goal</code> or <code>/loop</code> it would be called again and again. Here the next step needed a decision only a person can make, so it raised a gate with numbered options and stopped. A loop would have stopped here too.</p>
+<div class="breakout">
+{{capture:06-next}}
+</div>
+</section>
+
+<section aria-labelledby="h-answer">
+<h2 id="h-answer"><span class="sec">07</span>Answer the gate</h2>
+<p>The answer goes in as plain words after the command. DevFlow writes the question and the answer word for word to <code>DECISIONS.md</code>, updates the requirements, and plans the gap fix. The plan-checker rejected the first gap plan too.</p>
+<div class="breakout">
+{{capture:08-answer}}
+</div>
+</section>
+
+<section aria-labelledby="h-gapfix">
+<h2 id="h-gapfix"><span class="sec">08</span>Fix the gap with <code>/flow-next</code></h2>
+<p>With the gate answered, <code>/flow-next</code> executes the gap plan. The traceback is fixed and every must-have passes except one: the 10 MB speed target. The verifier's timings came out over the limit, but the machine was heavily loaded, so they prove nothing either way. It did not pass the check and did not fail it. It asked a person to time it.</p>
+<div class="breakout">
+{{capture:09-next}}
+</div>
+</section>
+
+<section aria-labelledby="h-verify">
+<h2 id="h-verify"><span class="sec">09</span>Do the human check, then <code>/flow-verify 1</code></h2>
+<p>The operator timed the tool by hand and passed the numbers in, unedited, including the slow run and the fact that the machine was not idle. Accepting the target was the operator's call, and the verifier records it with its caveats rather than as a clean pass.</p>
+<div class="breakout">
+{{capture:11-verify}}
+</div>
+</section>
+
+<section aria-labelledby="h-pr">
+<h2 id="h-pr"><span class="sec">10</span>Review and open the PR with <code>/flow-pr</code></h2>
+<p>Seven reviewers read the outgoing diff in parallel, each through one lens. DevFlow fixed what it could, with a regression test for each fix, and re-reviewed. One blocking finding remained that it would not decide alone: fixing it changes a requirement and slows the tool enough to threaten the speed target. So it stopped before pushing and laid out the options.</p>
+<div class="breakout">
+{{capture:12-pr}}
+</div>
+</section>
+
+<section aria-labelledby="h-pr2">
+<h2 id="h-pr2"><span class="sec">11</span>Answer, push, and an honest stop</h2>
+<p>The operator chose to defer the finding. DevFlow records the decision, updates the requirements and the PR body, and pushes the branch. Then it stops: this scratch project's <code>origin</code> is a local bare repository, not GitHub, so there is nothing to open a pull request against. It says so and reports <code>BLOCKED</code> instead of inventing a URL. On a GitHub remote, this step opens the PR, ready for review.</p>
+<div class="breakout">
+{{capture:13-pr-answer}}
+</div>
+</section>
+
+
+<section aria-labelledby="how-captured">
+<h2 id="how-captured"><span class="sec">··</span>How these were captured</h2>
+<p>Each command ran headless, in a scratch repository created with <code>mktemp</code>, loading DevFlow from a checkout of this repository for that one session:</p>
+<pre class="code" tabindex="0">claude --plugin-dir &lt;devflow-checkout&gt;/plugins/devflow \
+  --setting-sources user \
+  --settings '{"enabledPlugins":{"devflow@devflow":false}}' \
+  --permission-mode bypassPermissions \
+  -p "&lt;command&gt;" &lt; /dev/null</pre>
+<p>The <code>--settings</code> flag switches off the installed copy for that session so the checkout's skills answer, which is why commands read <code>/devflow:flow-…</code>. <code>bypassPermissions</code> lets the headless run edit and commit in the scratch repository without prompting. Host: {{captured:claude_version}}.</p>
+<p>Output is stdout as printed. Claude Code prints Markdown as plain text in this mode, and a run that waited on a subagent printed a progress line or two before its summary. The only edits are path substitutions: the checkout path is shown as <code>&lt;devflow-checkout&gt;</code> and the home directory as <code>~</code>. Two <code>/flow-status</code> runs are left out: the one between steps 06 and 07 misreported which DevFlow build was loaded, and the one after step 08 repeated that step's summary. The step 09 timing was run by the operator, not by DevFlow.</p>
+</section>

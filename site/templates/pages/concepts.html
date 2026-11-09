@@ -1,0 +1,56 @@
+<!--
+title: DevFlow concepts: state, waves, verification, gates, providers
+description: The ideas DevFlow is built on: durable .planning/ state, dependency waves, a verifier that abstains, human gates, the FLOW status line, and providers.
+-->
+<header class="page-head">
+<p class="eyebrow">03<span class="sep">/</span>Concepts</p>
+<h1>How DevFlow works</h1>
+<p class="lede">Six ideas carry the whole system. Each section ends with the page in the repository that defines it, which is the authority if the two ever disagree.</p>
+</header>
+
+<section aria-labelledby="h-state">
+<h2 id="h-state"><span class="sec">01</span>State lives on disk, not in chat</h2>
+<p>Everything DevFlow knows is in <code>.planning/</code>: requirements, roadmap, architecture constraints, per-phase plans and summaries, the verifier's report, and <code>STATE.md</code>. Every skill reads <code>STATE.md</code> first, so a new session resumes cold with nothing lost. State files have hard size caps and their sections are rewritten in place, so they stay small enough to load every time.</p>
+<p><code>ARCHITECTURE.md</code> records your stack at major versions, what is forbidden, and your principles. Planners, executors and researchers treat it as law. Anything outside it becomes a decision for you.</p>
+<p>That is also why you don't need <code>/clear</code> between steps. Each command loads a few thousand tokens, heavy work runs in fresh-context subagents, and clearing only costs you the conversation, not the project.</p>
+<p class="muted">Defined in <a href="{{repo}}/blob/main/docs/execution-model.md#state">execution-model.md → State</a> and <a href="{{repo}}/blob/main/docs/autonomy.md#session-hygiene-clear">autonomy.md → Session hygiene</a>.</p>
+</section>
+
+<section aria-labelledby="h-waves">
+<h2 id="h-waves"><span class="sec">02</span>Plans run in waves</h2>
+<p>A phase's plans form a dependency graph. An edge exists only where one plan consumes another's output. Waves are the graph's parallel layers, and plans in the same wave share no files and no mutable resources.</p>
+<p>Before any executor starts, a deterministic lint checks that the graph is sound and every declared path exists or is declared new. <code>/flow-execute</code> then runs one fresh-context executor per plan, each in its own git worktree, lands their commits on the feature branch one plan at a time, and re-runs each plan's verify on the combined tree. A fan-in guard counts results against spawns, so an executor that died cannot pass for a finished one.</p>
+<p>Every phase must also pass one end-to-end smoke command declared in <code>ARCHITECTURE.md</code>, so phase 5 cannot quietly break phase 2.</p>
+<p class="muted">Defined in <a href="{{repo}}/blob/main/docs/execution-model.md#graph-execution">execution-model.md → Graph execution</a> and <a href="{{repo}}/blob/main/plugins/devflow/references/plan-format.md">plan-format.md</a>.</p>
+</section>
+
+<section aria-labelledby="h-verify">
+<h2 id="h-verify"><span class="sec">03</span>The verifier abstains instead of guessing</h2>
+<p>A separate verifier, never the executors that did the work, checks the phase's <code>must_haves</code> against anchors: commands it actually ran, tests that actually passed, code it traced. <code>must_haves</code> freeze when execution starts, and a gap closes by changing code, never by weakening the truth.</p>
+<p>Some truths are ones the requirements never settled. The planner marks them as backstop truths. For each, the verifier asks one question: does a test or an observed behavior pin the answer? If not, it does not certify it and does not call it a defect. It sends it to you as a human check with a specific ask: write a test that fixes the behavior, or state the rule.</p>
+<p class="muted">Defined in <a href="{{repo}}/blob/main/plugins/devflow/references/verification.md">verification.md</a>.</p>
+</section>
+
+<section aria-labelledby="h-gates">
+<h2 id="h-gates"><span class="sec">04</span>Human gates never auto-proceed</h2>
+<p>A fixed list of decisions always stops for a person, even under <code>/goal</code> or <code>/loop</code>. It covers checkpoint decisions, a secret-scan hit, a new or major-changed dependency, anything outward-facing such as opening a pull request or posting to someone else's, accepting a known defect, and anything destructive in git. Merging is always a person's call.</p>
+<p>When a gate is raised, DevFlow writes a <code>## Gate</code> block to <code>STATE.md</code> with the question, the options and their consequences, so a driver can show the choice without parsing prose. When it is answered, the answer, the git identity and the SHA go into the append-only <code>DECISIONS.md</code>, in the same commit as the work it approved.</p>
+<p>Some skills go further: <code>/flow-release</code>, <code>/flow-undo</code>, <code>/flow-hooks</code> and the other outward or destructive ones are explicit-only, so the host will not let the model start them at all.</p>
+<p class="muted">The authoritative list is in <a href="{{repo}}/blob/main/plugins/devflow/references/autonomy.md">autonomy.md</a>. Overview in <a href="{{repo}}/blob/main/docs/autonomy.md">docs/autonomy.md</a>.</p>
+</section>
+
+<section aria-labelledby="h-flow">
+<h2 id="h-flow"><span class="sec">05</span>One status line drives autonomy</h2>
+<p>Every skill ends with <code>FLOW: CONTINUE|GATE|BLOCKED|DONE | position | next: command</code>. <code>/flow-next</code> advances exactly one step and prints that line. Claude Code's <code>/goal</code> keeps calling it while the answer is <code>CONTINUE</code>:</p>
+<pre class="code" tabindex="0">/goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns
+/flow-next</pre>
+<p>Loop rails stop a run that is going nowhere: a stuck detector on what the routing matched, an iteration cap, and an optional wall-clock cap, tuned in <code>.planning/config.json</code>. A counter that cannot be read is <code>BLOCKED</code>, never zero.</p>
+<p class="muted">Defined in <a href="{{repo}}/blob/main/docs/autonomy.md">docs/autonomy.md</a>.</p>
+</section>
+
+<section aria-labelledby="h-providers">
+<h2 id="h-providers"><span class="sec">06</span>Providers and model tiers</h2>
+<p>DevFlow runs as skills inside the host you already use. By default every role runs as that host's native subagent. A delegating skill accepts <code>--provider native|claude|codex</code>, and a project can save the choice as <code>agents.provider</code> in <code>.planning/config.json</code>, with the flag winning. Sending a role to the other provider needs both CLIs installed and signed in, and keeps every checkpoint, branch rule and secret scan.</p>
+<p>Each role declares its model. Judgment roles run on the top tier. Bounded roles, including the high-volume executor, run a tier down, which is safe because a DevFlow plan is a complete, unambiguous prompt for the executor. You can override any role in <code>config.json</code>.</p>
+<p class="muted">Defined in <a href="{{repo}}/blob/main/docs/providers.md">docs/providers.md</a> and <a href="{{repo}}/blob/main/plugins/devflow/references/hosts.md">hosts.md</a>.</p>
+</section>

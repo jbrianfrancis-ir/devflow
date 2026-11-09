@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install DevFlow: Claude Code and Codex</title>
+<meta name="description" content="Install the DevFlow plugin in Claude Code or Codex, check the install, and load a working tree for one session.">
+<meta name="color-scheme" content="light">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body class="page-start">
+<a class="skip" href="#main">Skip to content</a>
+<div class="frame">
+<header class="rail">
+<a class="mark" href="index.html">
+<span class="mark-word">DevFlow</span>
+<span class="mark-sub">spec-driven development<br>for Claude Code and Codex</span>
+</a>
+<nav class="nav" aria-label="Site">
+<ol role="list">
+<li><a href="index.html"><span class="num">00</span>Overview</a></li>
+<li><a href="start.html" aria-current="page"><span class="num">01</span>Install</a></li>
+<li><a href="first-workflow.html"><span class="num">02</span>First workflow</a></li>
+<li><a href="concepts.html"><span class="num">03</span>Concepts</a></li>
+<li><a href="commands.html"><span class="num">04</span>Commands</a></li>
+<li><a href="feedback.html"><span class="num">05</span>Feedback</a></li>
+</ol>
+</nav>
+<p class="rail-foot"><a href="https://github.com/jbrianfrancis-ir/devflow">Source on GitHub</a><br>MIT licensed</p>
+</header>
+<main id="main" tabindex="-1">
+<header class="page-head">
+<p class="eyebrow">00<span class="sep">/</span>Install</p>
+<h1>Install DevFlow</h1>
+<p class="lede">DevFlow is a plugin. Add its marketplace, install it, and check it with one command in an empty directory.</p>
+</header>
+
+<section aria-labelledby="h-need">
+<h2 id="h-need"><span class="sec">A</span>What you need</h2>
+<div class="defs-wrap">
+<dl class="defs">
+<dt>A host</dt><dd>Claude Code, or a local Codex client: the CLI, the app or the IDE extension. Codex cloud is not supported.</dd>
+<dt>git</dt><dd>Every project is a git repository. DevFlow works on a <code>flow/&lt;slug&gt;</code> branch and never commits to <code>main</code>.</dd>
+<dt>Python 3</dt><dd>DevFlow's helper scripts (plan lint, worktree landing, the cross-provider bridge) are standard-library Python, run as <code>python3</code>.</dd>
+<dt>gh</dt><dd>The GitHub CLI, authenticated, for <code>/flow-pr</code> and <code>/flow-ci</code>. Planning and executing work without it.</dd>
+<dt>Azure and azd</dt><dd>Only for projects that deploy, at <code>/flow-uat</code> and <code>/flow-release</code>. A library, CLI or docs repo sets <code>deploy.tool</code> to <code>null</code> and never needs them.</dd>
+</dl>
+</div>
+</section>
+
+<section aria-labelledby="h-claude">
+<h2 id="h-claude"><span class="sec">B</span>Claude Code</h2>
+<p>Run these inside Claude Code:</p>
+<pre class="code" tabindex="0">/plugin marketplace add jbrianfrancis-ir/devflow
+/plugin install devflow@devflow</pre>
+<p>Commands are <code>/flow-new</code>, <code>/flow-plan</code> and so on. A project that DevFlow initializes also records the plugin in its <code>.claude/settings.json</code>, so a fresh Claude session in that repo installs it on its own.</p>
+</section>
+
+<section aria-labelledby="h-codex">
+<h2 id="h-codex"><span class="sec">C</span>Codex CLI, app or IDE</h2>
+<pre class="code" tabindex="0">codex plugin marketplace add jbrianfrancis-ir/devflow
+codex plugin add devflow@devflow</pre>
+<p>Start a new Codex thread after installing. Codex invokes the same skills with a <code>$</code> prefix: <code>$flow-new</code>, <code>$flow-plan</code>, <code>$flow-execute</code>. Codex installs at user scope, and a project skill never edits your Codex configuration.</p>
+</section>
+
+<section aria-labelledby="h-check">
+<h2 id="h-check"><span class="sec">D</span>Check the install</h2>
+<p>In an empty git repository, ask for status. With no <code>.planning/</code> directory there is nothing to report, so it names the next step and stops at a gate, because <code>/flow-new</code> needs your answers.</p>
+<div class="breakout">
+<figure class="term" aria-labelledby="cap-00-status-empty">
+<figcaption id="cap-00-status-empty"><span class="term-title">Empty repository, before /flow-new</span><span class="term-meta">exit 0 · 0m 54s</span></figcaption>
+<pre class="term-cmd"><span class="prompt" aria-hidden="true">$ </span>/devflow:flow-status</pre>
+<pre class="term-out" tabindex="0">There&#x27;s no DevFlow project in this repo yet. `/tmp/devflow-demo.tRz487` has one commit (`d0dc966 chore: empty repo`), no tracked files, and no `.planning/` directory, so there&#x27;s no phase, plan or TODO to report.
+
+**Next step:** run `/flow-new`. It sets up the project&#x27;s planning folder (requirements, roadmap, state) and asks you about the project as it goes. That&#x27;s why the line below says GATE: the next step needs your answers, so it can&#x27;t run unattended.
+
+After that, `/flow-status` will show where the project is, and `/flow-next` moves it forward one step at a time. The `/goal` and `/loop` setups for running it hands-off are in `docs/autonomy.md`.
+
+<span class="flow flow-gate">FLOW: GATE | no DevFlow project in this repo, setup needs your answers | next: /flow-new</span></pre>
+</figure>
+</div>
+<p class="muted">This run loaded DevFlow from a checkout for one session, which is why the command reads <code>/devflow:flow-status</code>. An installed plugin answers to <code>/flow-status</code>.</p>
+</section>
+
+<section aria-labelledby="h-tree">
+<h2 id="h-tree"><span class="sec">E</span>Run a checkout for one session</h2>
+<p>For trying a branch or contributing. This changes no installed plugin and no marketplace. From a scratch directory:</p>
+<pre class="code" tabindex="0">claude --plugin-dir &lt;path-to-checkout&gt;/plugins/devflow</pre>
+<p>Skills are then namespaced by the plugin name, so type <code>/devflow:flow-status</code>. Headless works too:</p>
+<pre class="code" tabindex="0">claude --plugin-dir &lt;path-to-checkout&gt;/plugins/devflow -p "/devflow:flow-status" --effort low</pre>
+<p>No session-only load path has been checked for Codex, so none is listed. Details are in <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/docs/installation.md">docs/installation.md</a>.</p>
+</section>
+
+<section aria-labelledby="h-then">
+<h2 id="h-then"><span class="sec">F</span>Then</h2>
+<p><a class="btn" href="first-workflow.html">Walk through a first workflow</a></p>
+</section>
+
+</main>
+<footer class="foot">
+<p>DevFlow is an open-source plugin, MIT licensed. <a href="https://github.com/jbrianfrancis-ir/devflow">Repository</a> · <a href="https://github.com/jbrianfrancis-ir/devflow/issues">Issues</a> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/CHANGELOG.md">Changelog</a></p>
+<p>Every terminal block on this site is unedited output from a real run, apart from the path substitutions listed on the <a href="first-workflow.html#how-captured">first-workflow page</a>.</p>
+</footer>
+</div>
+</body>
+</html>

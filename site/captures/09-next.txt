@@ -1,0 +1,17 @@
+Gap plan 01-02 is done and the earlier traceback gap is fixed. The phase isn't marked verified yet, because one check needs a person: SC-01, which requires 10 MB in under 5 seconds.
+
+- **What changed:** files that can't be opened for other OS reasons (a path through a file, a 300-character name) now print the normal error and exit 1, with no traceback. New tests pin decisions D-04 (inner `'` kept, `-` splits words) and D-05 (argparse's 2-line usage errors are fine). Commits: `36c4980`, `fe77ce2`, `61ae2fc`.
+- **Scope:** the plan touched only the two files it declared, plus its SUMMARY and STATE.
+- **Verification:** status `human_needed`, no gaps. The end-to-end smoke check passed: 19 tests OK, and the CLI's top 3 match a hand count. 12 of 13 checks passed. The written record is in `.planning/phases/01-wordfreq-cli/01-VERIFICATION.md`.
+- **Why SC-01 is open:** the verifier's 10 MB runs took 6–12 seconds. They prove nothing either way, because the machine is overloaded (load average about 42–55 on 4 CPUs; it was 42 when I checked). The counting code hasn't changed since the previous verification, which measured 2.79 seconds. The existing SC-01 test only times the counting function on an 8-word vocabulary, not the full command.
+- **Fixed after the executor:** it had overwritten the Run block's signature, which only `/flow-next` should set. I restored it.
+
+STATE's Gate block now holds the SC-01 question. The work is committed (`5d33df0`), the secret scan was clean, and `flow/wordfreq` is pushed to origin.
+
+**What you need to do:** on an idle machine, time `python3 src/wordfreq.py <a 10 MB file with ~50k distinct words>`.
+- **Under 5s:** record the pass, then run `/flow-verify 1`. After that the project goes to `/flow-pr`, since there's nothing to deploy.
+- **5s or more:** SC-01 becomes a gap, then run `/flow-plan 1 --gaps`.
+
+Still unfixed from before: the `chmod 0` permission test fails when run as root and should be skipped in that case.
+
+FLOW: GATE | phase 1 executed, verify human_needed — SC-01 10 MB <5s timing needs an idle-host run | next: time SC-01 by hand, then /flow-verify 1

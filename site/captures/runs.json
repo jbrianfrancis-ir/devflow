@@ -1,0 +1,114 @@
+{
+  "claude_version": "2.1.319 (Claude Code)",
+  "date": "9 November 2026",
+  "runs": {
+    "00-status-empty": {
+      "label": "Empty repository, before /flow-new",
+      "short": "/flow-status",
+      "command": "/devflow:flow-status",
+      "started": "2026-11-09T11:57:15-05:00",
+      "finished": "2026-11-09T11:58:09-05:00",
+      "duration": "0m 54s",
+      "exit": 0
+    },
+    "01-new": {
+      "label": "01 \u00b7 Initialize",
+      "short": "/flow-new --auto",
+      "command": "/devflow:flow-new --auto A tiny Python 3 command-line tool, wordfreq: read a UTF-8 text file and print the N most frequent words (default 10) with their counts, case-insensitive, ignoring punctuation. Standard library only, unittest for tests. No deploy target, no UI.",
+      "started": "2026-11-09T11:58:28-05:00",
+      "finished": "2026-11-09T12:00:54-05:00",
+      "duration": "2m 26s",
+      "exit": 0
+    },
+    "02-status": {
+      "label": "02 \u00b7 Orient",
+      "short": "/flow-status",
+      "command": "/devflow:flow-status",
+      "started": "2026-11-09T12:00:54-05:00",
+      "finished": "2026-11-09T12:02:18-05:00",
+      "duration": "1m 24s",
+      "exit": 0
+    },
+    "03-plan": {
+      "label": "03 \u00b7 Plan phase 1",
+      "short": "/flow-plan 1 --auto",
+      "command": "/devflow:flow-plan 1 --auto",
+      "started": "2026-11-09T12:02:18-05:00",
+      "finished": "2026-11-09T12:18:46-05:00",
+      "duration": "16m 28s",
+      "exit": 0
+    },
+    "04-execute": {
+      "label": "04 \u00b7 Execute phase 1",
+      "short": "/flow-execute 1 --auto",
+      "command": "/devflow:flow-execute 1 --auto",
+      "started": "2026-11-09T12:18:46-05:00",
+      "finished": "2026-11-09T12:24:56-05:00",
+      "duration": "6m 10s",
+      "exit": 0
+    },
+    "05-status": {
+      "label": "05 \u00b7 Check in",
+      "short": "/flow-status",
+      "command": "/devflow:flow-status",
+      "started": "2026-11-09T12:24:56-05:00",
+      "finished": "2026-11-09T12:25:46-05:00",
+      "duration": "0m 50s",
+      "exit": 0
+    },
+    "06-next": {
+      "label": "06 \u00b7 One autonomous step",
+      "short": "/flow-next",
+      "command": "/devflow:flow-next",
+      "started": "2026-11-09T12:25:46-05:00",
+      "finished": "2026-11-09T12:27:11-05:00",
+      "duration": "1m 25s",
+      "exit": 0
+    },
+    "08-answer": {
+      "label": "07 \u00b7 Answer the gate",
+      "short": "/flow-next <answer>",
+      "command": "/devflow:flow-next Gate answer: option 1. Keep both behaviours as they are: don't stays one word, well-known splits into two, and argparse's two-line usage errors are acceptable. Pin both with tests and fix the traceback.",
+      "started": "2026-11-09T12:28:03-05:00",
+      "finished": "2026-11-09T12:40:27-05:00",
+      "duration": "12m 24s",
+      "exit": 0
+    },
+    "09-next": {
+      "label": "08 \u00b7 Fix the gap",
+      "short": "/flow-next",
+      "command": "/devflow:flow-next",
+      "started": "2026-11-09T12:40:27-05:00",
+      "finished": "2026-11-09T12:50:09-05:00",
+      "duration": "9m 42s",
+      "exit": 0
+    },
+    "11-verify": {
+      "label": "09 \u00b7 Human check, re-verify",
+      "short": "/flow-verify 1 <result>",
+      "command": "/devflow:flow-verify 1 SC-01 human check result: I timed python3 src/wordfreq.py on a 10,485,807-byte file with 50,000 distinct words, three runs: 3.79s, 6.42s, 3.84s. The host was not idle (load average 31 to 42 on 4 CPUs). I accept SC-01 as met: two of three runs are under 5s even under that load.",
+      "started": "2026-11-09T12:51:20-05:00",
+      "finished": "2026-11-09T12:55:30-05:00",
+      "duration": "4m 10s",
+      "exit": 0
+    },
+    "12-pr": {
+      "label": "10 \u00b7 Review before the PR",
+      "short": "/flow-pr",
+      "command": "/devflow:flow-pr",
+      "started": "2026-11-09T12:55:30-05:00",
+      "finished": "2026-11-09T13:05:10-05:00",
+      "duration": "9m 40s",
+      "exit": 0
+    },
+    "13-pr-answer": {
+      "label": "11 \u00b7 Answer, push, open",
+      "short": "/flow-pr <answer>",
+      "command": "/devflow:flow-pr Gate answer: option 1, defer. Ship as is, record combining-mark scripts and decomposed accents as out of scope for v1, and list it as a known limitation in the PR.",
+      "started": "2026-11-09T13:05:21-05:00",
+      "finished": "2026-11-09T13:08:28-05:00",
+      "duration": "3m 07s",
+      "exit": 0
+    }
+  }
+}

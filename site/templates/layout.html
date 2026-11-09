@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<meta name="description" content="{{description}}">
+<meta name="color-scheme" content="light">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body class="page-{{slug}}">
+<a class="skip" href="#main">Skip to content</a>
+<div class="frame">
+<header class="rail">
+<a class="mark" href="index.html">
+<span class="mark-word">DevFlow</span>
+<span class="mark-sub">spec-driven development<br>for Claude Code and Codex</span>
+</a>
+<nav class="nav" aria-label="Site">
+<ol role="list">
+{{nav}}
+</ol>
+</nav>
+<p class="rail-foot"><a href="{{repo}}">Source on GitHub</a><br>MIT licensed</p>
+</header>
+<main id="main" tabindex="-1">
+{{content}}
+</main>
+<footer class="foot">
+<p>DevFlow is an open-source plugin, MIT licensed. <a href="{{repo}}">Repository</a> · <a href="{{repo}}/issues">Issues</a> · <a href="{{repo}}/blob/main/CHANGELOG.md">Changelog</a></p>
+<p>Every terminal block on this site is unedited output from a real run, apart from the path substitutions listed on the <a href="first-workflow.html#how-captured">first-workflow page</a>.</p>
+</footer>
+</div>
+</body>
+</html>

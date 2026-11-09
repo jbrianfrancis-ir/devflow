@@ -1,0 +1,55 @@
+Round 1 is running: seven reviewers in parallel (correctness, conventions, security, architecture, tests, comprehension, zoom-out). I'll triage their findings when they all report back.
+
+Conventions lens is done with 1 should-fix: eight bookkeeping commits have no `DevFlow-Agent` trailer. Six reviewers are still running.
+
+The architecture and security lenses found nothing. Both mention `.claude/settings.json`, which is the standard DevFlow plugin declaration. The harness flagged that mention as instruction-shaped, but the text only describes the file and asks me to do nothing. Four reviewers are still running.
+
+Round 2 is running: correctness, tests and comprehension, over `d1e0188..42d6360` only. The combining-marks blocker is still open and waits for your decision at the gate.
+
+Round 2 correctness found nothing. Its one preexisting note is that the tests need `PYTHONPATH=src`. That is the documented test command in ARCHITECTURE.md, not a defect. Tests and comprehension are still running.
+
+I've stopped at the human gate: one blocking review finding needs your decision before I push and open the PR. Everything else from review is fixed or written up, and the PR body is drafted.
+
+## The open blocker: combining marks split words
+The correctness and comprehension reviewers found this independently. The tokenizer (`src/wordfreq.py:7`) counts only letters and digits as word characters. Combining marks (accents and vowel signs stored as separate characters) count as separators, so:
+- `हिन्दी` is counted as three fragments: `द`, `न`, `ह`.
+- `İstanbul` splits into `i` and `stanbul`, because lowercasing `İ` produces a combining dot.
+- `café` with a separately stored accent counts as `cafe`. STATE.md already lists this as deferred ("REQ-05 NFC-only").
+
+I didn't fix it myself for two reasons:
+- **It changes a requirement.** REQ-04 literally says "letters and digits", and marks aren't letters.
+- **It is slower.** I built and timed a correct fix (marks allowed inside words, plus composing accents into single characters first). It makes the whole CLI about 1.7× slower: 1.4s → 2.5s on a 10 MB ASCII file, and 1.6s → 2.4s on a 10 MB non-ASCII file, at load ~5. SC-01 only just passed (3.79s, 6.42s and 3.84s on a loaded host), and a 1.7× slowdown would push those runs well over 5s.
+
+**Options:**
+1. **Defer (recommended).** Ship as is, add a REQ-04/05 note: "combining-mark scripts and decomposed accents are out of scope for v1", and add a `TODOS.md` line. The PR lists it as a known limitation.
+2. **Fix for all input.** Accept about 1.7× slower runs; SC-01 would need re-timing.
+3. **Fix with an ASCII fast path.** ASCII files keep today's speed, and only non-ASCII files take the slower tokenizer. This adds about 15 lines and two code paths.
+
+## Review: 2 rounds
+- **Round 1** (`d1e0188`, 7 lenses) found 1 blocking issue, 7 should-fix and 3 nits.
+- **Round 2** (`42d6360`, correctness, tests and comprehension) found nothing blocking, so the review loop stopped.
+- **Fixed:**
+  - The curly apostrophe `’` now counts as an inner apostrophe, so `don’t` and `don't` count as one word, printed with `'` (`171e4be`).
+  - New tests cover `--top`, digits joining a word and `_` splitting one; the `chmod 0` test is skipped when run as root (`654c1c5`).
+  - Comments now explain the exit codes and why `-n` is parsed by hand (`42d6360`).
+  - A test pins that a closing curly quote does not stick to the word, and `TODOS.md` was added (`c3b6f2e`). These changes were made after round 2 and were not re-reviewed.
+  - Each fixed bug has a test that fails without its fix, and the new tests catch deliberately broken versions of the regex. 22 tests pass, and the smoke run passes.
+- **Should-fix items I dismissed, recorded in the PR body:**
+  - Eight earlier bookkeeping commits have no `DevFlow-Agent` trailer. Rewording them would change commit IDs that DECISIONS.md and VERIFICATION.md cite, and would need a force-push.
+  - `test_sc01` doesn't time the CLI. A wall-clock test against 5s is flaky on loaded machines, so SC-01 stays proven by your timed run.
+
+## Draft PR
+- **Title:** `wordfreq: stdlib CLI for top-N word frequencies`
+- **Base ← head:** `main` ← `flow/wordfreq`
+- **First line of the body:** `Merge Danger: LOW — two-way door; blast radius: only people who run python3 src/wordfreq.py from this repo …`
+- The full body is in `/tmp/wordfreq-pr-body.md`; the open-items line fills in once you decide.
+
+**Other checks:**
+- The secret scan and the ARCHITECTURE.md forbidden-import check both found nothing.
+- No version is declared anywhere, so there is nothing to bump.
+- Nothing is pushed yet. Origin still has the branch at `5d33df0`.
+- The untracked `__pycache__/` folders aren't part of the PR, and the repo has no `.gitignore` for them.
+
+Reply 1, 2 or 3. I'll then push, open the PR (ready for review, not draft), and record it in STATE.md and JOURNAL.md.
+
+`FLOW: GATE | blocking review finding (combining marks / REQ-04 scope vs SC-01) needs a decision | next: pick 1/2/3, then /flow-pr opens the PR`
