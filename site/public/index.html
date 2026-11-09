@@ -42,20 +42,20 @@
 <section aria-labelledby="h-evidence">
 <div class="evidence breakout">
 <h2 id="h-evidence">Every command ends with one line a machine can read</h2>
-<p>These are the last lines of each command in the <a href="first-workflow.html">first-workflow run</a>, copied from its real stdout. <code>/goal</code> and <code>/loop</code> read the same line to decide whether to keep going or stop and ask you.</p>
+<p>These are the last lines of each command in the <a href="first-workflow.html">first-workflow run</a>, copied from its real stdout with Markdown backticks removed. <code>/goal</code> and <code>/loop</code> read the same line to decide whether to keep going or stop and ask you.</p>
 <ol class="ledger" role="list">
 <li><span class="ledger-cmd">/flow-status</span><code class="flow flow-gate">FLOW: GATE | no DevFlow project in this repo, setup needs your answers | next: /flow-new</code></li>
 <li><span class="ledger-cmd">/flow-new --auto</span><code class="flow flow-continue">FLOW: CONTINUE | initialized, 1 phase | next: /flow-plan 1</code></li>
 <li><span class="ledger-cmd">/flow-status</span><code class="flow flow-continue">FLOW: CONTINUE | phase 1/1 not yet planned | next: /flow-plan 1</code></li>
 <li><span class="ledger-cmd">/flow-plan 1 --auto</span><code class="flow flow-continue">FLOW: CONTINUE | phase 1 planned, 1 plans | next: /flow-execute 1</code></li>
 <li><span class="ledger-cmd">/flow-execute 1 --auto</span><code class="flow flow-continue">FLOW: CONTINUE | phase 1 gaps: 1 (REQ-07 traceback on uncaught OSError); 2 human decisions open (REQ-04 apostrophes/hyphens, two-line usage errors) | next: /flow-plan 1 --gaps</code></li>
-<li><span class="ledger-cmd">/flow-status</span><code class="flow flow-continue">`FLOW: CONTINUE | phase 1/1, plans 1/1, verify gaps | next: /flow-plan 1 --gaps`</code></li>
+<li><span class="ledger-cmd">/flow-status</span><code class="flow flow-continue">FLOW: CONTINUE | phase 1/1, plans 1/1, verify gaps | next: /flow-plan 1 --gaps</code></li>
 <li><span class="ledger-cmd">/flow-next</span><code class="flow flow-gate">FLOW: GATE | phase 1/1 verify gaps — REQ-04 apostrophe/hyphen rule and REQ-07 argparse usage-error rule need a human decision | next: answer the Gate (option 1–4), then /flow-next</code></li>
 <li><span class="ledger-cmd">/flow-next &lt;answer&gt;</span><code class="flow flow-continue">FLOW: CONTINUE | phase 1 gap plan 01-02 ready (wave 2), gate answered | next: /flow-execute 1</code></li>
 <li><span class="ledger-cmd">/flow-next</span><code class="flow flow-gate">FLOW: GATE | phase 1 executed, verify human_needed — SC-01 10 MB &lt;5s timing needs an idle-host run | next: time SC-01 by hand, then /flow-verify 1</code></li>
-<li><span class="ledger-cmd">/flow-verify 1 &lt;result&gt;</span><code class="flow flow-continue">`FLOW: CONTINUE | phase 1 verified | next: /flow-pr`</code></li>
-<li><span class="ledger-cmd">/flow-pr</span><code class="flow flow-gate">`FLOW: GATE | blocking review finding (combining marks / REQ-04 scope vs SC-01) needs a decision | next: pick 1/2/3, then /flow-pr opens the PR`</code></li>
-<li><span class="ledger-cmd">/flow-pr &lt;answer&gt;</span><code class="flow flow-blocked">`FLOW: BLOCKED | origin is not a GitHub remote, PR cannot be opened | next: add a GitHub remote, then /flow-pr`</code></li>
+<li><span class="ledger-cmd">/flow-verify 1 &lt;result&gt;</span><code class="flow flow-continue">FLOW: CONTINUE | phase 1 verified | next: /flow-pr</code></li>
+<li><span class="ledger-cmd">/flow-pr</span><code class="flow flow-gate">FLOW: GATE | blocking review finding (combining marks / REQ-04 scope vs SC-01) needs a decision | next: pick 1/2/3, then /flow-pr opens the PR</code></li>
+<li><span class="ledger-cmd">/flow-pr &lt;answer&gt;</span><code class="flow flow-blocked">FLOW: BLOCKED | origin is not a GitHub remote, PR cannot be opened | next: add a GitHub remote, then /flow-pr</code></li>
 </ol>
 </div>
 </section>

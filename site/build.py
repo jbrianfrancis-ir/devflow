@@ -64,14 +64,19 @@ def frontmatter(path):
     end = text.find("\n---", 3)
     if end == -1:
         raise BuildError(f"{path}: unterminated frontmatter")
-    values, key = {}, None
+    values, key, in_block = {}, None, False
     for line in text[4:end].splitlines():
+        if in_block and not line.strip():
+            # A blank line inside a folded block is a paragraph break in YAML; this parser
+            # would join it as a space, so refuse rather than render it wrong.
+            raise BuildError(f"{path}: blank line inside the {key!r} block is not supported")
         if line.startswith((" ", "\t")) and key:
             values[key] = (values[key] + " " + line.strip()).strip()
         elif ":" in line:
             key, _, value = line.partition(":")
             key, value = key.strip(), value.strip()
-            values[key] = "" if value in (">-", ">", "|", "|-") else value
+            in_block = value in (">-", ">", "|", "|-")
+            values[key] = "" if in_block else value
     return values
 
 
@@ -178,6 +183,7 @@ def render_flow_lines(data):
         for line in (CAPTURES / f"{name}.txt").read_text(encoding="utf-8").splitlines():
             m = FLOW_LINE.match(line)
             if m:
+                line = line.strip("`")  # a few runs print the line as inline code
                 cmd = data["runs"][name]["short"]
                 rows.append(
                     f'<li><span class="ledger-cmd">{esc(cmd)}</span>'
