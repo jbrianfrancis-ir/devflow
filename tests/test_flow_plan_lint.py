@@ -340,9 +340,26 @@ class R9TruncatedBody(LintCase):
     def test_tags_in_a_fenced_example_pass(self):
         fence = "```"
         example = (f"<action>copy this shape:\n{fence}xml\n<tasks>\n<task type=\"auto\">\n"
-                   f"  <verify>cd {self.repo.resolve()} && true</verify>\n</task>\n</tasks>\n{fence}\n"
+                   f"  <verify>true</verify>\n</task>\n</tasks>\n{fence}\n"
                    "</action>")
         self.write("01-01-PLAN.md", plan("01-01").replace("<action>do it</action>", example))
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_unclosed_fence_fails_closed(self):
+        # Round-3 review: an unclosed fence must not hide a stray structural tag.
+        text = plan("01-01").replace("<action>do it</action>",
+                                     "<action>example:\n```\n<tasks>\nleft open</action>")
+        self.write("01-01-PLAN.md", text)
+        result = self.run_lint()
+        self.assertFinding(result, "R9", "01-01", "unclosed ``` code fence")
+        self.assertFinding(result, "R9", "01-01", "found 2 <tasks>")
+
+    def test_code_span_opening_a_line_is_not_a_fence(self):
+        # A real plan in this repo opens a line with ```` ``` ```` (an inline span).
+        text = plan("01-01").replace("<action>do it</action>",
+                                     "<action>shapes:\n   ```` ``` ```` / `~~~` / blank</action>")
+        self.write("01-01-PLAN.md", text)
         result = self.run_lint()
         self.assertEqual(result.returncode, 0, result.stdout)
 
@@ -387,6 +404,12 @@ class R10AbsoluteVerifyPath(LintCase):
     def test_colon_joined_path_list(self):
         self.write("01-01-PLAN.md", self.with_verify(
             "01-01", f"PYTHONPATH={self.repo.resolve()}:$PYTHONPATH python3 -m pytest"))
+        self.assertFinding(self.run_lint(), "R10", "01-01", "<verify> names the absolute path")
+
+    def test_fenced_verify_script_is_checked(self):
+        # Round-3 review: a real <verify> is often a fenced script; R10 must read it.
+        self.write("01-01-PLAN.md", self.with_verify(
+            "01-01", f"\nPrints nothing:\n```\ncd {self.repo.resolve()} && true\n```\n"))
         self.assertFinding(self.run_lint(), "R10", "01-01", "<verify> names the absolute path")
 
     def test_path_ending_a_sentence_or_list(self):

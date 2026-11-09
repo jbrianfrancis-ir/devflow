@@ -19,7 +19,8 @@ there are zero findings; any finding exits 1. Rules (stable ids):
   R7 every repo-relative path in <context> exists at HEAD or is declared new as in R6
   R8 lite tier only (.planning/config.json "tier": "lite"): a pending plan over 4096 bytes
   R9 the body is complete: one <tasks>...</tasks> block holding at least one <task>, every
-     <task> closed, no unclosed <!-- comment, and the file does not end inside a tag. A
+     <task> closed, no unclosed <!-- comment or code fence, and the file does not end
+     inside a tag (tags inside a closed fence or `code span` are examples). A
      host can cap a write and still report it as successful; a plan cut off mid-task
      otherwise passes every frontmatter rule above.
   R10 no <verify>/<falsify> names the repo's absolute path (this checkout or its main
@@ -56,8 +57,9 @@ LIST_KEYS = ("depends_on", "files_modified", "requirements")
 CONTEXT_PATH_RE = re.compile(r"^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.[A-Za-z0-9]+$")
 CONTEXT_SPLIT_RE = re.compile(r"[\s,;()`\"'\[\]]+")
 COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
-# Fenced blocks and inline code spans are examples, never structure.
-FENCE_RE = re.compile(r"(?ms)^[ \t]*(```|~~~)[^\n]*\n.*?^[ \t]*\1[^\n]*$")
+# R9 only: a closed fence or inline code span is an example, never structure. R10 strips
+# neither, because a real <verify> script is often a fenced block.
+FENCE_LINE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
 CODE_SPAN_RE = re.compile(r"`[^`\n]*`")
 # R9 counts structural tags only where templates/plan.md puts them: <tasks>, </tasks> and
 # <task ...> open a line, </task> ends one. A tag named mid-sentence in an <action> is prose.
@@ -232,12 +234,37 @@ def context_paths(body: str, sp) -> list[str]:
     return found
 
 
+def strip_fences(text: str) -> tuple[str, str | None]:
+    """Drop closed code fences (CommonMark: a backtick opener's info string has no backtick,
+    so ```` ``` ```` opening a line is a code span; a closer is the same character, at least
+    as long, and nothing else). Returns (text, the marker of a fence left open, or None)."""
+    kept, fence = [], None
+    for line in text.split("\n"):
+        m = FENCE_LINE_RE.match(line)
+        if fence is None:
+            if m and not (m.group(1)[0] == "`" and "`" in m.group(2)):
+                fence = m.group(1)
+            else:
+                kept.append(line)
+        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) \
+                and not m.group(2).strip():
+            fence = None
+    return "\n".join(kept), fence
+
+
 def truncation(body: str) -> list[str]:
     """R9: why this body looks cut off or incomplete; empty when it is whole."""
     problems = []
     if TAG_TAIL_RE.search(body.rstrip()):
         problems.append("file ends inside a tag - the write was cut off; rewrite the plan")
-    text = CODE_SPAN_RE.sub("", FENCE_RE.sub("", COMMENT_RE.sub("", body)))
+    text = COMMENT_RE.sub("", body)
+    stripped, unclosed = strip_fences(text)
+    if unclosed:
+        # Fail closed: an unclosed fence would swallow real structure, so count it all.
+        problems.append(f"unclosed {unclosed} code fence - it hides what follows")
+    else:
+        text = stripped
+    text = CODE_SPAN_RE.sub("", text)
     if "<!--" in text:
         problems.append("unclosed <!-- comment - everything after it is hidden")
         text = text.split("<!--", 1)[0]
@@ -287,7 +314,7 @@ def absolute_path_hits(body: str, roots: list[str]) -> list[str]:
     """R10: one message per <verify>/<falsify> naming a root; a root must end at a path
     boundary, so /repo does not match /repo-other."""
     hits = []
-    for tag, inner in CHECK_TAG_RE.findall(FENCE_RE.sub("", COMMENT_RE.sub("", body))):
+    for tag, inner in CHECK_TAG_RE.findall(COMMENT_RE.sub("", body)):
         for root in roots:
             if re.search(re.escape(root) + r"(?=$|[/\s\"'`;:,&|)\]}]|\.(?:\s|$))", inner):
                 hits.append(f"<{tag}> names the absolute path {root} - executors run in a "
