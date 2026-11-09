@@ -337,6 +337,15 @@ class R9TruncatedBody(LintCase):
         result = self.run_lint()
         self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_tags_in_a_fenced_example_pass(self):
+        fence = "```"
+        example = (f"<action>copy this shape:\n{fence}xml\n<tasks>\n<task type=\"auto\">\n"
+                   f"  <verify>cd {self.repo.resolve()} && true</verify>\n</task>\n</tasks>\n{fence}\n"
+                   "</action>")
+        self.write("01-01-PLAN.md", plan("01-01").replace("<action>do it</action>", example))
+        result = self.run_lint()
+        self.assertEqual(result.returncode, 0, result.stdout)
+
     def test_bare_trailing_angle_bracket(self):
         self.write("01-01-PLAN.md", plan("01-01") + "\n<")
         self.assertFinding(self.run_lint(), "R9", "01-01", "ends inside a tag")
@@ -380,9 +389,15 @@ class R10AbsoluteVerifyPath(LintCase):
             "01-01", f"PYTHONPATH={self.repo.resolve()}:$PYTHONPATH python3 -m pytest"))
         self.assertFinding(self.run_lint(), "R10", "01-01", "<verify> names the absolute path")
 
+    def test_path_ending_a_sentence_or_list(self):
+        for command in (f"ls {self.repo.resolve()}, then stop", f"[{self.repo.resolve()}]",
+                        f"run it in {self.repo.resolve()}."):
+            self.write("01-01-PLAN.md", self.with_verify("01-01", command))
+            self.assertFinding(self.run_lint(), "R10", "01-01", "<verify> names the absolute path")
+
     def test_other_absolute_paths_and_prefix_siblings_pass(self):
         self.write("01-01-PLAN.md", self.with_verify(
-            "01-01", f"python3 -m pytest > /tmp/out.txt && test -d {self.repo}-other"))
+            "01-01", f"python3 -m pytest > /tmp/out.txt && test -d {self.repo}-other && test -d {self.repo}.bak"))
         result = self.run_lint()
         self.assertEqual(result.returncode, 0, result.stdout)
 

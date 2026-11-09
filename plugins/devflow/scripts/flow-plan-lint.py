@@ -56,6 +56,8 @@ LIST_KEYS = ("depends_on", "files_modified", "requirements")
 CONTEXT_PATH_RE = re.compile(r"^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.[A-Za-z0-9]+$")
 CONTEXT_SPLIT_RE = re.compile(r"[\s,;()`\"'\[\]]+")
 COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+# Fenced blocks and inline code spans are examples, never structure.
+FENCE_RE = re.compile(r"(?ms)^[ \t]*(```|~~~)[^\n]*\n.*?^[ \t]*\1[^\n]*$")
 CODE_SPAN_RE = re.compile(r"`[^`\n]*`")
 # R9 counts structural tags only where templates/plan.md puts them: <tasks>, </tasks> and
 # <task ...> open a line, </task> ends one. A tag named mid-sentence in an <action> is prose.
@@ -235,7 +237,7 @@ def truncation(body: str) -> list[str]:
     problems = []
     if TAG_TAIL_RE.search(body.rstrip()):
         problems.append("file ends inside a tag - the write was cut off; rewrite the plan")
-    text = CODE_SPAN_RE.sub("", COMMENT_RE.sub("", body))
+    text = CODE_SPAN_RE.sub("", FENCE_RE.sub("", COMMENT_RE.sub("", body)))
     if "<!--" in text:
         problems.append("unclosed <!-- comment - everything after it is hidden")
         text = text.split("<!--", 1)[0]
@@ -285,9 +287,9 @@ def absolute_path_hits(body: str, roots: list[str]) -> list[str]:
     """R10: one message per <verify>/<falsify> naming a root; a root must end at a path
     boundary, so /repo does not match /repo-other."""
     hits = []
-    for tag, inner in CHECK_TAG_RE.findall(COMMENT_RE.sub("", body)):
+    for tag, inner in CHECK_TAG_RE.findall(FENCE_RE.sub("", COMMENT_RE.sub("", body))):
         for root in roots:
-            if re.search(re.escape(root) + r"(?=$|[/\s\"'`;:&|)])", inner):
+            if re.search(re.escape(root) + r"(?=$|[/\s\"'`;:,&|)\]}]|\.(?:\s|$))", inner):
                 hits.append(f"<{tag}> names the absolute path {root} - executors run in a "
                             f"worktree, so it would check the main checkout instead; use a "
                             f"repo-relative path")
