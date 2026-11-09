@@ -1,6 +1,6 @@
 ---
 name: flow-audit
-description: Read-only cross-artifact consistency check across REQUIREMENTS, ROADMAP, plans, SUMMARYs, VERIFICATION and STATE - coverage both directions, drift, unmeasurable criteria, open clarifications, principle conflicts. Use before executing a phase, before /flow-harden, or when the planning docs feel out of sync. --export assembles an agent-activity evidence pack (who had access, what changed, who approved) for a vendor or compliance review. --docs checks README/docs claims (paths, scripts, package scripts, make targets, env names) against the tree - use before a docs-only PR. --drift checks what the plan, STATE, decisions and CLAUDE.md say against the code and git history - use when a cold session is about to trust the docs.
+description: Read-only consistency check across REQUIREMENTS, ROADMAP, plans, SUMMARYs, VERIFICATION and STATE - coverage both ways, drift, unmeasurable criteria, open clarifications, principle conflicts. Use before executing a phase, before /flow-harden, or when planning docs feel out of sync. Modes - --docs (README/docs claims vs the tree, before a docs-only PR), --drift (plan, STATE, decisions and CLAUDE.md vs code and git history), --export (agent-activity evidence pack for a compliance review).
 ---
 
 # flow-audit

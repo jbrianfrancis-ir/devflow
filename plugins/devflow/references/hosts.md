@@ -62,9 +62,11 @@ there the landing helper's leak check is what enforces it.
 Read-only roles: adjudicator, mapper, researcher, plan-checker, plan-reviewer, reviewer, triager, verifier. Write
 roles: planner, executor, migrator, consultant, prober.
 
-**Third-party clones: the claude peer ignores the repo's settings.** When `--repo`'s `origin` and `upstream` remotes both point outside the GitHub owners we wrote (`flow-agent.py`'s `TRUSTED_REMOTE_OWNERS`), or there is no such remote, the bridge adds `--setting-sources user`. The clone's `.claude/settings.json` and `settings.local.json` then never load headless, so hooks a repo plants do not fire. On Claude Code 2.1.312 that flag also drops the project `CLAUDE.md` and `.claude/skills`; user settings, user hooks and user plugins still load. Trust comes from the remotes, never from a file in the repo. The codex peer is unchanged.
-
-`prober` is a write role whose writes belong **outside** the repo: it needs `workspace-write` to build a throwaway project at all, so the bridge roots it at a scratch directory (`flow-agent.py`'s `SCRATCH_ROLES`) rather than at the checkout — but the two peers enforce that differently. The codex peer sandboxes it there for real (`--sandbox`/`--cd`): the repo is not writable to it at all. The claude CLI has no directory-scoping flag that would confine it the same way without also removing the Bash access a prober needs to build anything, so there the scratch root is only the process's working directory, held by the prompt contract rather than the sandbox. Calling it read-only would be a label asserting something its sandbox does not — the access class and what a role may touch are two different questions, and only the first is what `--sandbox` sets.
+The bridge applies two confinements itself; the orchestrator passes nothing for them. On a
+third-party clone (no `origin`/`upstream` owner in `flow-agent.py`'s `TRUSTED_REMOTE_OWNERS`)
+the claude peer runs with `--setting-sources user`, so the clone's own settings and hooks never
+load. `prober` is rooted at a scratch directory outside the repo (`SCRATCH_ROLES`): the codex
+peer sandboxes it there; under the claude peer only its prompt contract holds it there.
 
 **Write roles emit to `.tmp` and atomically rename — for the artifacts a reader polls.** Every
 write role above that produces a `.planning/` file writes `<name>.tmp` and renames it into
@@ -75,12 +77,8 @@ still a sequence of atomic single-file appearances, not one atomic transaction a
 set — which is why the next rule is also needed and this one does not subsume it.
 
 **Never diff or audit a phase directory while its write role is running.** Wait for completion.
-The trap reads as safe and is not: *a quiet directory is not a finished one* — polling for
-stability cannot distinguish a finished write from a pause between two files. A watcher polling
-for a "stable" directory reported stable during a write lull, twice, and four of thirteen
-reported issues in one phase were stale — filed against a snapshot taken mid-write, describing
-defects already fixed. The orchestrator has no way to know a role is partway through a
-multi-file write except by waiting for it to finish.
+*A quiet directory is not a finished one*: polling for stability cannot tell a finished write
+from a pause between two files, and audits of a mid-write snapshot have filed defects already fixed.
 
 Always tell a spawned role that **commits** — today only the executor — its
 **resolved provider and model**: it needs both to write the commit attribution
@@ -116,34 +114,15 @@ model is never read from config. Pass `--model` to the bridge only when you
 know the name is valid for that provider; omitted, the peer CLI picks its own
 default.
 
-**Usage report** (opt-in: `"usage_report": true` in `.planning/config.json`; absent or `false` is off and nothing in this paragraph happens). Only executor and verifier dispatches are recorded; the report shows every other role as `not instrumented`. The orchestrator — never the agent, which cannot observe its own usage — writes one record per dispatch with `python3 {devflow_root}/scripts/flow-usage.py record --file <the SUMMARY or VERIFICATION.md> --record '<json>'`, the only writer: it validates the record and refuses any `n` but the unit's next, so a repeated step never counts twice. Copy what the host printed, nothing else: Claude native → the Agent result's `<usage>` block (`subagent_tokens` as `tokens`, `duration_ms`), `"source": "agent-tool"`, `outcome` from its result block's status; the bridge → its `usage` object as printed (`source`, `provider`, requested `model`, `tokens`, `duration_ms`, `outcome`), never the wrapper subagent's own block (no `usage` object — the bridge reads `--repo`'s committed config, so a task worktree may not see an uncommitted setting — is `"source": "claude-cli"` or `"codex-cli"` with the rest `"unknown"`); Codex native → `"source": "codex-native"`, `outcome` from its result, the rest `"unknown"`. Add `role` and `n` (1, 2, … per plan, or per phase for the verifier). A value not seen is `"unknown"`, never 0 or an estimate; no prompt, output or other text goes in. Record at the first durable point the skill names. A record still held only in conversation when the run is interrupted, compacted or stopped at a GATE is lost: after a compaction copy one only from a tool result quoted from the session `.jsonl`, never from memory, and a run that did not see a unit's earlier dispatches (a resumed wave) records none for that unit — it then reads `not recorded`, never complete. Shape, coverage and the renderer: `{devflow_root}/scripts/flow-usage.py --help`.
+**Usage report** (opt-in, `"usage_report": true` in `.planning/config.json`): only `/flow-execute`, `/flow-quick` and `/flow-verify` record, per `{devflow_root}/references/usage-report.md`. Off, nothing is recorded.
 
 ## Effort
 
-DevFlow ships no effort for any role: no agent file declares one, and without a
-project setting the host's own default applies. A project that wants per-role
-effort sets `agents.effort.<role>` in `.planning/config.json`, with the same
-role names as `agents.models`. Absent or `"inherit"` passes no effort at all.
-Example only, not a recommendation:
-
-```json
-"agents": { "effort": { "reviewer": "high", "executor": "inherit" } }
-```
-
-- Cross-provider: the bridge resolves `--effort`, then `agents.effort.<role>`,
-  then none, and checks the value before starting any peer. The claude peer
-  gets `claude --effort <level>` for the levels in `flow-agent.py`'s
-  `EFFORT_LEVELS`; any other value fails the dispatch. That check is the only
-  guard: the claude CLI itself warns on an unknown level and runs at its
-  default. The codex peer refuses every effort ("effort for codex: unverified,
-  not supported yet") because Codex types reasoning effort as whatever the
-  model advertises, so there is no fixed set to check against. Leave the key
-  unset or `inherit` for roles dispatched to codex.
-- Native: **not applied**. Claude Code agent definitions accept an `effort`
-  field, but DevFlow's agent files are shipped content that cannot carry a
-  project's value, and the Agent tool takes no per-call effort. Native roles
-  run at the session's effort (`claude --effort <level>` at launch). Codex
-  native per-role effort is unverified and likewise not applied.
+DevFlow ships no effort for any role. A project may set `agents.effort.<role>` in
+`.planning/config.json` (role names as in `agents.models`; absent or `"inherit"` passes none).
+Cross-provider: the bridge resolves `--effort`, then `agents.effort.<role>`, and checks the value
+before starting a peer — the claude peer takes `flow-agent.py`'s `EFFORT_LEVELS`, the codex peer
+refuses every effort. Native: not applied; native roles run at the session's effort.
 
 The host remains responsible for graph ordering, disjoint-write checks, fan-in,
 checkpoints, secret scans, commits and pushes, and independent verification.
