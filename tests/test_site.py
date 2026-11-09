@@ -64,8 +64,7 @@ class CommittedOutputTest(unittest.TestCase):
 class LookTest(unittest.TestCase):
     """The dark product look: shared top nav and dark scheme on every page, home headline kept."""
 
-    HEADLINE = ("A development process for coding agents, from first requirements through release, "
-                "and back when production breaks.")
+    HEADLINE = "A development process for coding agents."
 
     def pages(self):
         pages = {p.name: p.read_text(encoding="utf-8") for p in PUBLIC.glob("*.html")}
@@ -97,6 +96,7 @@ class LookTest(unittest.TestCase):
     def test_home_keeps_headline_and_copyable_install(self):
         index = self.pages()["index.html"]
         self.assertIn(f"<h1>{self.HEADLINE}</h1>", index)
+        self.assertNotIn("from first requirements through release", index)
         self.assertNotIn("Plans on disk", index)
         hero = index.split('<section class="hero">', 1)[1].split("</section>", 1)[0]
         install = load_build().readme_block("### Claude Code")
