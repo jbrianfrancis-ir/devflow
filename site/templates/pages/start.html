@@ -1,0 +1,58 @@
+<!--
+title: Install DevFlow: Claude Code and Codex
+description: Install the DevFlow plugin in Claude Code or Codex, check the install, and load a working tree for one session.
+-->
+<header class="page-head">
+<p class="eyebrow">00<span class="sep">/</span>Install</p>
+<h1>Install DevFlow</h1>
+<p class="lede">DevFlow is a plugin. Add its marketplace, install it, and check it with one command in an empty directory.</p>
+</header>
+
+<section aria-labelledby="h-need">
+<h2 id="h-need"><span class="sec">A</span>What you need</h2>
+<div class="defs-wrap">
+<dl class="defs">
+<dt>A host</dt><dd>Claude Code, or a local Codex client: the CLI, the app or the IDE extension. Codex cloud is not supported.</dd>
+<dt>git</dt><dd>Every project is a git repository. DevFlow works on a <code>flow/&lt;slug&gt;</code> branch and never commits to <code>main</code>.</dd>
+<dt>Python 3</dt><dd>DevFlow's helper scripts (plan lint, worktree landing, the cross-provider bridge) are standard-library Python, run as <code>python3</code>.</dd>
+<dt>gh</dt><dd>The GitHub CLI, authenticated, for <code>/flow-pr</code> and <code>/flow-ci</code>. Planning and executing work without it.</dd>
+<dt>Azure and azd</dt><dd>Only for projects that deploy, at <code>/flow-uat</code> and <code>/flow-release</code>. A library, CLI or docs repo sets <code>deploy.tool</code> to <code>null</code> and never needs them.</dd>
+</dl>
+</div>
+</section>
+
+<section aria-labelledby="h-claude">
+<h2 id="h-claude"><span class="sec">B</span>Claude Code</h2>
+<p>Run these inside Claude Code:</p>
+{{install:claude}}
+<p>Commands are <code>/flow-new</code>, <code>/flow-plan</code> and so on. A project that DevFlow initializes also records the plugin in its <code>.claude/settings.json</code>, so a fresh Claude session in that repo installs it on its own.</p>
+</section>
+
+<section aria-labelledby="h-codex">
+<h2 id="h-codex"><span class="sec">C</span>Codex CLI, app or IDE</h2>
+{{install:codex}}
+<p>Start a new Codex thread after installing. Codex invokes the same skills with a <code>$</code> prefix: <code>$flow-new</code>, <code>$flow-plan</code>, <code>$flow-execute</code>. Codex installs at user scope, and a project skill never edits your Codex configuration.</p>
+</section>
+
+<section aria-labelledby="h-check">
+<h2 id="h-check"><span class="sec">D</span>Check the install</h2>
+<p>In an empty git repository, ask for status. With no <code>.planning/</code> directory there is nothing to report, so it names the next step and stops at a gate, because <code>/flow-new</code> needs your answers.</p>
+<div class="breakout">
+{{capture:00-status-empty}}
+</div>
+<p class="muted">This run loaded DevFlow from a checkout for one session, which is why the command reads <code>/devflow:flow-status</code>. An installed plugin answers to <code>/flow-status</code>.</p>
+</section>
+
+<section aria-labelledby="h-tree">
+<h2 id="h-tree"><span class="sec">E</span>Run a checkout for one session</h2>
+<p>For trying a branch or contributing. This changes no installed plugin and no marketplace. From a scratch directory:</p>
+<pre class="code" tabindex="0">claude --plugin-dir &lt;path-to-checkout&gt;/plugins/devflow</pre>
+<p>Skills are then namespaced by the plugin name, so type <code>/devflow:flow-status</code>. Headless works too:</p>
+<pre class="code" tabindex="0">claude --plugin-dir &lt;path-to-checkout&gt;/plugins/devflow -p "/devflow:flow-status" --effort low</pre>
+<p>No session-only load path has been checked for Codex, so none is listed. Details are in <a href="{{repo}}/blob/main/docs/installation.md">docs/installation.md</a>.</p>
+</section>
+
+<section aria-labelledby="h-then">
+<h2 id="h-then"><span class="sec">F</span>Then</h2>
+<p><a class="btn" href="first-workflow.html">Walk through a first workflow</a></p>
+</section>

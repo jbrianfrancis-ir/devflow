@@ -1,0 +1,88 @@
+"""The website under site/: generated from repo sources, committed in sync, links resolve.
+
+The command reference is generated from plugins/devflow/skills/*/SKILL.md by site/build.py,
+so a skill added, renamed or removed without a rebuild fails here instead of shipping a stale
+page. site/ holds no Markdown, so it never counts toward the prompt-lines budget.
+"""
+import importlib.util
+import re
+import subprocess
+import sys
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SITE = ROOT / "site"
+PUBLIC = SITE / "public"
+
+
+def load_build():
+    spec = importlib.util.spec_from_file_location("site_build", SITE / "build.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class CommandReferenceTest(unittest.TestCase):
+    def test_every_skill_has_an_entry_in_the_generated_reference(self):
+        html = load_build().render_commands()
+        skills = sorted(p.parent.name for p in (ROOT / "plugins/devflow/skills").glob("*/SKILL.md"))
+        self.assertTrue(skills)
+        for name in skills:
+            self.assertIn(f'id="cmd-{name}"', html, f"{name} missing from the command reference")
+        self.assertEqual(len(skills), html.count('<article class="cmd"'))
+
+    def test_committed_reference_page_has_every_skill(self):
+        page = (PUBLIC / "commands.html").read_text(encoding="utf-8")
+        for path in (ROOT / "plugins/devflow/skills").glob("*/SKILL.md"):
+            self.assertIn(f'id="cmd-{path.parent.name}"', page)
+
+    def test_explicit_only_skills_are_marked(self):
+        build = load_build()
+        html = build.render_commands()
+        for skill in build.skills():
+            entry = html.split(f'id="cmd-{skill["name"]}"', 1)[1].split("</article>", 1)[0]
+            self.assertEqual(skill["explicit_only"], "Explicit-only" in entry, skill["name"])
+
+
+class CommittedOutputTest(unittest.TestCase):
+    def test_public_matches_a_fresh_build(self):
+        result = subprocess.run([sys.executable, str(SITE / "build.py"), "--check"],
+                                cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+    def test_chart_is_a_byte_copy_of_docs_assets(self):
+        for name in ("sdlc-vs-devflow.png", "sdlc-vs-devflow.svg"):
+            self.assertEqual((ROOT / "docs/assets" / name).read_bytes(),
+                             (PUBLIC / "assets" / name).read_bytes(), name)
+
+    def test_no_markdown_under_site(self):
+        # budget-count.sh counts every tracked *.md outside .planning/; site/ must add none.
+        self.assertEqual([], sorted(str(p) for p in SITE.rglob("*.md")))
+
+
+class LinksTest(unittest.TestCase):
+    ATTR = re.compile(r'(?:href|src)="([^"]+)"')
+
+    def test_relative_links_resolve_and_fragments_exist(self):
+        pages = sorted(PUBLIC.glob("*.html"))
+        self.assertTrue(pages)
+        ids = {p.name: set(re.findall(r'id="([^"]+)"', p.read_text(encoding="utf-8"))) for p in pages}
+        for page in pages:
+            for target in self.ATTR.findall(page.read_text(encoding="utf-8")):
+                if re.match(r"^[a-z]+:", target):
+                    continue
+                path, _, frag = target.partition("#")
+                file = path or page.name
+                self.assertTrue((PUBLIC / file).is_file(), f"{page.name}: {target} does not exist")
+                if frag:
+                    self.assertIn(frag, ids.get(file, set()), f"{page.name}: #{frag} not in {file}")
+
+    def test_every_image_has_alt_text(self):
+        for page in PUBLIC.glob("*.html"):
+            for tag in re.findall(r"<img\b[^>]*>", page.read_text(encoding="utf-8")):
+                self.assertRegex(tag, r'alt="[^"]+"', f"{page.name}: {tag}")
+
+
+if __name__ == "__main__":
+    unittest.main()

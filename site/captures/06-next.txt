@@ -1,0 +1,18 @@
+I stopped this step at a gate instead of planning the gap fix. `STATE.md` lists an open human blocker, and routing rule 2 ("unresolved blocker → GATE") is checked before rule 5 ("verification gaps → `/flow-plan 1 --gaps`"). Your answers change what the gap fix has to cover, so getting them first means the plan is written once instead of twice.
+
+**What's open (phase 1, wordfreq CLI):**
+- **Gap I can fix without you:** some bad file paths still print a stack trace instead of a one-line error. Two examples are `sample.txt/foo` and a 300-character filename. The fix is to catch file errors broadly in `src/wordfreq.py`.
+- **(a) REQ-04, not decided yet:** right now `don't` counts as one word and `well-known` counts as two. Is that the rule you want?
+- **(b) REQ-07, not decided yet:** argparse usage errors (`-n` with no value, or no FILE) exit with code 2 and print two stderr lines: usage, then the error. Does that meet the "one-line message" rule?
+
+**Options** (also recorded in `STATE.md` → `## Gate`):
+1. Keep both as they are. The gap plan adds tests that pin the current behaviour and fixes the stack trace.
+2. Keep (a), make (b) strict. The plan also forces usage errors down to one line.
+3. Change (a): tell me the rule you want. The plan changes the tokenizer as well.
+4. Defer. I plan only the stack-trace fix, and phase 1 can't pass verification until you decide.
+
+There's no default. Separately, the verifier noted that the `chmod 0` unreadable-file test fails when run as root, for example in a root container or CI.
+
+I wrote the gate and a fresh `## Run` block to `STATE.md` and committed them as `07727db` on `flow/wordfreq`.
+
+FLOW: GATE | phase 1/1 verify gaps — REQ-04 apostrophe/hyphen rule and REQ-07 argparse usage-error rule need a human decision | next: answer the Gate (option 1–4), then /flow-next

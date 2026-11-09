@@ -1,0 +1,23 @@
+The planner is revising plan 01-01 to fix the 2 blocking issues: the verify passed even when tests failed, and the REQ-07 tests never checked the stderr text. When it returns I'll diff the plan against the baseline I captured, then rerun the checker and the lint.
+
+Phase 1 is planned. It has one plan, which passed the checker after one revision and lints clean. It is committed as `8c62ba6 chore(flow): plan phase 01`.
+
+**Plan:** `01-01` (wave 1) builds `src/wordfreq.py` and a `unittest` suite covering REQ-01 to REQ-07, SC-01 and SC-02. It is 4086 bytes, just under the lite tier's 4096-byte cap.
+
+**What the review changed:**
+- **Test check:** the original check passed even when tests failed, because a `grep` pipe hid the test run's exit code. It now fails on any failing test.
+- **REQ-07 tests:** these now check the exact error message and exit code for each bad input, not just that one line was printed.
+- **Smaller fixes:** the test command now sets `PYTHONPATH=src`, without which the tests can't import the module. The settled punctuation rule in REQ-04 is now a graded truth. I reworded that truth by hand so it no longer conflicts with keeping `don't` as one word.
+
+**Still open, for you:**
+- **REQ-04 apostrophes and hyphens:** this question wasn't answered, since `--auto` answers no clarification questions. The plan uses the proposed default (`don't` stays one word, `well-known` splits into two), and the verifier will hold that behaviour for your decision.
+- **Known gaps the executor and verifier should watch for:** none of these block execution.
+  - Some file errors, such as a name that is too long, would still print a traceback, because only three error types are caught.
+  - Command-line parsing errors, such as a trailing `-n` with no number, print two lines on stderr instead of one.
+  - The unreadable-file test will fail if the tests run as root.
+  - There is no test for a file with content but no words.
+  - The 10 MB speed test only times the counting step, not reading the file.
+
+I didn't write a CONTEXT.md, since no new decisions were made, and I skipped research. The phase is small enough that `/flow-quick` could do it, but you'd already chosen the one-phase setup, so I planned it. I also cancelled a backup wake-up I'd scheduled while waiting on the planner, so this command won't run again on its own.
+
+FLOW: CONTINUE | phase 1 planned, 1 plans | next: /flow-execute 1

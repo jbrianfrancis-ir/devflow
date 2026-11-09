@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your first DevFlow workflow, from a real run</title>
+<meta name="description" content="A complete DevFlow cycle on a scratch project, from /flow-new to /flow-pr, with the real terminal output of every command, including the gap the verifier found and the gate it raised.">
+<meta name="color-scheme" content="light">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body class="page-first-workflow">
+<a class="skip" href="#main">Skip to content</a>
+<div class="frame">
+<header class="rail">
+<a class="mark" href="index.html">
+<span class="mark-word">DevFlow</span>
+<span class="mark-sub">spec-driven development<br>for Claude Code and Codex</span>
+</a>
+<nav class="nav" aria-label="Site">
+<ol role="list">
+<li><a href="index.html"><span class="num">00</span>Overview</a></li>
+<li><a href="start.html"><span class="num">01</span>Install</a></li>
+<li><a href="first-workflow.html" aria-current="page"><span class="num">02</span>First workflow</a></li>
+<li><a href="concepts.html"><span class="num">03</span>Concepts</a></li>
+<li><a href="commands.html"><span class="num">04</span>Commands</a></li>
+<li><a href="feedback.html"><span class="num">05</span>Feedback</a></li>
+</ol>
+</nav>
+<p class="rail-foot"><a href="https://github.com/jbrianfrancis-ir/devflow">Source on GitHub</a><br>MIT licensed</p>
+</header>
+<main id="main" tabindex="-1">
+<header class="page-head">
+<p class="eyebrow">02<span class="sep">/</span>First workflow</p>
+<h1>A first workflow, from a real run</h1>
+<p class="lede">One small project taken through a full DevFlow cycle. Every block below is the real output of the command above it, run on 9 November 2026. Nothing was retried to get a cleaner result: the run found a real bug, stopped at three real gates, and ended blocked on a remote that isn't GitHub. All of it is shown.</p>
+</header>
+
+<section aria-labelledby="h-shows">
+<h2 id="h-shows"><span class="sec">··</span>The run at a glance</h2>
+<div class="defs-wrap">
+<dl class="defs">
+<dt>Plans rejected</dt><dd>Twice. Once for a test check that could not fail, once for a check that depended on work a later task would do.</dd>
+<dt>Gaps found</dt><dd>One real bug that all 14 of the executor's tests missed, found by the verifier.</dd>
+<dt>Abstentions</dt><dd>Two unsettled requirements and one timing taken on a loaded machine. None was certified. Each went to a person.</dd>
+<dt>Human gates</dt><dd>Three, each with numbered options, each answer written to <code>DECISIONS.md</code>.</dd>
+<dt>Review</dt><dd>Seven lenses, two rounds, one blocking finding left for a person with the cost of each option measured.</dd>
+<dt>Merges</dt><dd>None. DevFlow never merges. On GitHub it would have opened the PR and handed the merge to a person.</dd>
+</dl>
+</div>
+<p>Under <code>/goal</code> or <code>/loop</code>, each of these gates stops the run the same way, because gates never auto-proceed. To drive a project that way: <code>/goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns</code>, then <code>/flow-next</code>.</p>
+</section>
+
+<section aria-labelledby="h-project">
+<h2 id="h-project"><span class="sec">00</span>The project</h2>
+<p>A tiny Python command-line tool, <code>wordfreq</code>, that prints the most frequent words in a text file. It starts as an empty git repository with one empty commit and an <code>origin</code> remote, which here is a local bare repository rather than GitHub.</p>
+<div class="defs-wrap">
+<dl class="defs">
+<dt>/flow-new</dt><dd>Writes requirements and a roadmap.</dd>
+<dt>/flow-plan 1</dt><dd>Writes and checks the phase's plan.</dd>
+<dt>/flow-execute 1</dt><dd>Builds it, then an independent verifier checks it.</dd>
+<dt>/flow-next</dt><dd>Takes one step on its own, and stops at a gate.</dd>
+<dt>/flow-pr</dt><dd>Reviews the diff and opens a pull request.</dd>
+</dl>
+</div>
+</section>
+
+<section aria-labelledby="h-new">
+<h2 id="h-new"><span class="sec">01</span>Initialize with <code>/flow-new</code></h2>
+<p>Given a description and <code>--auto</code>, <code>/flow-new</code> skips its question round, picks the lite tier because the project is small and deploys nothing, writes <code>.planning/</code> on a new <code>flow/wordfreq</code> branch, commits, and pushes. Note what it does with what you did not say: every default it picked is listed as an assumption for you to check, and the one real open question is marked rather than guessed.</p>
+<div class="breakout">
+<figure class="term" aria-labelledby="cap-01-new">
+<figcaption id="cap-01-new"><span class="term-title">01 · Initialize</span><span class="term-meta">exit 0 · 2m 26s</span></figcaption>
+<pre class="term-cmd"><span class="prompt" aria-hidden="true">$ </span>/devflow:flow-new --auto A tiny Python 3 command-line tool, wordfreq: read a UTF-8 text file and print the N most frequent words (default 10) with their counts, case-insensitive, ignoring punctuation. Standard library only, unittest for tests. No deploy target, no UI.</pre>
+<pre class="term-out" tabindex="0">I set up the wordfreq project on a new branch, `flow/wordfreq`, committed the planning files (`fc25755`) and pushed the branch to origin. Nothing was committed to `main`.
+
+**This may be more process than the job needs.** wordfreq is one task with one clear end state, and `/flow-quick` gives the same guarantees without the plan and verify steps. You ran this with `--auto`, so I kept going instead of stopping to ask. To switch, delete the `flow/wordfreq` branch and run `/flow-quick` with the same description.
+
+**How it&#x27;s set up:**
+- **Lite tier:** one repo, no deploy target, and well under 2k lines of code.
+- **No deploy target:** `deploy.tool: null`, so the harden, UAT and release steps are off. It ships when the PR merges.
+- **Standard library and `unittest` only:** any import of pytest, click, typer or nltk is blocked by a pattern in `ARCHITECTURE.md`.
+
+**Roadmap**
+
+| NN | Phase | Goal | Requirements | Status |
+|----|-------|------|--------------|--------|
+| 01 | wordfreq CLI | A tested `src/wordfreq.py` that prints the top-N words of a UTF-8 file, with clean errors | REQ-01–07, SC-01, SC-02 | pending |
+
+**Please check these, since they&#x27;re the parts most likely to be wrong:**
+- **Open question (REQ-04):** should `don&#x27;t` and `well-known` count as one word or be split? My proposed default keeps inner apostrophes and splits on hyphens. `/flow-plan 1` will settle it.
+- **Defaults I picked where your description was silent:**
+  - Output is `word count`, one pair per line, with no header.
+  - Words with equal counts print in alphabetical order.
+  - The option is `-n N`, or `--top N`.
+  - An empty file prints nothing and exits 0.
+  - It runs as `python3 src/wordfreq.py FILE`, with no install step.
+  - It needs Python 3.10 or later.
+  - Bad input (missing file, invalid UTF-8, an N that isn&#x27;t a positive number) prints one line on stderr and exits non-zero, with no traceback.
+- **Speed target (SC-01):** a 10 MB file finishes in under 5 seconds. This is my own target, not yours.
+
+**To keep going:**
+- Drive it to completion: `/goal FLOW says DONE, GATE, or BLOCKED, or stop after 40 turns`, then `/flow-next`
+- Or run it in the background: `/loop /flow-next`
+
+<span class="flow flow-continue">FLOW: CONTINUE | initialized, 1 phase | next: /flow-plan 1</span></pre>
+</figure>
+</div>
+</section>
+
+<section aria-labelledby="h-status">
+<h2 id="h-status"><span class="sec">02</span>Orient with <code>/flow-status</code></h2>
+<p>Run it in any session, at any time. It reads <code>.planning/</code> and prints the exact next command.</p>
+<div class="breakout">
+<figure class="term" aria-labelledby="cap-02-status">
+<figcaption id="cap-02-status"><span class="term-title">02 · Orient</span><span class="term-meta">exit 0 · 1m 24s</span></figcaption>
+<pre class="term-cmd"><span class="prompt" aria-hidden="true">$ </span>/devflow:flow-status</pre>
+<pre class="term-out" tabindex="0">## wordfreq: status
+
+**Where things stand:** Phase 1 of 1 (wordfreq CLI). No plans written yet (0/0). STATE says `planning` and ROADMAP says `pending`. Both mean no plans have been written yet, so they agree. Nothing else on disk disagrees either: there&#x27;s no `phases/` directory, no SUMMARYs and no VERIFICATION.
+
+- **Gate:** none
+- **Blockers:** none
+- **Open TODOs:** 0 (there&#x27;s no `.planning/TODOS.md`)
+- **Last activity:** 2026-11-09, `/flow-new`. It set the project up on the lite tier with 1 phase and 7 requirements, and marked deploy as not applicable.
+- **Run block:** none yet. That&#x27;s a normal first start, not a stuck loop.
+- **Resume note from STATE:** settle the REQ-04 apostrophe/hyphen question during `/flow-plan 1`&#x27;s Discuss step.
+
+**Routing:** The only phase has no plans yet, so the next step is `/flow-plan 1`. I didn&#x27;t check GitHub for a PR because the routing is nowhere near the PR steps yet. `deploy.tool` is `null`, so once the phase is verified the next step is `/flow-pr` directly, and the project is done once that&#x27;s merged.
+
+**Plugin build:** This session&#x27;s skills come from a dev worktree at `&lt;devflow-checkout&gt;/plugins/devflow`, which is version 0.48.0. That&#x27;s newer than anything installed: the user-scope install and the newest version this machine knows of are both 0.46.0. The repo is set to install DevFlow itself (it&#x27;s enabled in `.claude/settings.json`), but it hasn&#x27;t installed its own copy yet. In a normal session it would run on the user-scope 0.46.0, which is two versions behind the skills you&#x27;re testing. Also, the local DevFlow catalog (the marketplace cache) has never been refreshed: it has no fetch on record and was cloned 2026-11-08. A release newer than 0.46.0 could exist without showing up here. To refresh it, run `claude plugin marketplace update devflow`.
+
+`/flow-next` advances one step automatically. The recipes for running it unattended (`/goal` + `/flow-next`, `/loop /flow-next`) are in `docs/autonomy.md`. `/clear` is safe right now because all state lives in `.planning/`.
+
+<span class="flow flow-continue">FLOW: CONTINUE | phase 1/1 not yet planned | next: /flow-plan 1</span></pre>
+</figure>
+</div>
+</section>
+
+<section aria-labelledby="h-plan">
+<h2 id="h-plan"><span class="sec">03</span>Plan with <code>/flow-plan 1</code></h2>
+<p>The planner writes the plan, then a plan-checker tries to reject it. Here it found two blocking problems, including a test check that would have passed even when the tests failed. The planner revised the plan once and it passed.</p>
+<div class="breakout">
+<figure class="term" aria-labelledby="cap-03-plan">
+<figcaption id="cap-03-plan"><span class="term-title">03 · Plan phase 1</span><span class="term-meta">exit 0 · 16m 28s</span></figcaption>
+<pre class="term-cmd"><span class="prompt" aria-hidden="true">$ </span>/devflow:flow-plan 1 --auto</pre>
+<pre class="term-out" tabindex="0">The planner is revising plan 01-01 to fix the 2 blocking issues: the verify passed even when tests failed, and the REQ-07 tests never checked the stderr text. When it returns I&#x27;ll diff the plan against the baseline I captured, then rerun the checker and the lint.
+
+Phase 1 is planned. It has one plan, which passed the checker after one revision and lints clean. It is committed as `8c62ba6 chore(flow): plan phase 01`.
+
+**Plan:** `01-01` (wave 1) builds `src/wordfreq.py` and a `unittest` suite covering REQ-01 to REQ-07, SC-01 and SC-02. It is 4086 bytes, just under the lite tier&#x27;s 4096-byte cap.
+
+**What the review changed:**
+- **Test check:** the original check passed even when tests failed, because a `grep` pipe hid the test run&#x27;s exit code. It now fails on any failing test.
+- **REQ-07 tests:** these now check the exact error message and exit code for each bad input, not just that one line was printed.
+- **Smaller fixes:** the test command now sets `PYTHONPATH=src`, without which the tests can&#x27;t import the module. The settled punctuation rule in REQ-04 is now a graded truth. I reworded that truth by hand so it no longer conflicts with keeping `don&#x27;t` as one word.
+
+**Still open, for you:**
+- **REQ-04 apostrophes and hyphens:** this question wasn&#x27;t answered, since `--auto` answers no clarification questions. The plan uses the proposed default (`don&#x27;t` stays one word, `well-known` splits into two), and the verifier will hold that behaviour for your decision.
+- **Known gaps the executor and verifier should watch for:** none of these block execution.
+  - Some file errors, such as a name that is too long, would still print a traceback, because only three error types are caught.
+  - Command-line parsing errors, such as a trailing `-n` with no number, print two lines on stderr instead of one.
+  - The unreadable-file test will fail if the tests run as root.
+  - There is no test for a file with content but no words.
+  - The 10 MB speed test only times the counting step, not reading the file.
+
+I didn&#x27;t write a CONTEXT.md, since no new decisions were made, and I skipped research. The phase is small enough that `/flow-quick` could do it, but you&#x27;d already chosen the one-phase setup, so I planned it. I also cancelled a backup wake-up I&#x27;d scheduled while waiting on the planner, so this command won&#x27;t run again on its own.
+
+<span class="flow flow-continue">FLOW: CONTINUE | phase 1 planned, 1 plans | next: /flow-execute 1</span></pre>
+</figure>
+</div>
+</section>
+
+<section aria-labelledby="h-execute">
+<h2 id="h-execute"><span class="sec">04</span>Execute with <code>/flow-execute 1</code></h2>
+<p>An executor built the tool and its 14 tests, all passing. Then a separate verifier checked the phase against its must-haves and found a gap the tests did not cover: some bad paths still crash with a traceback. It also refused to certify the two behaviours the requirements never settled, and handed them to a person.</p>
+<div class="breakout">
+<figure class="term" aria-labelledby="cap-04-execute">
+<figcaption id="cap-04-execute"><span class="term-title">04 · Execute phase 1</span><span class="term-meta">exit 0 · 6m 10s</span></figcaption>
+<pre class="term-cmd"><span class="prompt" aria-hidden="true">$ </span>/devflow:flow-execute 1 --auto</pre>
+<pre class="term-out" tabindex="0">Plan 01-01 is built and all 14 of its tests pass, but the verifier found one gap, so phase 1 isn&#x27;t verified yet.
+
+**The gap (REQ-07/SC-02):** a bad file path can still crash with a Python traceback. `src/wordfreq.py` catches only three specific file errors. A path through a file (`sample.txt/foo`) or a name that is too long hits a different error. The result is exit 1 with 8 lines on stderr, but the requirement is exactly one error line and no traceback. The plan checker had already flagged the missing broad `OSError` catch, and the executor deferred it as non-blocking. This is the first time this kind of failure has been seen, so it goes to the normal fix route.
+
+**What did pass:** 8 of the 10 must-have checks, plus the end-to-end smoke test (the tests, then the CLI printing the correct top 3 words). The verifier also timed the full CLI on a 10 MB file at 2.79s against the 5s limit. The suite&#x27;s own speed test times only the counting step, not reading the file.
+
+**Two decisions are yours.** Neither belongs to the gap fix:
+- **Apostrophes and hyphens (REQ-04):** the rule is still marked as needing clarification. Right now `don&#x27;t well-known` counts as `don&#x27;t`, `well`, `known`. Decide the rule, then pin it with a test or write it into REQUIREMENTS.
+- **Two-line usage errors:** `-n` with no value, or a missing file argument, prints 2 lines (usage plus error) and exits 2, with no traceback. Decide whether that meets REQ-07&#x27;s one-line rule.
+
+**Smaller findings:**
+- The unreadable-file test uses `chmod 0`, which doesn&#x27;t block root, so it would fail in a root container or root CI.
+- The test run left `__pycache__/` folders untracked because the repo has no `.gitignore`. I didn&#x27;t add one.
+- The executor reported no deviations, and every file it changed was declared in the plan.
+
+Commits on `flow/wordfreq`: `b797df7` (the code and tests), `18434a3` (the executor&#x27;s summary and state), and `5702acf` (the verification report and state update). The verification report is at `.planning/phases/01-wordfreq-cli/01-VERIFICATION.md`. Nothing was pushed: the push happens only after the phase verifies.
+
+<span class="flow flow-continue">FLOW: CONTINUE | phase 1 gaps: 1 (REQ-07 traceback on uncaught OSError); 2 human decisions open (REQ-04 apostrophes/hyphens, two-line usage errors) | next: /flow-plan 1 --gaps</span></pre>
+</figure>
+</div>
+</section>
+
+<section aria-labelledby="h-status2">
+<h2 id="h-status2"><span class="sec">05</span>Check in with <code>/flow-status</code></h2>
+<p>Status reads the verifier's report and routes to the gap replan. It also noticed two planning files that disagreed with each other, and reported them instead of quietly fixing them.</p>
+<div class="breakout">
+<figure class="term" aria-labelledby="cap-05-status">
+<figcaption id="cap-05-status"><span class="term-title">05 · Check in</span><span class="term-meta">exit 0 · 0m 50s</span></figcaption>
+<pre class="term-cmd"><span class="prompt" aria-hidden="true">$ </span>/devflow:flow-status</pre>
+<pre class="term-out" tabindex="0">You&#x27;re in phase 1 of 1 (wordfreq CLI), and it has verification gaps. The next step is `/flow-plan 1 --gaps`.
+
+**Position**
+- **Phase:** 1 of 1, wordfreq CLI. Plans: 1 of 1 executed (01-01 at `b797df7`). Status: gaps found in verification.
+- **Gate:** none. **Run:** no record yet, so a `/flow-next` loop would start at iteration 1.
+- **Open TODOs:** 0 (`.planning/TODOS.md` doesn&#x27;t exist).
+- **Last activity:** STATE says &quot;2026-11-09: 01-01 executed (b797df7); verifier: gaps (1), smoke pass&quot;. The newest JOURNAL line is &quot;2026-11-09 | /flow-plan 1 --auto | 1 plan… | CONTINUE&quot;.
+
+**Blockers**
+- **Gap (REQ-07/SC-02):** an error outside the ones `src/wordfreq.py` catches still prints a full traceback. Two inputs trigger it: `sample.txt/foo` (NotADirectoryError) and a 300-character file name (ENAMETOOLONG).
+- **Needs you:** two rules are still undecided:
+  - How REQ-04 treats apostrophes and hyphens. Right now `don&#x27;t` counts as one word and `well-known` splits into two.
+  - Whether argparse&#x27;s 2-line usage errors break REQ-07&#x27;s one-line error rule.
+- **Advisory:** `test_req07_unreadable_file` uses `chmod 0`, which doesn&#x27;t block root, so the test fails when run as root (for example in a container or CI).
+
+**Files that disagree.** I didn&#x27;t change any of them; run `/flow-audit` to reconcile:
+- `ROADMAP.md` still shows phase 01 as `pending`. On disk there is a PLAN, a SUMMARY, and a VERIFICATION with `status: gaps`, so the phase has at least been planned and executed.
+- `JOURNAL.md` has no entry for the `/flow-execute 1 --auto` run, though STATE and commit `5702acf` show it happened.
+
+**Next command:** `/flow-plan 1 --gaps`, because VERIFICATION lists gaps. The gap plan will need your answers on REQ-04 and the argparse error format. This project has nothing to deploy (`deploy.tool: null`), so once the phase is verified it goes straight to `/flow-pr`.
+
+**Plugin build:** this session is running DevFlow from your dev worktree `&lt;devflow-checkout&gt;`, at version 0.48.0. The newest version the local registry and marketplace cache know of is 0.46.0, so you&#x27;re running ahead of the installed build, not behind. This `/tmp` repo has no install pinned to it, so there&#x27;s nothing to compare against. The marketplace cache has never fetched (no `.git/FETCH_HEAD`; it was cloned 2026-11-08), so a newer published release wouldn&#x27;t show up here. To refresh it, run `claude plugin marketplace update devflow`.
+
+`/flow-next` runs one step for you; for repeated runs, `docs/autonomy.md` covers `/goal` + `/flow-next` and `/loop /flow-next`. `/clear` is safe at this point because all state lives in `.planning/`.
+
+<span class="flow flow-continue">`FLOW: CONTINUE | phase 1/1, plans 1/1, verify gaps | next: /flow-plan 1 --gaps`</span></pre>
+</figure>
+</div>
+</section>
+
+<section aria-labelledby="h-next">
+<h2 id="h-next"><span class="sec">06</span>Hand over to <code>/flow-next</code></h2>
+<p><code>/flow-next</code> takes exactly one step. Under <code>/goal</code> or <code>/loop</code> it would be called again and again. Here the next step needed a decision only a person can make, so it raised a gate with numbered options and stopped. A loop would have stopped here too.</p>
+<div class="breakout">
+<figure class="term" aria-labelledby="cap-06-next">
+<figcaption id="cap-06-next"><span class="term-title">06 · One autonomous step</span><span class="term-meta">exit 0 · 1m 25s</span></figcaption>
+<pre class="term-cmd"><span class="prompt" aria-hidden="true">$ </span>/devflow:flow-next</pre>
+<pre class="term-out" tabindex="0">I stopped this step at a gate instead of planning the gap fix. `STATE.md` lists an open human blocker, and routing rule 2 (&quot;unresolved blocker → GATE&quot;) is checked before rule 5 (&quot;verification gaps → `/flow-plan 1 --gaps`&quot;). Your answers change what the gap fix has to cover, so getting them first means the plan is written once instead of twice.
+
+**What&#x27;s open (phase 1, wordfreq CLI):**
+- **Gap I can fix without you:** some bad file paths still print a stack trace instead of a one-line error. Two examples are `sample.txt/foo` and a 300-character filename. The fix is to catch file errors broadly in `src/wordfreq.py`.
+- **(a) REQ-04, not decided yet:** right now `don&#x27;t` counts as one word and `well-known` counts as two. Is that the rule you want?
+- **(b) REQ-07, not decided yet:** argparse usage errors (`-n` with no value, or no FILE) exit with code 2 and print two stderr lines: usage, then the error. Does that meet the &quot;one-line message&quot; rule?
+
+**Options** (also recorded in `STATE.md` → `## Gate`):
+1. Keep both as they are. The gap plan adds tests that pin the current behaviour and fixes the stack trace.
+2. Keep (a), make (b) strict. The plan also forces usage errors down to one line.
+3. Change (a): tell me the rule you want. The plan changes the tokenizer as well.
+4. Defer. I plan only the stack-trace fix, and phase 1 can&#x27;t pass verification until you decide.
+
+There&#x27;s no default. Separately, the verifier noted that the `chmod 0` unreadable-file test fails when run as root, for example in a root container or CI.
+
+I wrote the gate and a fresh `## Run` block to `STATE.md` and committed them as `07727db` on `flow/wordfreq`.
+
+<span class="flow flow-gate">FLOW: GATE | phase 1/1 verify gaps — REQ-04 apostrophe/hyphen rule and REQ-07 argparse usage-error rule need a human decision | next: answer the Gate (option 1–4), then /flow-next</span></pre>
+</figure>
+</div>
+</section>
+
+<section aria-labelledby="h-answer">
+<h2 id="h-answer"><span class="sec">07</span>Answer the gate</h2>
+<p>The answer goes in as plain words after the command. DevFlow writes the question and the answer word for word to <code>DECISIONS.md</code>, updates the requirements, and plans the gap fix. The plan-checker rejected the first gap plan too.</p>
+<div class="breakout">
+<figure class="term" aria-labelledby="cap-08-answer">
+<figcaption id="cap-08-answer"><span class="term-title">07 · Answer the gate</span><span class="term-meta">exit 0 · 12m 24s</span></figcaption>
+<pre class="term-cmd"><span class="prompt" aria-hidden="true">$ </span>/devflow:flow-next Gate answer: option 1. Keep both behaviours as they are: don&#x27;t stays one word, well-known splits into two, and argparse&#x27;s two-line usage errors are acceptable. Pin both with tests and fix the traceback.</pre>
+<pre class="term-out" tabindex="0">The planner is still working on the revision. I&#x27;ll pick this up when it reports back.
+
+The checker is re-checking the revised plan. I&#x27;ll finish closing the step once it reports.
+
+I&#x27;ve recorded your option 1 answer and written the gap plan. It&#x27;s committed as `6cb9f16` on `flow/wordfreq` but not executed yet, so the traceback isn&#x27;t fixed until `/flow-execute 1` runs.
+
+**Your answer is now in the project files**
+- `REQUIREMENTS.md`: the REQ-04 open question is gone. The rule is now &quot;inner apostrophes stay in the word, hyphens split it&quot; (`don&#x27;t` stays one word, `well-known` gives `well` + `known`). REQ-07 now allows argparse&#x27;s two-line usage errors as an exception. These are logged as D-04 and D-05 in `PROJECT.md`.
+- `DECISIONS.md` has the question and your answer word for word. A local hook blocks your email address in my commands, so the `by:` line has only your name; the commit&#x27;s author field still carries the email.
+- The gate is cleared and the loop counter is reset.
+
+**Gap plan `01-02`** (runs after 01-01, which it builds on):
+- **Task 1:** in `src/wordfreq.py`, the narrow list of caught file errors becomes a broad `except OSError`. Paths like `sample.txt/foo` and very long filenames then get the normal one-line &quot;cannot read file&quot; message instead of a traceback. Invalid UTF-8 keeps its own message.
+- **Task 2:** five new tests:
+  - one for each of those two path cases;
+  - one pinning `don&#x27;t well-known` → `don&#x27;t`, `known`, `well`;
+  - two for argparse usage errors (no FILE, and `-n` with no value): exit code 2, exactly 2 stderr lines starting `usage: wordfreq` and `wordfreq: error:`, empty stdout.
+
+**Plan check:** the first check found 4 blocking problems, including a Task 1 check that relied on tests only Task 2 writes, and a check that would pass even if no new tests were added. One revision fixed all four. The second check passed, lint finds nothing, and the plan is 4094 bytes, just under the 4096-byte limit.
+
+**Left alone on purpose:**
+- Three lines in the already-executed `01-01-PLAN.md` still read as if the apostrophe question were open and every bad input gave one line. I didn&#x27;t edit that finished plan; `01-02` now holds the settled rules.
+- The `chmod 0` test still fails when run as root, for example in some CI setups. You didn&#x27;t ask for that fix, so I left it out. It&#x27;s noted in STATE in case `/flow-ci` hits it later.
+
+<span class="flow flow-continue">FLOW: CONTINUE | phase 1 gap plan 01-02 ready (wave 2), gate answered | next: /flow-execute 1</span></pre>
+</figure>
+</div>
+</section>
+
+<section aria-labelledby="h-gapfix">
+<h2 id="h-gapfix"><span class="sec">08</span>Fix the gap with <code>/flow-next</code></h2>
+<p>With the gate answered, <code>/flow-next</code> executes the gap plan. The traceback is fixed and every must-have passes except one: the 10 MB speed target. The verifier's timings came out over the limit, but the machine was heavily loaded, so they prove nothing either way. It did not pass the check and did not fail it. It asked a person to time it.</p>
+<div class="breakout">
+<figure class="term" aria-labelledby="cap-09-next">
+<figcaption id="cap-09-next"><span class="term-title">08 · Fix the gap</span><span class="term-meta">exit 0 · 9m 42s</span></figcaption>
+<pre class="term-cmd"><span class="prompt" aria-hidden="true">$ </span>/devflow:flow-next</pre>
+<pre class="term-out" tabindex="0">Gap plan 01-02 is done and the earlier traceback gap is fixed. The phase isn&#x27;t marked verified yet, because one check needs a person: SC-01, which requires 10 MB in under 5 seconds.
+
+- **What changed:** files that can&#x27;t be opened for other OS reasons (a path through a file, a 300-character name) now print the normal error and exit 1, with no traceback. New tests pin decisions D-04 (inner `&#x27;` kept, `-` splits words) and D-05 (argparse&#x27;s 2-line usage errors are fine). Commits: `36c4980`, `fe77ce2`, `61ae2fc`.
+- **Scope:** the plan touched only the two files it declared, plus its SUMMARY and STATE.
+- **Verification:** status `human_needed`, no gaps. The end-to-end smoke check passed: 19 tests OK, and the CLI&#x27;s top 3 match a hand count. 12 of 13 checks passed. The written record is in `.planning/phases/01-wordfreq-cli/01-VERIFICATION.md`.
+- **Why SC-01 is open:** the verifier&#x27;s 10 MB runs took 6–12 seconds. They prove nothing either way, because the machine is overloaded (load average about 42–55 on 4 CPUs; it was 42 when I checked). The counting code hasn&#x27;t changed since the previous verification, which measured 2.79 seconds. The existing SC-01 test only times the counting function on an 8-word vocabulary, not the full command.
+- **Fixed after the executor:** it had overwritten the Run block&#x27;s signature, which only `/flow-next` should set. I restored it.
+
+STATE&#x27;s Gate block now holds the SC-01 question. The work is committed (`5d33df0`), the secret scan was clean, and `flow/wordfreq` is pushed to origin.
+
+**What you need to do:** on an idle machine, time `python3 src/wordfreq.py &lt;a 10 MB file with ~50k distinct words&gt;`.
+- **Under 5s:** record the pass, then run `/flow-verify 1`. After that the project goes to `/flow-pr`, since there&#x27;s nothing to deploy.
+- **5s or more:** SC-01 becomes a gap, then run `/flow-plan 1 --gaps`.
+
+Still unfixed from before: the `chmod 0` permission test fails when run as root and should be skipped in that case.
+
+<span class="flow flow-gate">FLOW: GATE | phase 1 executed, verify human_needed — SC-01 10 MB &lt;5s timing needs an idle-host run | next: time SC-01 by hand, then /flow-verify 1</span></pre>
+</figure>
+</div>
+</section>
+
+<section aria-labelledby="h-verify">
+<h2 id="h-verify"><span class="sec">09</span>Do the human check, then <code>/flow-verify 1</code></h2>
+<p>The operator timed the tool by hand and passed the numbers in, unedited, including the slow run and the fact that the machine was not idle. Accepting the target was the operator's call, and the verifier records it with its caveats rather than as a clean pass.</p>
+<div class="breakout">
+<figure class="term" aria-labelledby="cap-11-verify">
+<figcaption id="cap-11-verify"><span class="term-title">09 · Human check, re-verify</span><span class="term-meta">exit 0 · 4m 10s</span></figcaption>
+<pre class="term-cmd"><span class="prompt" aria-hidden="true">$ </span>/devflow:flow-verify 1 SC-01 human check result: I timed python3 src/wordfreq.py on a 10,485,807-byte file with 50,000 distinct words, three runs: 3.79s, 6.42s, 3.84s. The host was not idle (load average 31 to 42 on 4 CPUs). I accept SC-01 as met: two of three runs are under 5s even under that load.</pre>
+<pre class="term-out" tabindex="0">Phase 1 is verified. I recorded your SC-01 result as a pass and committed the docs as `d1e0188`.
+
+**Re-verification:** The smoke check passed: 19 tests OK, and the CLI printed the correct top 3. All 13 must-haves are now verified and there are no gaps. No source or test code changed since the last check.
+
+**SC-01:** Your verdict is recorded with the caveats included:
+- The check asked for an idle machine. Yours was at load 31–42, so that condition wasn&#x27;t met.
+- One of your three runs (6.42s) was over 5s.
+
+I think accepting it is reasonable. Load only slows a run down, so 3.79s and 3.84s under heavy load are good evidence it passes on a normal laptop. The verifier&#x27;s own run backs this up: 0.99–1.23s at load ~8.5. That run read from stdin rather than a file, so it&#x27;s only supporting evidence.
+
+**Files updated:**
+- `01-VERIFICATION.md` is now marked pass, with the human check ticked.
+- The ROADMAP row for phase 1 is marked verified.
+- `DECISIONS.md` has a new entry with the question, your answer and its caveats, your name, and the commit at the time.
+- `STATE.md`: the gate is cleared and the next step is `/flow-pr`.
+- `JOURNAL.md` has a new line for this run.
+- There&#x27;s no codebase map file, so there was no map to refresh.
+
+**Known issues carried forward (not blocking):**
+- The unreadable-file test (`chmod 0`) fails when run as root.
+- Words with accents only count correctly when the accent is stored as one combined character (NFC). If the file stores it as a separate mark (NFD), it&#x27;s dropped: `café` becomes `cafe`.
+- `test_sc01` still times a tiny vocabulary instead of running the full CLI.
+
+All phases are verified and this project has no deploy step, so the next step is opening the PR.
+
+<span class="flow flow-continue">`FLOW: CONTINUE | phase 1 verified | next: /flow-pr`</span></pre>
+</figure>
+</div>
+</section>
+
+<section aria-labelledby="h-pr">
+<h2 id="h-pr"><span class="sec">10</span>Review and open the PR with <code>/flow-pr</code></h2>
+<p>Seven reviewers read the outgoing diff in parallel, each through one lens. DevFlow fixed what it could, with a regression test for each fix, and re-reviewed. One blocking finding remained that it would not decide alone: fixing it changes a requirement and slows the tool enough to threaten the speed target. So it stopped before pushing and laid out the options.</p>
+<div class="breakout">
+<figure class="term" aria-labelledby="cap-12-pr">
+<figcaption id="cap-12-pr"><span class="term-title">10 · Review before the PR</span><span class="term-meta">exit 0 · 9m 40s</span></figcaption>
+<pre class="term-cmd"><span class="prompt" aria-hidden="true">$ </span>/devflow:flow-pr</pre>
+<pre class="term-out" tabindex="0">Round 1 is running: seven reviewers in parallel (correctness, conventions, security, architecture, tests, comprehension, zoom-out). I&#x27;ll triage their findings when they all report back.
+
+Conventions lens is done with 1 should-fix: eight bookkeeping commits have no `DevFlow-Agent` trailer. Six reviewers are still running.
+
+The architecture and security lenses found nothing. Both mention `.claude/settings.json`, which is the standard DevFlow plugin declaration. The harness flagged that mention as instruction-shaped, but the text only describes the file and asks me to do nothing. Four reviewers are still running.
+
+Round 2 is running: correctness, tests and comprehension, over `d1e0188..42d6360` only. The combining-marks blocker is still open and waits for your decision at the gate.
+
+Round 2 correctness found nothing. Its one preexisting note is that the tests need `PYTHONPATH=src`. That is the documented test command in ARCHITECTURE.md, not a defect. Tests and comprehension are still running.
+
+I&#x27;ve stopped at the human gate: one blocking review finding needs your decision before I push and open the PR. Everything else from review is fixed or written up, and the PR body is drafted.
+
+## The open blocker: combining marks split words
+The correctness and comprehension reviewers found this independently. The tokenizer (`src/wordfreq.py:7`) counts only letters and digits as word characters. Combining marks (accents and vowel signs stored as separate characters) count as separators, so:
+- `हिन्दी` is counted as three fragments: `द`, `न`, `ह`.
+- `İstanbul` splits into `i` and `stanbul`, because lowercasing `İ` produces a combining dot.
+- `café` with a separately stored accent counts as `cafe`. STATE.md already lists this as deferred (&quot;REQ-05 NFC-only&quot;).
+
+I didn&#x27;t fix it myself for two reasons:
+- **It changes a requirement.** REQ-04 literally says &quot;letters and digits&quot;, and marks aren&#x27;t letters.
+- **It is slower.** I built and timed a correct fix (marks allowed inside words, plus composing accents into single characters first). It makes the whole CLI about 1.7× slower: 1.4s → 2.5s on a 10 MB ASCII file, and 1.6s → 2.4s on a 10 MB non-ASCII file, at load ~5. SC-01 only just passed (3.79s, 6.42s and 3.84s on a loaded host), and a 1.7× slowdown would push those runs well over 5s.
+
+**Options:**
+1. **Defer (recommended).** Ship as is, add a REQ-04/05 note: &quot;combining-mark scripts and decomposed accents are out of scope for v1&quot;, and add a `TODOS.md` line. The PR lists it as a known limitation.
+2. **Fix for all input.** Accept about 1.7× slower runs; SC-01 would need re-timing.
+3. **Fix with an ASCII fast path.** ASCII files keep today&#x27;s speed, and only non-ASCII files take the slower tokenizer. This adds about 15 lines and two code paths.
+
+## Review: 2 rounds
+- **Round 1** (`d1e0188`, 7 lenses) found 1 blocking issue, 7 should-fix and 3 nits.
+- **Round 2** (`42d6360`, correctness, tests and comprehension) found nothing blocking, so the review loop stopped.
+- **Fixed:**
+  - The curly apostrophe `’` now counts as an inner apostrophe, so `don’t` and `don&#x27;t` count as one word, printed with `&#x27;` (`171e4be`).
+  - New tests cover `--top`, digits joining a word and `_` splitting one; the `chmod 0` test is skipped when run as root (`654c1c5`).
+  - Comments now explain the exit codes and why `-n` is parsed by hand (`42d6360`).
+  - A test pins that a closing curly quote does not stick to the word, and `TODOS.md` was added (`c3b6f2e`). These changes were made after round 2 and were not re-reviewed.
+  - Each fixed bug has a test that fails without its fix, and the new tests catch deliberately broken versions of the regex. 22 tests pass, and the smoke run passes.
+- **Should-fix items I dismissed, recorded in the PR body:**
+  - Eight earlier bookkeeping commits have no `DevFlow-Agent` trailer. Rewording them would change commit IDs that DECISIONS.md and VERIFICATION.md cite, and would need a force-push.
+  - `test_sc01` doesn&#x27;t time the CLI. A wall-clock test against 5s is flaky on loaded machines, so SC-01 stays proven by your timed run.
+
+## Draft PR
+- **Title:** `wordfreq: stdlib CLI for top-N word frequencies`
+- **Base ← head:** `main` ← `flow/wordfreq`
+- **First line of the body:** `Merge Danger: LOW — two-way door; blast radius: only people who run python3 src/wordfreq.py from this repo …`
+- The full body is in `/tmp/wordfreq-pr-body.md`; the open-items line fills in once you decide.
+
+**Other checks:**
+- The secret scan and the ARCHITECTURE.md forbidden-import check both found nothing.
+- No version is declared anywhere, so there is nothing to bump.
+- Nothing is pushed yet. Origin still has the branch at `5d33df0`.
+- The untracked `__pycache__/` folders aren&#x27;t part of the PR, and the repo has no `.gitignore` for them.
+
+Reply 1, 2 or 3. I&#x27;ll then push, open the PR (ready for review, not draft), and record it in STATE.md and JOURNAL.md.
+
+<span class="flow flow-gate">`FLOW: GATE | blocking review finding (combining marks / REQ-04 scope vs SC-01) needs a decision | next: pick 1/2/3, then /flow-pr opens the PR`</span></pre>
+</figure>
+</div>
+</section>
+
+<section aria-labelledby="h-pr2">
+<h2 id="h-pr2"><span class="sec">11</span>Answer, push, and an honest stop</h2>
+<p>The operator chose to defer the finding. DevFlow records the decision, updates the requirements and the PR body, and pushes the branch. Then it stops: this scratch project's <code>origin</code> is a local bare repository, not GitHub, so there is nothing to open a pull request against. It says so and reports <code>BLOCKED</code> instead of inventing a URL. On a GitHub remote, this step opens the PR, ready for review.</p>
+<div class="breakout">
+<figure class="term" aria-labelledby="cap-13-pr-answer">
+<figcaption id="cap-13-pr-answer"><span class="term-title">11 · Answer, push, open</span><span class="term-meta">exit 0 · 3m 07s</span></figcaption>
+<pre class="term-cmd"><span class="prompt" aria-hidden="true">$ </span>/devflow:flow-pr Gate answer: option 1, defer. Ship as is, record combining-mark scripts and decomposed accents as out of scope for v1, and list it as a known limitation in the PR.</pre>
+<pre class="term-out" tabindex="0">I recorded your defer decision and pushed the branch, but no PR was opened: `origin` is a local bare repo (`/tmp/devflow-demo-origin.mM8WqP`), not GitHub. `gh` says &quot;none of the git remotes configured for this repository point to a known GitHub host&quot;, so there is nothing to open a PR against. I didn&#x27;t invent a URL.
+
+**Your decision (option 1, defer), commit `5ac7a8c`:**
+- **`.planning/DECISIONS.md`:** new D-06 entry with what was asked, your answer and the measured cost of fixing it. It also notes which earlier entry D-04/D-05 refer to, which closes one TODOS item.
+- **`.planning/REQUIREMENTS.md`, Out of scope:** combining-mark scripts and decomposed (NFD) accents are out of scope for v1, so REQ-04/REQ-05 hold for precomposed (NFC) text only.
+- **`TODOS.md`:** the deferred fix and its two options (fix for all input, or an ASCII fast path), with the ~1.7× slowdown figure.
+- **PR body:** a &quot;Known limitation (D-06)&quot; section with the `हिन्दी` / `İstanbul` / NFD `café` examples. The review guide lists it as a blocking finding the owner deferred, which a reviewer should agree to.
+
+**One new problem:** a test run failed once, then passed three times in a row (22 tests, about 1.5s each). The failed run took 7.0s with load average around 12–19. The likely cause is `test_sc01`, the only test with a hard 5s time limit, but I only kept the summary of that run, so I can&#x27;t confirm which test failed. I didn&#x27;t change the test. It&#x27;s logged in `TODOS.md` (`dcb54a4`) and flagged in the PR body, because it will probably fail now and then on a shared CI runner.
+
+**Checks:** secret scan and the forbidden-import check passed on every commit and on the full diff against `main`. No version is declared, so nothing to bump. Origin now has the branch at `5b0b59d`.
+
+**Draft PR:**
+- **Title:** `wordfreq: stdlib CLI for top-N word frequencies`, `main` ← `flow/wordfreq`
+- **Body:** saved at `.planning/reviews/PR-BODY.md`. It opens with `Merge Danger: LOW — two-way door; blast radius: only people who run python3 src/wordfreq.py from this repo`.
+- **Not re-reviewed:** the commits after review round 2 (`c3b6f2e`, `5ac7a8c`, `dcb54a4`). None of them touch `src/`, and the body says so.
+- **Change volume is one file out of date:** the body says 22 files, +679 lines, 11/19 commits agent-attributed. Saving the body itself added a file and a commit, so the numbers need refreshing when the PR is actually opened.
+
+To open the PR: point `origin` at a GitHub repo (or add one as `upstream`), then rerun `/flow-pr`. The review rounds and your decision are already recorded, so the rerun can go straight to building the body and opening the PR, ready for review rather than draft.
+
+<span class="flow flow-blocked">`FLOW: BLOCKED | origin is not a GitHub remote, PR cannot be opened | next: add a GitHub remote, then /flow-pr`</span></pre>
+</figure>
+</div>
+</section>
+
+
+<section aria-labelledby="how-captured">
+<h2 id="how-captured"><span class="sec">··</span>How these were captured</h2>
+<p>Each command ran headless, in a scratch repository created with <code>mktemp</code>, loading DevFlow from a checkout of this repository for that one session:</p>
+<pre class="code" tabindex="0">claude --plugin-dir &lt;devflow-checkout&gt;/plugins/devflow \
+  --setting-sources user \
+  --settings '{"enabledPlugins":{"devflow@devflow":false}}' \
+  --permission-mode bypassPermissions \
+  -p "&lt;command&gt;" &lt; /dev/null</pre>
+<p>The <code>--settings</code> flag switches off the installed copy for that session so the checkout's skills answer, which is why commands read <code>/devflow:flow-…</code>. <code>bypassPermissions</code> lets the headless run edit and commit in the scratch repository without prompting. Host: 2.1.319 (Claude Code).</p>
+<p>Output is stdout as printed. Claude Code prints Markdown as plain text in this mode, and a run that waited on a subagent printed a progress line or two before its summary. The only edits are path substitutions: the checkout path is shown as <code>&lt;devflow-checkout&gt;</code> and the home directory as <code>~</code>. Two <code>/flow-status</code> runs are left out: the one between steps 06 and 07 misreported which DevFlow build was loaded, and the one after step 08 repeated that step's summary. The step 09 timing was run by the operator, not by DevFlow.</p>
+</section>
+
+</main>
+<footer class="foot">
+<p>DevFlow is an open-source plugin, MIT licensed. <a href="https://github.com/jbrianfrancis-ir/devflow">Repository</a> · <a href="https://github.com/jbrianfrancis-ir/devflow/issues">Issues</a> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/CHANGELOG.md">Changelog</a></p>
+<p>Every terminal block on this site is unedited output from a real run, apart from the path substitutions listed on the <a href="first-workflow.html#how-captured">first-workflow page</a>.</p>
+</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,26 @@
+Phase 1 is verified. I recorded your SC-01 result as a pass and committed the docs as `d1e0188`.
+
+**Re-verification:** The smoke check passed: 19 tests OK, and the CLI printed the correct top 3. All 13 must-haves are now verified and there are no gaps. No source or test code changed since the last check.
+
+**SC-01:** Your verdict is recorded with the caveats included:
+- The check asked for an idle machine. Yours was at load 31–42, so that condition wasn't met.
+- One of your three runs (6.42s) was over 5s.
+
+I think accepting it is reasonable. Load only slows a run down, so 3.79s and 3.84s under heavy load are good evidence it passes on a normal laptop. The verifier's own run backs this up: 0.99–1.23s at load ~8.5. That run read from stdin rather than a file, so it's only supporting evidence.
+
+**Files updated:**
+- `01-VERIFICATION.md` is now marked pass, with the human check ticked.
+- The ROADMAP row for phase 1 is marked verified.
+- `DECISIONS.md` has a new entry with the question, your answer and its caveats, your name, and the commit at the time.
+- `STATE.md`: the gate is cleared and the next step is `/flow-pr`.
+- `JOURNAL.md` has a new line for this run.
+- There's no codebase map file, so there was no map to refresh.
+
+**Known issues carried forward (not blocking):**
+- The unreadable-file test (`chmod 0`) fails when run as root.
+- Words with accents only count correctly when the accent is stored as one combined character (NFC). If the file stores it as a separate mark (NFD), it's dropped: `café` becomes `cafe`.
+- `test_sc01` still times a tiny vocabulary instead of running the full CLI.
+
+All phases are verified and this project has no deploy step, so the next step is opening the PR.
+
+`FLOW: CONTINUE | phase 1 verified | next: /flow-pr`

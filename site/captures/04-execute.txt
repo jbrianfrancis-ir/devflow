@@ -1,0 +1,18 @@
+Plan 01-01 is built and all 14 of its tests pass, but the verifier found one gap, so phase 1 isn't verified yet.
+
+**The gap (REQ-07/SC-02):** a bad file path can still crash with a Python traceback. `src/wordfreq.py` catches only three specific file errors. A path through a file (`sample.txt/foo`) or a name that is too long hits a different error. The result is exit 1 with 8 lines on stderr, but the requirement is exactly one error line and no traceback. The plan checker had already flagged the missing broad `OSError` catch, and the executor deferred it as non-blocking. This is the first time this kind of failure has been seen, so it goes to the normal fix route.
+
+**What did pass:** 8 of the 10 must-have checks, plus the end-to-end smoke test (the tests, then the CLI printing the correct top 3 words). The verifier also timed the full CLI on a 10 MB file at 2.79s against the 5s limit. The suite's own speed test times only the counting step, not reading the file.
+
+**Two decisions are yours.** Neither belongs to the gap fix:
+- **Apostrophes and hyphens (REQ-04):** the rule is still marked as needing clarification. Right now `don't well-known` counts as `don't`, `well`, `known`. Decide the rule, then pin it with a test or write it into REQUIREMENTS.
+- **Two-line usage errors:** `-n` with no value, or a missing file argument, prints 2 lines (usage plus error) and exits 2, with no traceback. Decide whether that meets REQ-07's one-line rule.
+
+**Smaller findings:**
+- The unreadable-file test uses `chmod 0`, which doesn't block root, so it would fail in a root container or root CI.
+- The test run left `__pycache__/` folders untracked because the repo has no `.gitignore`. I didn't add one.
+- The executor reported no deviations, and every file it changed was declared in the plan.
+
+Commits on `flow/wordfreq`: `b797df7` (the code and tests), `18434a3` (the executor's summary and state), and `5702acf` (the verification report and state update). The verification report is at `.planning/phases/01-wordfreq-cli/01-VERIFICATION.md`. Nothing was pushed: the push happens only after the phase verifies.
+
+FLOW: CONTINUE | phase 1 gaps: 1 (REQ-07 traceback on uncaught OSError); 2 human decisions open (REQ-04 apostrophes/hyphens, two-line usage errors) | next: /flow-plan 1 --gaps

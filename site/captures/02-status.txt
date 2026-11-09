@@ -1,0 +1,18 @@
+## wordfreq: status
+
+**Where things stand:** Phase 1 of 1 (wordfreq CLI). No plans written yet (0/0). STATE says `planning` and ROADMAP says `pending`. Both mean no plans have been written yet, so they agree. Nothing else on disk disagrees either: there's no `phases/` directory, no SUMMARYs and no VERIFICATION.
+
+- **Gate:** none
+- **Blockers:** none
+- **Open TODOs:** 0 (there's no `.planning/TODOS.md`)
+- **Last activity:** 2026-11-09, `/flow-new`. It set the project up on the lite tier with 1 phase and 7 requirements, and marked deploy as not applicable.
+- **Run block:** none yet. That's a normal first start, not a stuck loop.
+- **Resume note from STATE:** settle the REQ-04 apostrophe/hyphen question during `/flow-plan 1`'s Discuss step.
+
+**Routing:** The only phase has no plans yet, so the next step is `/flow-plan 1`. I didn't check GitHub for a PR because the routing is nowhere near the PR steps yet. `deploy.tool` is `null`, so once the phase is verified the next step is `/flow-pr` directly, and the project is done once that's merged.
+
+**Plugin build:** This session's skills come from a dev worktree at `<devflow-checkout>/plugins/devflow`, which is version 0.48.0. That's newer than anything installed: the user-scope install and the newest version this machine knows of are both 0.46.0. The repo is set to install DevFlow itself (it's enabled in `.claude/settings.json`), but it hasn't installed its own copy yet. In a normal session it would run on the user-scope 0.46.0, which is two versions behind the skills you're testing. Also, the local DevFlow catalog (the marketplace cache) has never been refreshed: it has no fetch on record and was cloned 2026-11-08. A release newer than 0.46.0 could exist without showing up here. To refresh it, run `claude plugin marketplace update devflow`.
+
+`/flow-next` advances one step automatically. The recipes for running it unattended (`/goal` + `/flow-next`, `/loop /flow-next`) are in `docs/autonomy.md`. `/clear` is safe right now because all state lives in `.planning/`.
+
+FLOW: CONTINUE | phase 1/1 not yet planned | next: /flow-plan 1

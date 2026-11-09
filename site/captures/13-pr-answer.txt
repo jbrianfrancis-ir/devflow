@@ -1,0 +1,21 @@
+I recorded your defer decision and pushed the branch, but no PR was opened: `origin` is a local bare repo (`/tmp/devflow-demo-origin.mM8WqP`), not GitHub. `gh` says "none of the git remotes configured for this repository point to a known GitHub host", so there is nothing to open a PR against. I didn't invent a URL.
+
+**Your decision (option 1, defer), commit `5ac7a8c`:**
+- **`.planning/DECISIONS.md`:** new D-06 entry with what was asked, your answer and the measured cost of fixing it. It also notes which earlier entry D-04/D-05 refer to, which closes one TODOS item.
+- **`.planning/REQUIREMENTS.md`, Out of scope:** combining-mark scripts and decomposed (NFD) accents are out of scope for v1, so REQ-04/REQ-05 hold for precomposed (NFC) text only.
+- **`TODOS.md`:** the deferred fix and its two options (fix for all input, or an ASCII fast path), with the ~1.7× slowdown figure.
+- **PR body:** a "Known limitation (D-06)" section with the `हिन्दी` / `İstanbul` / NFD `café` examples. The review guide lists it as a blocking finding the owner deferred, which a reviewer should agree to.
+
+**One new problem:** a test run failed once, then passed three times in a row (22 tests, about 1.5s each). The failed run took 7.0s with load average around 12–19. The likely cause is `test_sc01`, the only test with a hard 5s time limit, but I only kept the summary of that run, so I can't confirm which test failed. I didn't change the test. It's logged in `TODOS.md` (`dcb54a4`) and flagged in the PR body, because it will probably fail now and then on a shared CI runner.
+
+**Checks:** secret scan and the forbidden-import check passed on every commit and on the full diff against `main`. No version is declared, so nothing to bump. Origin now has the branch at `5b0b59d`.
+
+**Draft PR:**
+- **Title:** `wordfreq: stdlib CLI for top-N word frequencies`, `main` ← `flow/wordfreq`
+- **Body:** saved at `.planning/reviews/PR-BODY.md`. It opens with `Merge Danger: LOW — two-way door; blast radius: only people who run python3 src/wordfreq.py from this repo`.
+- **Not re-reviewed:** the commits after review round 2 (`c3b6f2e`, `5ac7a8c`, `dcb54a4`). None of them touch `src/`, and the body says so.
+- **Change volume is one file out of date:** the body says 22 files, +679 lines, 11/19 commits agent-attributed. Saving the body itself added a file and a commit, so the numbers need refreshing when the PR is actually opened.
+
+To open the PR: point `origin` at a GitHub repo (or add one as `upstream`), then rerun `/flow-pr`. The review rounds and your decision are already recorded, so the rerun can go straight to building the body and opening the PR, ready for review rather than draft.
+
+`FLOW: BLOCKED | origin is not a GitHub remote, PR cannot be opened | next: add a GitHub remote, then /flow-pr`

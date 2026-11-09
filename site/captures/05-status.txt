@@ -1,0 +1,26 @@
+You're in phase 1 of 1 (wordfreq CLI), and it has verification gaps. The next step is `/flow-plan 1 --gaps`.
+
+**Position**
+- **Phase:** 1 of 1, wordfreq CLI. Plans: 1 of 1 executed (01-01 at `b797df7`). Status: gaps found in verification.
+- **Gate:** none. **Run:** no record yet, so a `/flow-next` loop would start at iteration 1.
+- **Open TODOs:** 0 (`.planning/TODOS.md` doesn't exist).
+- **Last activity:** STATE says "2026-11-09: 01-01 executed (b797df7); verifier: gaps (1), smoke pass". The newest JOURNAL line is "2026-11-09 | /flow-plan 1 --auto | 1 plan… | CONTINUE".
+
+**Blockers**
+- **Gap (REQ-07/SC-02):** an error outside the ones `src/wordfreq.py` catches still prints a full traceback. Two inputs trigger it: `sample.txt/foo` (NotADirectoryError) and a 300-character file name (ENAMETOOLONG).
+- **Needs you:** two rules are still undecided:
+  - How REQ-04 treats apostrophes and hyphens. Right now `don't` counts as one word and `well-known` splits into two.
+  - Whether argparse's 2-line usage errors break REQ-07's one-line error rule.
+- **Advisory:** `test_req07_unreadable_file` uses `chmod 0`, which doesn't block root, so the test fails when run as root (for example in a container or CI).
+
+**Files that disagree.** I didn't change any of them; run `/flow-audit` to reconcile:
+- `ROADMAP.md` still shows phase 01 as `pending`. On disk there is a PLAN, a SUMMARY, and a VERIFICATION with `status: gaps`, so the phase has at least been planned and executed.
+- `JOURNAL.md` has no entry for the `/flow-execute 1 --auto` run, though STATE and commit `5702acf` show it happened.
+
+**Next command:** `/flow-plan 1 --gaps`, because VERIFICATION lists gaps. The gap plan will need your answers on REQ-04 and the argparse error format. This project has nothing to deploy (`deploy.tool: null`), so once the phase is verified it goes straight to `/flow-pr`.
+
+**Plugin build:** this session is running DevFlow from your dev worktree `<devflow-checkout>`, at version 0.48.0. The newest version the local registry and marketplace cache know of is 0.46.0, so you're running ahead of the installed build, not behind. This `/tmp` repo has no install pinned to it, so there's nothing to compare against. The marketplace cache has never fetched (no `.git/FETCH_HEAD`; it was cloned 2026-11-08), so a newer published release wouldn't show up here. To refresh it, run `claude plugin marketplace update devflow`.
+
+`/flow-next` runs one step for you; for repeated runs, `docs/autonomy.md` covers `/goal` + `/flow-next` and `/loop /flow-next`. `/clear` is safe at this point because all state lives in `.planning/`.
+
+`FLOW: CONTINUE | phase 1/1, plans 1/1, verify gaps | next: /flow-plan 1 --gaps`

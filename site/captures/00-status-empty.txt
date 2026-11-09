@@ -1,0 +1,7 @@
+There's no DevFlow project in this repo yet. `/tmp/devflow-demo.tRz487` has one commit (`d0dc966 chore: empty repo`), no tracked files, and no `.planning/` directory, so there's no phase, plan or TODO to report.
+
+**Next step:** run `/flow-new`. It sets up the project's planning folder (requirements, roadmap, state) and asks you about the project as it goes. That's why the line below says GATE: the next step needs your answers, so it can't run unattended.
+
+After that, `/flow-status` will show where the project is, and `/flow-next` moves it forward one step at a time. The `/goal` and `/loop` setups for running it hands-off are in `docs/autonomy.md`.
+
+FLOW: GATE | no DevFlow project in this repo, setup needs your answers | next: /flow-new
