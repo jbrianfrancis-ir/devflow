@@ -4,8 +4,8 @@
     python3 site/build.py            # write site/public/
     python3 site/build.py --check    # exit 1 if site/public/ is not what a build would write
 
-Stdlib only. The output is static HTML/CSS plus copied images; nothing here runs in a browser
-except a few lines of progressive enhancement, so site/public/ can be served by any static host.
+Stdlib only. The output is static HTML/CSS plus copied images with no JavaScript, so
+site/public/ can be served by any static host.
 
 Sources, each with one owner so the site cannot drift from the repo:
 - command reference: plugins/devflow/skills/*/SKILL.md frontmatter (name, description,
