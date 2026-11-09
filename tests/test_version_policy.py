@@ -108,7 +108,8 @@ class PointerBlockTest(unittest.TestCase):
             self.assertEqual(block.search(read(ROOT / name)).group(0), template, name)
         self.assertIn("major versions it", template)
         # Brian, 2026-11-09: a repeated mistake gets a check, not another prose rule.
-        self.assertIn("mistake gets a deterministic lint/check whose error explains the fix", template)
+        self.assertIn("mistake gets a deterministic lint/check whose error explains the fix",
+                      " ".join(template.split()))
 
 
 if __name__ == "__main__":
