@@ -14,7 +14,7 @@ provider, and preserves all Flow checkpoints, branch rules, and secret scans.
 
 ## Model tiers
 
-Each role declares its own model, so cost is a property of the plugin rather than something you have to remember to ask for. Roles split into two tiers: judgment roles run on the top tier, bounded roles a tier down — including the high-volume **executor**, deliberately in the cheap group because a DevFlow plan is a complete, unambiguous executor prompt by design, which is what makes that safe. The per-role assignment is the reference's to state, not this page's. The executor is deliberately cheap: a DevFlow plan is a complete, unambiguous executor prompt by design, which is what makes that safe. Override per role with `"agents": {"models": {"executor": "opus"}}` in `.planning/config.json`.
+Each role declares its own model, so cost is a property of the plugin rather than something you have to remember to ask for. Roles split into two tiers: judgment roles run on the top tier, bounded roles a tier down — including the high-volume **executor**, deliberately in the cheap group because a DevFlow plan is a complete, unambiguous executor prompt by design, which is what makes that safe. The per-role assignment is the reference's to state, not this page's. Override per role with `"agents": {"models": {"executor": "opus"}}` in `.planning/config.json`.
 
 No role has a default effort. A project can set one per role with `"agents": {"effort": {"<role>": "<level>"}}` in `.planning/config.json`; which levels each provider accepts, and why native spawns do not apply it, are in `hosts.md` under Effort.
 

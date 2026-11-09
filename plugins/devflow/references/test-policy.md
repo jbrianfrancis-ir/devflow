@@ -7,7 +7,7 @@
 
 1. **Do not encode classic unit-TDD as the agent default.** Do not spend the loop on red-green-refactor micro-units unless the change is pure logic (below).
 2. **Prefer behavior / integration / API-level tests as the feedback driver** for anything that crosses a boundary: HTTP, DB, queue/bus, file, external API, multi-component Aspire graph.
-3. **Thin unit layer only:**
+3. **Thin unit layer only** — a new unit file carries a one-line justification, `pure-logic` or `regression-pin: <defect>`:
    - Dense pure logic (pricing/fee math, parsers, checksums, predicate evaluation, deterministic state transitions).
    - **Regression pins** after a real defect (minimal failing unit that locks the bug). Name the defect (issue, PR, incident, quick-task id) in the test.
 4. **Forbidden — coverage theater:** After implementation is already green, do not add unit suites whose primary purpose is raising line/branch coverage, asserting non-null, or restating the implementation.
@@ -17,7 +17,7 @@
 
 ## How this interacts with verification
 
-- Phase truths should usually be proven by **running behavior** (integration/API/Smoke) or tracing a wired path — not by counting new `*Tests.Unit` files.
+- Phase truths should usually be proven by **running behavior** (integration/API/Smoke) or tracing a wired path — not by counting new `*Tests.Unit` files. "Coverage went up" is never phase proof.
 - `ARCHITECTURE.md ## Smoke` remains the standing end-to-end gate (`references/verification.md`). Do not replace Smoke with a large new unit suite.
 - Fixture-only or coincidental-reliance greens stay advisory/GAP per `references/verification.md` — especially over-mocked boundaries.
 

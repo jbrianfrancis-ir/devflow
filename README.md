@@ -73,8 +73,6 @@ the complete gate list: [docs/autonomy.md](docs/autonomy.md).
 | parallel | `/flow-workstream` | Run phases side by side — one git worktree per stream (`new`, `list`, `drop`) |
 | ad-hoc | `/flow-todo <idea>` | Capture without derailing; `--incident <alert or link>` captures a production alert for later, with the same release trace |
 | ad-hoc | `/flow-undo <sha>` | Explicit-only undo of unpublished commits on a feature branch — preview, human confirmation, apply with a backup ref; refuses published work, merges, and the base branch |
-| ad-hoc | `/flow-second-opinion <pr-url>` | Explicit-only, read-only second-opinion PR review by Grok Build and Codex CLI (trial to 2026-10-30) — allowlisted non-fork repos only, local report and trial log, one combined PR comment only with `--post` ([docs](docs/second-opinion.md)) |
-| policy | `/flow-test-policy` | Test-layer policy for agent work — integration/behavior as the feedback driver, thin units for pure logic or regression pins only, no coverage theater and no classic unit-TDD by default ([policy](plugins/devflow/references/test-policy.md)) |
 | memory | `/flow-map` | Codebase memory for planners/executors (`--docs`, `--refresh`) |
 | design | `/flow-design` | Link + pull a Claude Design (claude.ai/design) design system as hard UI constraints (`--refresh`) |
 | guardrails | `/flow-hooks` | Scaffold deterministic base-branch, protected-paths, secret-scan, dependency, and destructive-git hooks into `.claude/settings.json` |
@@ -88,11 +86,13 @@ the complete gate list: [docs/autonomy.md](docs/autonomy.md).
 | deploy | `/flow-uat` | Deploy to UAT (provision on first deploy), generate acceptance test plan |
 | deploy | `/flow-release` | Production deploy, gated on per-SHA UAT sign-off |
 
+Retired in 0.49.0: `/flow-second-opinion` (its trial ended 2026-10-30) — use `/flow-pr --adversarial` for a peer-provider review or `/flow-oracle` for an outside model. `/flow-test-policy` — the [test policy](plugins/devflow/references/test-policy.md) still applies on its own through plan, execute, verify and the review tests lens. Details: [CHANGELOG](CHANGELOG.md).
+
 ## Configuration
 
 - `--provider native|claude|codex` on the delegating skills, and the project default `agents.provider` in
   `.planning/config.json` (`"agents": {"provider": "native"}`) — the flag wins over the file.
-- Other keys `.planning/config.json` carries, named not explained: `mode`, `commit_docs`,
+- Other keys `.planning/config.json` carries, named not explained: `commit_docs`,
   `agents.models.<role>`, `agents.effort.<role>`, `autonomy.max_iterations`, `autonomy.max_repeats`,
   `autonomy.max_hours`, `git.base`, `git.origin`, `git.upstream`, `git.branch`, `deploy.tool`, `usage_report`.
 - Provider dispatch, model tiers and per-role effort: [docs/providers.md](docs/providers.md). Loop rails: [docs/autonomy.md](docs/autonomy.md).
