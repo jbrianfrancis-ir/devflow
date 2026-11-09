@@ -23,7 +23,8 @@ and integrates by pull request. Never commit credential material — reference e
 name and do not open `.env*` files.
 
 **Evidence over assertion**: a claim that something works needs a command that ran, a
-test that passed, or a code path traced. "Should work" is not a result.
+test that passed, or a code path traced. "Should work" is not a result. A repeated
+mistake gets a deterministic lint/check whose error explains the fix, not a prose rule.
 
 `/flow-security-audit` is an opt-in pre-production gate — off by default, never run by
 `/flow-next`; invoke it before `/flow-uat` or `/flow-release` only when a human asks.
