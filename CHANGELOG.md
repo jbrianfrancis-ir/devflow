@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.51.0 (2026-11-09)
+- `/flow-execute` and `/flow-quick` pass `references/test-policy.md` to `flow-executor` (the trivial quick path follows it in-session). A `<falsify>` may reuse an existing behavior/integration test or the `## Smoke` command as its `<verify>`; `flow-plan-checker` 5b flags a new unit invented only to fill the pair. Prompt text only.
+
 ## 0.49.0 (2026-11-09)
 - Lean audit: 28 → 26 skills, always-on skill descriptions and per-command loaded context cut; gates, hooks, the usage report and the incident loop are unchanged. **Retired `/flow-second-opinion`**: its Grok/Codex trial ended 2026-10-30 (9 runs, all on 2026-10-23, none triaged) — use `/flow-pr --adversarial` for a peer-provider review or `/flow-oracle` for an outside model; its helper, tests, docs page and gate line are gone, and your local trial log and allowlist under `~/.local/state/devflow/` and `~/.config/devflow/` are untouched (delete them by hand if wanted). **Retired `/flow-test-policy`**: it only told the model to read `references/test-policy.md`, which plan, execute and verify already load; its two rules not in the reference (a new unit file carries `pure-logic` or `regression-pin: <defect>`; "coverage went up" is never phase proof) moved into it, and the `flow-reviewer` tests lens now points at it. **Dropped the `mode` config key**: `/flow-new` wrote it and nothing read it (`--auto` is a flag); an existing `config.json` that carries it is still valid and can drop it. The opt-in usage-report instructions moved from `hosts.md`, which every skill loads, to `references/usage-report.md`, which only `/flow-execute`, `/flow-quick` and `/flow-verify` read when `usage_report` is on.
 

@@ -28,6 +28,10 @@ class HaikuLane(unittest.TestCase):
         for rel in ("skills/flow-execute/SKILL.md", "skills/flow-quick/SKILL.md"):
             self.assertIn("Haiku lane", read(rel), rel)
 
+    def test_dispatchers_pass_the_test_policy(self):
+        for rel in ("skills/flow-execute/SKILL.md", "skills/flow-quick/SKILL.md"):
+            self.assertIn("test policy `{devflow_root}/references/test-policy.md`", read(rel), rel)
+
     def test_executor_default_stays_sonnet(self):
         self.assertIn("\nmodel: sonnet\n", read("agents/flow-executor.md"))
 
