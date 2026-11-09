@@ -5,38 +5,77 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DevFlow: spec-driven development for Claude Code and Codex</title>
 <meta name="description" content="DevFlow keeps requirements, roadmap and state in .planning/, runs each plan in a fresh-context subagent, and verifies the result against evidence before it opens a pull request.">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0c0b0a">
 <link rel="stylesheet" href="assets/site.css">
 </head>
 <body class="page-index">
 <a class="skip" href="#main">Skip to content</a>
-<div class="frame">
-<header class="rail">
-<a class="mark" href="index.html">
-<span class="mark-word">DevFlow</span>
-<span class="mark-sub">spec-driven development<br>for Claude Code and Codex</span>
-</a>
+<header class="top">
+<div class="top-in">
+<a class="mark" href="index.html"><span class="mark-glyph" aria-hidden="true"></span>DevFlow</a>
 <nav class="nav" aria-label="Site">
-<ol role="list">
-<li><a href="index.html" aria-current="page"><span class="num">00</span>Overview</a></li>
-<li><a href="start.html"><span class="num">01</span>Install</a></li>
-<li><a href="first-workflow.html"><span class="num">02</span>First workflow</a></li>
-<li><a href="concepts.html"><span class="num">03</span>Concepts</a></li>
-<li><a href="commands.html"><span class="num">04</span>Commands</a></li>
-<li><a href="feedback.html"><span class="num">05</span>Feedback</a></li>
-</ol>
+<ul role="list">
+<li><a href="index.html" aria-current="page">Overview</a></li>
+<li><a href="start.html">Install</a></li>
+<li><a href="first-workflow.html">First workflow</a></li>
+<li><a href="concepts.html">Concepts</a></li>
+<li><a href="commands.html">Commands</a></li>
+<li><a href="feedback.html">Feedback</a></li>
+</ul>
 </nav>
-<p class="rail-foot"><a href="https://github.com/jbrianfrancis-ir/devflow">Source on GitHub</a><br>MIT licensed</p>
+<div class="top-cta">
+<a class="top-gh" href="https://github.com/jbrianfrancis-ir/devflow">GitHub</a>
+<a class="pill" href="start.html">Install</a>
+</div>
+</div>
 </header>
 <main id="main" tabindex="-1">
 <section class="hero">
+<div class="hero-copy">
 <p class="eyebrow">Plugin for Claude Code and Codex<span class="sep">/</span>MIT<span class="sep">/</span>open source</p>
 <h1>A development process for coding agents, from first requirements through release, and back when production breaks.</h1>
 <p class="lede">DevFlow is token-efficient spec-driven development for Claude Code and Codex. It writes your requirements, roadmap and state to <code>.planning/</code>, runs each plan in a fresh-context subagent, and has an independent verifier check the result against commands it actually ran. When the evidence isn't there, the verifier says so instead of guessing.</p>
+<ul class="badges" role="list" aria-label="Project facts">
+<li>MIT licensed</li>
+<li>Claude Code + Codex</li>
+<li>Open source</li>
+</ul>
+<p class="install-label" id="install-label">Install in Claude Code</p>
+<div class="copy-block" data-copy role="group" aria-labelledby="install-label">
+<pre class="code" tabindex="0">/plugin marketplace add jbrianfrancis-ir/devflow
+/plugin install devflow@devflow</pre>
+<button type="button" class="copy" hidden aria-live="polite">Copy</button>
+</div>
 <div class="actions">
 <a class="btn" href="start.html">Install DevFlow</a>
 <a class="btn-quiet" href="first-workflow.html">Read a real run, start to finish</a>
 </div>
+</div>
+<aside class="surface" aria-label="Preview: DevFlow commands and the files they write">
+<div class="surface-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="surface-title">Command surface</span><span class="surface-tag">.planning/</span></div>
+<div class="surface-body">
+<ul class="surface-cmds" role="list">
+<li><a href="commands.html#cmd-flow-new"><code>/flow-new</code></a><span>Creates <code>.planning/</code> with requirements, roadmap, and state.</span></li>
+<li><a href="commands.html#cmd-flow-plan"><code>/flow-plan</code></a><span>Plans one roadmap phase: settles decisions, writes plans, checks them.</span></li>
+<li><a href="commands.html#cmd-flow-execute"><code>/flow-execute</code></a><span>Runs a phase's plans in dependency waves, then verifies.</span></li>
+<li><a href="commands.html#cmd-flow-status"><code>/flow-status</code></a><span>Shows where the project is and what to run next.</span></li>
+<li><a href="commands.html#cmd-flow-pr"><code>/flow-pr</code></a><span>Opens a pull request from verified work.</span></li>
+</ul>
+<div class="surface-files">
+<p class="surface-label">Project artifacts</p>
+<ol class="files" role="list">
+<li><code>STATE.md</code></li>
+<li><code>REQUIREMENTS.md</code></li>
+<li><code>ROADMAP.md</code></li>
+<li><code>ARCHITECTURE.md</code></li>
+<li><code>phases/NN-*/</code></li>
+<li><code>DECISIONS.md</code></li>
+</ol>
+</div>
+</div>
+<p class="surface-note">Chat history is not where DevFlow keeps anything.</p>
+</aside>
 </section>
 
 <section aria-labelledby="h-evidence">
@@ -60,10 +99,13 @@
 </div>
 </section>
 
-<section aria-labelledby="h-loop">
+<section class="loop" aria-labelledby="h-loop">
+<div class="loop-grid breakout">
+<div class="loop-head">
 <h2 id="h-loop"><span class="sec">01</span>The loop</h2>
 <p>Each phase of your roadmap goes through the same steps. You can type each one, or let <code>/flow-next</code> pick the next step and run it. It stops at every human gate either way.</p>
-<div class="track-wrap breakout">
+</div>
+<div class="track-wrap">
 <ol class="track" role="list">
 <li><span class="cmdname">/flow-new</span><p>Asks one bounded round of questions, or works from your description, then writes requirements, a phased roadmap, architecture constraints and state on a new <code>flow/&lt;slug&gt;</code> branch.</p></li>
 <li><span class="cmdname">/flow-plan N</span><p>Settles the phase's open decisions, writes executable plans, and has a plan-checker reject any plan an executor could not run without guessing.</p></li>
@@ -71,6 +113,7 @@
 <li><span class="cmdname">/flow-status</span><p>Reads <code>.planning/</code> and prints where you are and the exact next command. Run it whenever you come back.</p></li>
 <li class="gate-row"><span class="cmdname">/flow-pr</span><p><span class="gate-tag">Human gate</span>Scans for secrets, reviews the outgoing diff through independent lenses, pushes the branch and opens the pull request. Typing <code>/flow-pr</code> yourself is the approval. Under <code>/goal</code> or <code>/loop</code> it stops and asks first. Merging is always yours.</p></li>
 </ol>
+</div>
 </div>
 </section>
 
@@ -82,13 +125,13 @@
 <p class="muted">Each file on the right exists in the scratch project from the <a href="first-workflow.html">first-workflow run</a>.</p>
 </div>
 <div class="defs-wrap">
-<dl class="defs">
-<dt>STATE.md</dt><dd>Position, open gate, loop counters, next command. Size-capped and rewritten in place.</dd>
-<dt>REQUIREMENTS.md</dt><dd>REQ-NN requirements, measurable SC-NN success criteria, assumptions, and inline <code>[NEEDS CLARIFICATION]</code> markers.</dd>
-<dt>ROADMAP.md</dt><dd>Phases, each with a one-line goal and the requirement IDs it owns.</dd>
-<dt>ARCHITECTURE.md</dt><dd>Your stack at major versions, forbidden items and principles. Agents treat it as law.</dd>
-<dt>phases/NN-*/</dt><dd>Plans, per-plan SUMMARYs, and the verifier's VERIFICATION.md.</dd>
-<dt>DECISIONS.md</dt><dd>Append-only record of every human gate: what was asked, what was answered, by whom, at which SHA.</dd>
+<dl class="cards cards-2">
+<div><dt>STATE.md</dt><dd>Position, open gate, loop counters, next command. Size-capped and rewritten in place.</dd></div>
+<div><dt>REQUIREMENTS.md</dt><dd>REQ-NN requirements, measurable SC-NN success criteria, assumptions, and inline <code>[NEEDS CLARIFICATION]</code> markers.</dd></div>
+<div><dt>ROADMAP.md</dt><dd>Phases, each with a one-line goal and the requirement IDs it owns.</dd></div>
+<div><dt>ARCHITECTURE.md</dt><dd>Your stack at major versions, forbidden items and principles. Agents treat it as law.</dd></div>
+<div><dt>phases/NN-*/</dt><dd>Plans, per-plan SUMMARYs, and the verifier's VERIFICATION.md.</dd></div>
+<div><dt>DECISIONS.md</dt><dd>Append-only record of every human gate: what was asked, what was answered, by whom, at which SHA.</dd></div>
 </dl>
 </div>
 </div>
@@ -97,13 +140,13 @@
 <section aria-labelledby="h-refuses">
 <h2 id="h-refuses"><span class="sec">03</span>What it will not do on its own</h2>
 <p>These hold under <code>/goal</code> and <code>/loop</code> too. The full gate list is in <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/plugins/devflow/references/autonomy.md">autonomy.md</a>.</p>
-<div class="defs-wrap">
-<dl class="defs">
-<dt>Commit to main</dt><dd>Work lands on a <code>flow/&lt;slug&gt;</code> branch and integrates by pull request.</dd>
-<dt>Open or merge a PR</dt><dd>Opening a pull request upstream and merging one are human gates.</dd>
-<dt>Certify a guess</dt><dd>A truth the requirements never settled goes to you as a human check, not a pass.</dd>
-<dt>Ship a secret</dt><dd>A fail-closed secret scan guards every commit and push. A hit stops the run and the value is never echoed.</dd>
-<dt>Add a dependency</dt><dd>A new package, or a major-version change, waits for your approval and is logged.</dd>
+<div class="defs-wrap breakout">
+<dl class="cards cards-3">
+<div><dt>Commit to main</dt><dd>Work lands on a <code>flow/&lt;slug&gt;</code> branch and integrates by pull request.</dd></div>
+<div><dt>Open or merge a PR</dt><dd>Opening a pull request upstream and merging one are human gates.</dd></div>
+<div><dt>Certify a guess</dt><dd>A truth the requirements never settled goes to you as a human check, not a pass.</dd></div>
+<div><dt>Ship a secret</dt><dd>A fail-closed secret scan guards every commit and push. A hit stops the run and the value is never echoed.</dd></div>
+<div><dt>Add a dependency</dt><dd>A new package, or a major-version change, waits for your approval and is logged.</dd></div>
 </dl>
 </div>
 </section>
@@ -125,16 +168,30 @@
 <section aria-labelledby="h-next">
 <h2 id="h-next"><span class="sec">05</span>Start</h2>
 <p>Two commands in Claude Code:</p>
+<div class="copy-block" data-copy role="group" aria-label="Install commands for Claude Code">
 <pre class="code" tabindex="0">/plugin marketplace add jbrianfrancis-ir/devflow
 /plugin install devflow@devflow</pre>
+<button type="button" class="copy" hidden aria-live="polite">Copy</button>
+</div>
 <p>Codex and other details are on the <a href="start.html">install page</a>. Then follow the <a href="first-workflow.html">first workflow</a>.</p>
 </section>
 
 </main>
 <footer class="foot">
+<div class="foot-in">
 <p>DevFlow is an open-source plugin, MIT licensed. <a href="https://github.com/jbrianfrancis-ir/devflow">Repository</a> · <a href="https://github.com/jbrianfrancis-ir/devflow/issues">Issues</a> · <a href="https://github.com/jbrianfrancis-ir/devflow/blob/main/CHANGELOG.md">Changelog</a></p>
 <p>Every terminal block on this site is unedited output from a real run, apart from the path substitutions listed on the <a href="first-workflow.html#how-captured">first-workflow page</a>.</p>
-</footer>
 </div>
+</footer>
+<script>
+for (const box of document.querySelectorAll("[data-copy]")) {
+  const btn = box.querySelector(".copy"), pre = box.querySelector("pre");
+  if (!btn || !pre || !navigator.clipboard) continue;
+  btn.hidden = false;
+  btn.addEventListener("click", () => navigator.clipboard.writeText(pre.textContent).then(
+    () => { btn.textContent = "Copied"; setTimeout(() => { btn.textContent = "Copy"; }, 2000); },
+    () => { btn.textContent = "Select to copy"; }));
+}
+</script>
 </body>
 </html>
