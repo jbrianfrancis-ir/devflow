@@ -131,6 +131,17 @@ class LinksTest(unittest.TestCase):
                 if frag:
                     self.assertIn(frag, ids.get(file, set()), f"{page.name}: #{frag} not in {file}")
 
+    def test_no_root_absolute_internal_links(self):
+        # GitHub Pages serves this repo under /devflow/, so "/x" would 404 at the domain root.
+        url = re.compile(r'''(?:href|src)\s*=\s*["']([^"']*)["']|url\(\s*["']?([^"')]*)''')
+        files = sorted(PUBLIC.rglob("*.html")) + sorted(PUBLIC.rglob("*.css"))
+        self.assertTrue(files)
+        for f in files:
+            for a, b in url.findall(f.read_text(encoding="utf-8")):
+                target = (a or b).strip()
+                self.assertFalse(target.startswith("/") and not target.startswith("//"),
+                                 f"{f.relative_to(PUBLIC)}: root-absolute {target!r}")
+
     def test_every_image_has_alt_text(self):
         for page in PUBLIC.glob("*.html"):
             for tag in re.findall(r"<img\b[^>]*>", page.read_text(encoding="utf-8")):
