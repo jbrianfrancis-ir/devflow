@@ -3,6 +3,7 @@
 ## 0.52.0 (2026-11-09)
 - Marketing site restyle, visual only: dark theme, top nav instead of the sidebar, split home hero with a copyable install block and a command-surface preview, card layouts. Page text, commands and captures are unchanged.
 - Shorter homepage headline (Brian's pick): "A development process for coding agents."
+- Marketing site deploys to GitHub Pages on merge to `main`: https://jbrianfrancis-ir.github.io/devflow/
 
 ## 0.51.0 (2026-11-09)
 - `/flow-execute` and `/flow-quick` pass `references/test-policy.md` to `flow-executor` (the trivial quick path follows it in-session). A `<falsify>` may reuse an existing behavior/integration test or the `## Smoke` command as its `<verify>`; `flow-plan-checker` 5b flags a new unit invented only to fill the pair. Prompt text only.

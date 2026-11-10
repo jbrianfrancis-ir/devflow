@@ -1,0 +1,51 @@
+name: pages
+
+# Deploys the marketing site (site/public, committed) to GitHub Pages on merge to main:
+# https://jbrianfrancis-ir.github.io/devflow/
+# Paths cover every build.py source, so a stale committed site/public fails --check here.
+# No pull_request trigger: a PR never deploys.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+      - "README.md"
+      - "docs/assets/sdlc-vs-devflow.*"
+      - "plugins/devflow/skills/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Fail if committed site/public is stale
+        run: python3 site/build.py --check
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

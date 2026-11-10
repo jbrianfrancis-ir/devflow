@@ -6,7 +6,8 @@
 
 Stdlib only. The output is static HTML/CSS plus copied images, with one inline script that
 adds copy buttons to install commands (the commands stay visible and selectable without it),
-so site/public/ can be served by any static host.
+so site/public/ can be served by any static host. .github/workflows/pages.yml deploys it to
+GitHub Pages on merge to main, at https://jbrianfrancis-ir.github.io/devflow/ (links stay relative).
 
 Sources, each with one owner so the site cannot drift from the repo:
 - command reference: plugins/devflow/skills/*/SKILL.md frontmatter (name, description,
