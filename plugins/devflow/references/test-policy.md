@@ -15,6 +15,16 @@
 6. **Do not invent unit tests for:** wrappers, DTO/record mapping with no rules, pass-through glue, generated clients, framework/DI/constructor wiring, "the mock was called" interaction checks, tests that re-implement the code under test inside the test, or source-text greps of your own code (read a `.cs`/`.ts`/`.sql` file and assert a string) when the behaviour can be exercised instead.
 7. **Proof:** A claim that tests passed needs a **command that ran + exit/key output**. Align with Outer Loop proof bar when this repo is under Outer Loop: CI green on tip, harness honesty, human merge GO — **never auto-merge**.
 
+## Size tests to the change
+
+Pick one tier per task from what the diff changes, not from how much effort it took:
+
+- **Small** — no behavior change: refactor, rename, copy/text/config tweak, docs. Add no new test file. Run only the existing tests that exercise the touched code, plus the lint/typecheck the plan names. Do not run the full suite. A stack that cannot filter tests runs its narrowest existing command, and the evidence names why.
+- **Behavior** — a defect fix, new or changed user-visible behavior, contract or data shape, or any money/PII/security path. Prove it at the behavior level (Defaults 2 and 5) and run the full suite.
+- Unsure → **Behavior**. Either tier may reuse an existing test as `<verify>`/`<falsify>` (`plan-format.md` → Negative control).
+- Record the tier and the exact commands run where evidence already lives: the plan task's `<action>` (`Tier: small` or `Tier: behavior`), SUMMARY prose, the `/flow-quick` commit body, VERIFICATION.md evidence and the PR body. A mismatch is a finding: a small change that adds any new test file, or a behavior change proven only by targeted tests.
+- The tier never skips `## Smoke`. It stays the standing end-to-end gate on every phase (`references/verification.md`).
+
 ## How this interacts with verification
 
 - Phase truths should usually be proven by **running behavior** (integration/API/Smoke) or tracing a wired path — not by counting new `*Tests.Unit` files. "Coverage went up" is never phase proof.
