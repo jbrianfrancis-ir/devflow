@@ -1,7 +1,7 @@
 # Changelog
 
 ## 0.53.0 (2026-11-11)
-- Tests sized to the change (`references/test-policy.md` → Size tests to the change): a task that runs tests names `Tier: small` (no behavior change: no new test file, only the targeted existing tests, no full suite) or `Tier: behavior` (behavior-level proof and the full suite). The planner, executor, `/flow-quick`, verifier and PR body record the tier and the commands run; `flow-plan-checker` 5c and the reviewer tests lens flag a mismatch. `## Smoke` is unchanged. Prompt text only.
+- Tests sized to the change (`references/test-policy.md` → Size tests to the change): a task that runs or adds tests names `Tier: small` (no behavior change: no new test file, only the targeted existing tests, no full suite) or `Tier: behavior` (behavior-level proof and the full suite). The planner, executor, `/flow-quick`, verifier and PR body record the tier and the commands run; `flow-plan-checker` 5c and the reviewer tests lens flag a mismatch. `## Smoke` is unchanged. Prompt text only.
 
 ## 0.52.0 (2026-11-09)
 - Marketing site restyle, visual only: dark theme, top nav instead of the sidebar, split home hero with a copyable install block and a command-surface preview, card layouts. Page text, commands and captures are unchanged.

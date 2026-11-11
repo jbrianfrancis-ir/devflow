@@ -26,7 +26,7 @@ Derive from the phase goal, not from the tasks: `truths` = observable behaviors 
 
 **Name the proof layer.** When a truth describes behavior that crosses a boundary (HTTP, DB, queue/bus, file, external API, a multi-component graph), its `verify` names an **integration/behavior test or the `## Smoke` command** as the primary proof — not a new unit suite. Thin units are for pure logic or a regression pin, per `{devflow_root}/references/test-policy.md`; a truth whose only claimed proof is newly invented units is not proven.
 
-**Size tests to the change.** Each task that runs or adds tests ends its `<action>` with `Tier: small` or `Tier: behavior` (test-policy.md → Size tests to the change). A small task's `<verify>` runs only the existing tests that exercise the touched code and adds no test file. A behavior task's `<verify>` includes the full suite.
+**Size tests to the change.** Each task that runs or adds tests ends its `<action>` with `Tier: small` or `Tier: behavior` (test-policy.md → Size tests to the change). A small task's `<verify>` adds no test file and runs only the existing tests that exercise the touched code, unless the task names why the stack cannot filter tests. A behavior task's `<verify>` includes the full suite.
 
 **Tests a plan adds must say what they protect** (money/fee, PII/security, external contract, regression, dense logic, behaviour through an entry point), and live in the behaviour's folder, never a per-phase folder. **A plan that removes or replaces a feature lists the tests it deletes** in `files_modified`. Deleting stale tests is in scope; a phase doc citing them is not a reason to keep them.
 
