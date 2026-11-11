@@ -27,7 +27,7 @@ Reference a prior plan's SUMMARY only if this plan genuinely uses its outputs.}
 <task type="auto">
   <name>Task 1: {action-oriented name}</name>
   <files>{paths}</files>
-  <action>{specific implementation — what to build and how; a task that runs tests ends with Tier: small|behavior (plan-format.md)}</action>
+  <action>{specific implementation — what to build and how; a task that runs or adds tests ends with Tier: small|behavior (plan-format.md)}</action>
   <verify>{command or observable check; human verification goes in <human-check> for end-of-phase batching}</verify>
   <falsify>{concrete mutation that makes the verify command fail — executor applies it, confirms failure, reverts. Omit only when verify is a human-check.}</falsify>
   <done>{acceptance criteria}</done>

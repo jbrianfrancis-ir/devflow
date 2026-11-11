@@ -19,10 +19,10 @@
 
 Pick one tier per task from what the diff changes, not from how much effort it took:
 
-- **Small** — no behavior change: refactor, rename, copy/text/config tweak, docs, or a fix inside behavior that existing tests already cover. Add no new test file. Run only the existing tests that exercise the touched code, plus the lint/typecheck the plan names. Do not run the full suite. A regression pin (Default 3) goes into an existing test file.
-- **Behavior** — new or changed user-visible behavior, contract or data shape, or any money/PII/security path. Prove it at the behavior level (Defaults 2 and 5) and run the full suite.
+- **Small** — no behavior change: refactor, rename, copy/text/config tweak, docs. Add no new test file. Run only the existing tests that exercise the touched code, plus the lint/typecheck the plan names. Do not run the full suite. A stack that cannot filter tests runs its narrowest existing command, and the evidence names why.
+- **Behavior** — a defect fix, new or changed user-visible behavior, contract or data shape, or any money/PII/security path. Prove it at the behavior level (Defaults 2 and 5) and run the full suite.
 - Unsure → **Behavior**. Either tier may reuse an existing test as `<verify>`/`<falsify>` (`plan-format.md` → Negative control).
-- Record the tier and the exact commands run where evidence already lives: the plan task's `<action>` (`Tier: small` or `Tier: behavior`), SUMMARY prose, VERIFICATION.md evidence and the PR body. A mismatch is a finding: a small change that adds a broad new test suite, or a behavior change proven only by targeted tests.
+- Record the tier and the exact commands run where evidence already lives: the plan task's `<action>` (`Tier: small` or `Tier: behavior`), SUMMARY prose, the `/flow-quick` commit body, VERIFICATION.md evidence and the PR body. A mismatch is a finding: a small change that adds any new test file, or a behavior change proven only by targeted tests.
 - The tier never skips `## Smoke`. It stays the standing end-to-end gate on every phase (`references/verification.md`).
 
 ## How this interacts with verification

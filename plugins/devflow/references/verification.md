@@ -46,6 +46,6 @@ Output `VERIFICATION.md` per the template. `status: pass` only if every truth is
 
 ## Test layer preference
 
-Follow `{devflow_root}/references/test-policy.md`. Prefer proving truths with behavior/integration/Smoke over newly invented unit suites. Classic unit-TDD is not the default agent workflow. Flag coverage-theater and wrapper/DTO unit diffs as verification smell even when commands are green. Record each plan's test tier and the commands that ran in the evidence. Flag a tier mismatch (test-policy.md → Size tests to the change) as verification smell. The Smoke gate runs on every phase whatever the tier.
+Follow `{devflow_root}/references/test-policy.md`. Prefer proving truths with behavior/integration/Smoke over newly invented unit suites. Classic unit-TDD is not the default agent workflow. Flag coverage-theater and wrapper/DTO unit diffs as verification smell even when commands are green. Record each task's test tier (its `Tier:` line) and the commands that ran in the evidence; `/flow-pr` reads them from there. Flag a tier mismatch (test-policy.md → Size tests to the change) as verification smell. The Smoke gate runs on every phase whatever the tier.
 
 Evidence is **command + result + commit SHA**. Do not write evidence that depends on named tests surviving future phases, and never add a doc-to-test mapping table. Flag as verification smell: new per-phase test folders; tests with no "protects" reason; tests for code this phase removed that are still present.
