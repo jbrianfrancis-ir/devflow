@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.54.0 (2026-11-12)
+- GitHub Copilot host: Copilot CLI and VS Code agent mode (the github.com cloud agent is not supported at this time) install the plugin from this marketplace; walkthrough in new `docs/getting-started-copilot.md`. New `scripts/flow-copilot.py render` can instead vendor the skills, the `flow-*` roles as custom agents (Claude tools mapped to Copilot aliases), references, templates and scripts into a repo's `.github/`, with no hooks; `check` fails on a hand edit or a stale pack. `hosts.md` → GitHub Copilot: a role whose custom agent is unavailable runs inline, and only the `native` provider exists. Claude and Codex behaviour is unchanged.
+
 ## 0.53.0 (2026-11-11)
 - Tests sized to the change (`references/test-policy.md` → Size tests to the change): a task that runs or adds tests names `Tier: small` (no behavior change: no new test file, only the targeted existing tests, no full suite) or `Tier: behavior` (behavior-level proof and the full suite). The planner, executor, `/flow-quick`, verifier and PR body record the tier and the commands run; `flow-plan-checker` 5c and the reviewer tests lens flag a mismatch. `## Smoke` is unchanged. Prompt text only.
 

@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+"""Render and check the DevFlow pack for GitHub Copilot. Stdlib only.
+
+  render --repo <target>   Write the pack into <target>/.github from this installed plugin.
+                           Refuses to overwrite or delete a file it did not write, or one
+                           edited since it wrote it (--force discards those edits).
+  check  --repo <target>   Exit 1 when the pack drifted: a generated file was edited, deleted
+                           or (run from the plugin) differs from what this version renders.
+                           The vendored copy (.github/scripts/flow-copilot.py) is an integrity
+                           check only: it compares files to the recorded hashes.
+
+Layout (`{devflow_root}` = `../..` from a skill, so it is `.github`): skills/<name>/SKILL.md,
+agents/flow-<role>.agent.md (Copilot custom agents; the body is the role contract),
+references/, templates/, scripts/ copied verbatim, workflows/copilot-setup-steps.yml, and
+devflow-copilot.json (version + sha256 of every file, CRLF read as LF). No hooks: the
+flow-hooks skill and templates/hooks/ are left out. Rules reach Copilot through the AGENTS.md
+pointer block that /flow-new writes; no copilot-instructions.md is written.
+
+Exit codes: 0 ok; 1 drift or conflict; 2 usage error.
+"""
+
+import argparse
+import hashlib
+import json
+import re
+import sys
+from pathlib import Path
+
+SOURCE = Path(__file__).resolve().parents[1]
+MANIFEST = ".github/devflow-copilot.json"
+REGEN = "python3 <devflow plugin>/scripts/flow-copilot.py render --repo ."
+# Claude tool name -> Copilot custom-agent tool alias. Unknown names fail the render, so a
+# new Claude tool can never be dropped (or widened) silently.
+TOOL_ALIASES = {"Read": "read", "Write": "edit", "Edit": "edit", "Bash": "execute",
+                "Grep": "search", "Glob": "search", "WebFetch": "web", "WebSearch": "web"}
+ALIAS_ORDER = ["read", "edit", "execute", "search", "web"]
+# The pack ships no hooks, so neither the hook installer skill nor its templates.
+SKIP = ("skills/flow-hooks", "templates/hooks")
+AGENT_PATH = re.compile(r"(\{devflow_root\}/agents/flow-[\w*-]+)\.md")
+SETUP_STEPS = """\
+# {marker}
+# Checks the vendored DevFlow pack on PRs that touch .github/.
+name: Copilot setup steps
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: [".github/**"]
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check the vendored DevFlow pack
+        run: python3 .github/scripts/flow-copilot.py check --repo .
+"""
+
+
+def split_frontmatter(text, path):
+    if not text.startswith("---\n") or "\n---\n" not in text[3:]:
+        raise SystemExit(f"flow-copilot: {path}: no frontmatter")
+    head, _, body = text[4:].partition("\n---\n")
+    values = {}
+    for line in head.splitlines():
+        key, sep, value = line.partition(":")
+        if sep and not line.startswith((" ", "\t", "#")):
+            values[key.strip()] = value.strip()
+    return values, body
+
+
+def scalar(fm, key, path):
+    """A plain one-line frontmatter value. Quoted or block-scalar YAML is refused rather than
+    re-quoted wrong (the parser above does not unquote)."""
+    value = fm.get(key, "")
+    if not value or value[0] in "\"'>|":
+        raise SystemExit(f"flow-copilot: {path}: {key} must be a plain one-line value")
+    return value
+
+
+def emit(fields, marker, body):
+    lines = ["---"] + [f"{k}: {v}" for k, v in fields] + ["---", f"<!-- {marker} -->"]
+    return ("\n".join(lines) + "\n" + AGENT_PATH.sub(r"\1.agent.md", body)).encode()
+
+
+def lf(data):
+    """Text bytes with CRLF read as LF, so a Windows checkout neither drifts nor re-renders."""
+    return data if b"\0" in data else data.replace(b"\r\n", b"\n")
+
+
+def skipped(path):
+    rel = path.relative_to(SOURCE).as_posix()
+    return any(rel == s or rel.startswith(s + "/") for s in SKIP)
+
+
+def copy_tree(out, src_dir, dest):
+    for path in sorted(src_dir.rglob("*")):
+        if (path.is_dir() or "__pycache__" in path.parts or path.suffix == ".pyc"
+                or skipped(path)):
+            continue
+        data = lf(path.read_bytes())
+        if path.suffix == ".md":
+            data = AGENT_PATH.sub(r"\1.agent.md", data.decode()).encode()
+        out[f"{dest}/{path.relative_to(src_dir).as_posix()}"] = data
+
+
+def build():
+    """Every pack file as {repo-relative posix path: bytes}, manifest excluded."""
+    manifest = SOURCE / ".claude-plugin/plugin.json"
+    if not manifest.is_file():
+        raise SystemExit("flow-copilot: render needs the installed DevFlow plugin, not a "
+                         "vendored copy; run <devflow plugin>/scripts/flow-copilot.py")
+    version = json.loads(manifest.read_text(encoding="utf-8"))["version"]
+    marker = f"generated by DevFlow {version} — do not edit; regenerate with: {REGEN}"
+    out = {}
+    for skill in sorted(SOURCE.glob("skills/*/SKILL.md")):
+        if skipped(skill.parent):
+            continue
+        fm, body = split_frontmatter(skill.read_text(encoding="utf-8"), skill)
+        fields = [("name", scalar(fm, "name", skill)),
+                  ("description", json.dumps(scalar(fm, "description", skill), ensure_ascii=False)),
+                  ("license", "MIT")]
+        if fm.get("disable-model-invocation") == "true":
+            fields.append(("disable-model-invocation", "true"))
+        name = skill.parent.name
+        out[f".github/skills/{name}/SKILL.md"] = emit(
+            fields, f"{marker}; in this pack {{devflow_root}} is .github", body)
+        for extra in sorted(skill.parent.rglob("*")):
+            if extra.is_file() and extra != skill and "__pycache__" not in extra.parts:
+                rel = extra.relative_to(skill.parent).as_posix()
+                out[f".github/skills/{name}/{rel}"] = lf(extra.read_bytes())
+    for agent in sorted(SOURCE.glob("agents/flow-*.md")):
+        fm, body = split_frontmatter(agent.read_text(encoding="utf-8"), agent)
+        claude = [t.strip() for t in fm["tools"].split(",") if t.strip()]
+        unknown = sorted(set(claude) - set(TOOL_ALIASES))
+        if unknown:
+            raise SystemExit(f"flow-copilot: {agent.name}: no Copilot alias for {unknown}")
+        aliases = {TOOL_ALIASES[t] for t in claude}
+        tools = [a for a in ALIAS_ORDER if a in aliases]
+        fields = [("name", scalar(fm, "name", agent)),
+                  ("description", json.dumps(scalar(fm, "description", agent), ensure_ascii=False)),
+                  ("tools", json.dumps(tools))]
+        out[f".github/agents/{agent.stem}.agent.md"] = emit(fields, marker, body)
+    for sub in ("references", "templates", "scripts"):
+        copy_tree(out, SOURCE / sub, f".github/{sub}")
+    out[".github/workflows/copilot-setup-steps.yml"] = SETUP_STEPS.format(marker=marker).encode()
+    return version, out
+
+
+def sha(data):
+    return hashlib.sha256(lf(data)).hexdigest()
+
+
+def confine(repo, rels):
+    """Refuse any write or delete that a symlink would carry outside repo/.github."""
+    root = (repo / ".github").resolve()
+    if not root.is_relative_to(repo.resolve()):
+        raise SystemExit(f"flow-copilot: {repo}/.github resolves outside the repo")
+    for rel in rels:
+        if not (repo / rel).resolve().is_relative_to(root):
+            raise SystemExit(f"flow-copilot: refusing {rel}: it resolves outside .github/")
+
+
+def load_manifest(repo):
+    path = repo / MANIFEST
+    if not path.is_file():
+        return None
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    for rel in manifest["files"]:
+        if not rel.startswith(".github/") or ".." in Path(rel).parts or "\\" in rel:
+            raise SystemExit(f"flow-copilot: {MANIFEST}: refusing path outside .github/: {rel}")
+    return manifest
+
+
+def cmd_render(repo, force):
+    version, files = build()
+    previous = load_manifest(repo)
+    owned = previous["files"] if previous else {}
+    conflicts = [rel for rel, data in files.items() if rel not in owned
+                 and (repo / rel).is_file() and sha((repo / rel).read_bytes()) != sha(data)]
+    if conflicts:
+        print("flow-copilot: refusing to overwrite files DevFlow did not write:\n  "
+              + "\n  ".join(conflicts), file=sys.stderr)
+        return 1
+    edited = [rel for rel, digest in owned.items()
+              if (repo / rel).is_file() and sha((repo / rel).read_bytes()) != digest]
+    if edited and not force:
+        print("flow-copilot: these pack files were edited since render; move the change out "
+              "of the pack, or re-run with --force to discard it:\n  " + "\n  ".join(edited),
+              file=sys.stderr)
+        return 1
+    confine(repo, [*owned, *files, MANIFEST])
+    for rel in sorted(set(owned) - set(files)):
+        (repo / rel).unlink(missing_ok=True)
+    for rel, data in files.items():
+        path = repo / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        if rel.endswith(".py") and "/scripts/" in rel:
+            path.chmod(0o755)
+    manifest = {"generated_by": f"DevFlow {version} flow-copilot.py — do not edit",
+                "version": version,
+                "files": {rel: sha(data) for rel, data in sorted(files.items())}}
+    (repo / MANIFEST).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    print(f"flow-copilot: wrote {len(files)} files (DevFlow {version}) under {repo}/.github")
+    agents_md = repo / "AGENTS.md"
+    if not agents_md.is_file() or "<!-- BEGIN DEVFLOW -->" not in agents_md.read_text("utf-8"):
+        print("flow-copilot: AGENTS.md has no DevFlow pointer block; run flow-new or "
+              "flow-migrate so Copilot loads the DevFlow rules", file=sys.stderr)
+    return 0
+
+
+def cmd_check(repo):
+    manifest = load_manifest(repo)
+    if manifest is None:
+        print(f"DRIFT: {MANIFEST}: missing — no DevFlow Copilot pack here")
+        return 1
+    drift = []
+    for rel, digest in manifest["files"].items():
+        path = repo / rel
+        if not path.is_file():
+            drift.append(f"{rel}: deleted")
+        elif sha(path.read_bytes()) != digest:
+            drift.append(f"{rel}: edited by hand")
+    if (SOURCE / ".claude-plugin/plugin.json").is_file():
+        version, files = build()
+        for rel in sorted(set(files) | set(manifest["files"])):
+            if rel not in manifest["files"]:
+                drift.append(f"{rel}: missing (DevFlow {version} renders it)")
+            elif rel not in files:
+                drift.append(f"{rel}: stale (DevFlow {version} no longer renders it)")
+            elif manifest["files"][rel] != sha(files[rel]):
+                drift.append(f"{rel}: stale (pack {manifest['version']}, plugin {version})")
+    for line in dict.fromkeys(drift):
+        print(f"DRIFT: {line}")
+    if drift:
+        print(f"regenerate with: {REGEN}")
+        return 1
+    print(f"flow-copilot: pack {manifest['version']} is current")
+    return 0
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    for name in ("render", "check"):
+        cmd = sub.add_parser(name)
+        cmd.add_argument("--repo", required=True, type=Path)
+        if name == "render":
+            cmd.add_argument("--force", action="store_true",
+                             help="overwrite pack files edited since the last render")
+    ns = parser.parse_args(argv)
+    repo = ns.repo.resolve()
+    if not repo.is_dir():
+        parser.error(f"--repo {repo}: not a directory")
+    return cmd_render(repo, ns.force) if ns.cmd == "render" else cmd_check(repo)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

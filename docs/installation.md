@@ -8,6 +8,18 @@ Start a new Codex thread after installation and invoke skills with `$flow-new`,
 `$flow-plan`, `$flow-execute`, and the other `$flow-*` names. Codex cloud is not
 part of the initial support contract.
 
+## GitHub Copilot
+
+Copilot CLI and VS Code agent mode; the Copilot cloud agent on github.com is not supported at
+this time. Install: [README](../README.md#github-copilot-cli-and-vs-code). First run, gates, roles
+and gaps: [getting-started-copilot.md](getting-started-copilot.md). Host behaviour:
+[`hosts.md`](../plugins/devflow/references/hosts.md) → GitHub Copilot.
+
+VS Code without agent plugins: `python3 <devflow>/scripts/flow-copilot.py render --repo .`
+(`<devflow>` is a checkout's `plugins/devflow` or an installed copy) vendors the skills, `flow-*`
+custom agents, references, templates and scripts into `.github/`, with no hooks, plus a workflow
+that runs `flow-copilot.py check` on PRs touching `.github/`. Re-render after each DevFlow update.
+
 ## Test the working tree for one session
 
 The installed plugin is the published build, not your checkout. To run skills from a DevFlow
