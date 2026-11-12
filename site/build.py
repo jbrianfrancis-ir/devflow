@@ -12,8 +12,8 @@ GitHub Pages on merge to main, at https://jbrianfrancis-ir.github.io/devflow/ (l
 Sources, each with one owner so the site cannot drift from the repo:
 - command reference: plugins/devflow/skills/*/SKILL.md frontmatter (name, description,
   disable-model-invocation), grouped by the "Loop" column of README.md's Commands table;
-- install commands: the fenced blocks under README.md's "### Claude Code" and
-  "### Codex CLI, app, or IDE" headings;
+- install commands: the first fenced block under each of README.md's "### Claude Code",
+  "### Codex CLI, app, or IDE" and "### GitHub Copilot (CLI and VS Code)" headings;
 - terminal captures: site/captures/*.txt (raw stdout) and site/captures/runs.json (the command,
   timestamps and exit code of each run);
 - the SDLC vs DevFlow chart: docs/assets/sdlc-vs-devflow.{png,svg}, copied byte for byte.
@@ -121,9 +121,10 @@ def readme_groups():
 
 
 def readme_block(heading):
-    """First fenced block after a README heading line, verbatim."""
+    """First fenced block after a README heading line, verbatim. Prose lines may sit between
+    the heading and the fence; a later heading may not."""
     text = README.read_text(encoding="utf-8")
-    m = re.search(rf"^{re.escape(heading)}\n+```[a-z]*\n(.*?)\n```", text, re.M | re.S)
+    m = re.search(rf"^{re.escape(heading)}\n(?:(?!#|```)[^\n]*\n)*```[a-z]*\n(.*?)\n```", text, re.M | re.S)
     if not m:
         raise BuildError(f"README.md: no fenced block under {heading!r}")
     return m.group(1)
@@ -253,7 +254,8 @@ def fill(body, data, path):
                 raise BuildError(f"{path}: unknown capture {arg}")
             return render_capture(arg, data)
         if kind == "install":
-            heading = {"claude": "### Claude Code", "codex": "### Codex CLI, app, or IDE"}[arg]
+            heading = {"claude": "### Claude Code", "codex": "### Codex CLI, app, or IDE",
+                       "copilot": "### GitHub Copilot (CLI and VS Code)"}[arg]
             return f'<pre class="code" tabindex="0">{esc(readme_block(heading))}</pre>'
         if kind == "flowlines":
             return render_flow_lines(data)

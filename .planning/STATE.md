@@ -2,12 +2,9 @@
 # State
 
 ## Position
-Phase: 4 of 4 (verified) | Plans: 4/4 | Status: PR #38 open
-Last: 2026-09-10 — quicks 014/015/016 (v0.23.0):
-  all nine False Green requirements, plus a live secret-scan fail-open
-  (diff.mnemonicPrefix defeated the guard silently). 3 review rounds, 6 lenses,
-  14 blocking findings all closed. 225 tests, 230 refs, 0 failures
-Next: /flow-ci 38 — first PR under branch protection; validate is a required check
+Phase: none active | Status: complete — Documentation Restructure project done
+Last: 2026-11-12 — last shipped 0.54.0 on main
+Next: none queued — start new work with /flow-quick or a new project
 
 ## Gate
 none
@@ -31,5 +28,5 @@ Signature: rule8:phase04:plans4/4:verifverified
 - none
 
 ## Session
-Stopped: PR #38 open — https://github.com/jbrianfrancis-ir/devflow/pull/38
-Resume: /flow-ci 38 — round-3 fixes (guard + split tool) are NOT independently reviewed
+Stopped: no active phase — 0.55.0 architecture refresh open as PR #85 (feat/arch-refresh)
+Resume: /flow-ci 85, then /flow-status

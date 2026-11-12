@@ -22,7 +22,7 @@ days before the newest commit have not had their full window yet. A class with f
 MIN_LINES added lines gets a small-sample note instead of a confident rate.
 
 A signal, not a gate: read-only (git log and git blame only), exit 0 whenever it ran.
-Exit 2 when git could not be read. Stdlib only (ARCHITECTURE.md: Python 3.9+).
+Exit 2 when git could not be read. Stdlib only (ARCHITECTURE.md: Python 3.12+).
 """
 
 from __future__ import annotations

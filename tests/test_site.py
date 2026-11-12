@@ -8,6 +8,7 @@ import importlib.util
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -112,6 +113,50 @@ class LookTest(unittest.TestCase):
         self.assertEqual(["flow-new", "flow-plan", "flow-execute", "flow-status", "flow-pr"], shown)
         for name in shown:
             self.assertTrue((ROOT / "plugins/devflow/skills" / name / "SKILL.md").is_file(), name)
+
+
+class InstallPageTest(unittest.TestCase):
+    """start.html carries each host's README install block verbatim, in host order."""
+
+    HEADINGS = ("### Claude Code", "### Codex CLI, app, or IDE", "### GitHub Copilot (CLI and VS Code)")
+
+    def readme_fence(self, heading):
+        # Independent of build.py: the first fence after the heading, before the next heading.
+        lines = (ROOT / "README.md").read_text(encoding="utf-8").split("\n")
+        rest = lines[lines.index(heading) + 1:]
+        start = next(i for i, line in enumerate(rest) if line.startswith(("```", "#")))
+        self.assertTrue(rest[start].startswith("```"), f"{heading}: heading before any fence")
+        end = rest.index("```", start + 1)
+        return "\n".join(rest[start + 1:end])
+
+    def page(self):
+        return (PUBLIC / "start.html").read_text(encoding="utf-8")
+
+    def test_every_host_install_block_is_on_the_page_verbatim(self):
+        page = self.page()
+        build = load_build()
+        for heading in self.HEADINGS:
+            block = build.esc(self.readme_fence(heading))
+            self.assertIn(f'<pre class="code" tabindex="0">{block}</pre>', page, heading)
+
+    def test_copilot_section_sits_between_codex_and_the_install_check(self):
+        ids = re.findall(r'<h2 id="(h-[a-z]+)"', self.page())
+        self.assertEqual(["h-codex", "h-copilot", "h-check"], ids[ids.index("h-codex"):][:3])
+        self.assertIn("cloud agent on github.com is not supported", self.page())
+
+    def test_section_marks_are_consecutive_letters(self):
+        marks = re.findall(r'<span class="sec">([A-Z])</span>', self.page())
+        self.assertEqual([chr(ord("A") + i) for i in range(len(marks))], marks)
+
+    def test_readme_block_never_takes_a_fence_from_a_later_heading(self):
+        build = load_build()
+        with tempfile.TemporaryDirectory() as tmp:
+            build.README = Path(tmp) / "README.md"
+            build.README.write_text("### Empty\n\nprose\n\n### Next\n\n```text\nwrong\n```\n",
+                                    encoding="utf-8")
+            with self.assertRaises(build.BuildError):
+                build.readme_block("### Empty")
+            self.assertEqual("wrong", build.readme_block("### Next"))
 
 
 class LinksTest(unittest.TestCase):

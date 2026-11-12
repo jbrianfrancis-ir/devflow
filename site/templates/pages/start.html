@@ -1,6 +1,6 @@
 <!--
-title: Install DevFlow: Claude Code and Codex
-description: Install the DevFlow plugin in Claude Code or Codex, check the install, and load a working tree for one session.
+title: Install DevFlow: Claude Code, Codex and Copilot
+description: Install the DevFlow plugin in Claude Code, Codex or GitHub Copilot, check the install, and load a working tree for one session.
 -->
 <header class="page-head">
 <p class="eyebrow">00<span class="sep">/</span>Install</p>
@@ -12,7 +12,7 @@ description: Install the DevFlow plugin in Claude Code or Codex, check the insta
 <h2 id="h-need"><span class="sec">A</span>What you need</h2>
 <div class="defs-wrap">
 <dl class="defs">
-<dt>A host</dt><dd>Claude Code, or a local Codex client: the CLI, the app or the IDE extension. Codex cloud is not supported.</dd>
+<dt>A host</dt><dd>Claude Code; a local Codex client: the CLI, the app or the IDE extension; or GitHub Copilot CLI or VS Code agent mode. Codex cloud and the Copilot cloud agent on github.com are not supported.</dd>
 <dt>git</dt><dd>Every project is a git repository. DevFlow works on a <code>flow/&lt;slug&gt;</code> branch and never commits to <code>main</code>.</dd>
 <dt>Python 3</dt><dd>DevFlow's helper scripts (plan lint, worktree landing, the cross-provider bridge) are standard-library Python, run as <code>python3</code>.</dd>
 <dt>gh</dt><dd>The GitHub CLI, authenticated, for <code>/flow-pr</code> and <code>/flow-ci</code>. Planning and executing work without it.</dd>
@@ -34,8 +34,15 @@ description: Install the DevFlow plugin in Claude Code or Codex, check the insta
 <p>Start a new Codex thread after installing. Codex invokes the same skills with a <code>$</code> prefix: <code>$flow-new</code>, <code>$flow-plan</code>, <code>$flow-execute</code>. Codex installs at user scope, and a project skill never edits your Codex configuration.</p>
 </section>
 
+<section aria-labelledby="h-copilot">
+<h2 id="h-copilot"><span class="sec">D</span>GitHub Copilot CLI or VS Code</h2>
+<p>Run these in a shell. In a Copilot CLI session, <code>/skills list</code> then shows the <code>flow-*</code> skills:</p>
+{{install:copilot}}
+<p>In VS Code agent mode (agent plugins are in preview), set <code>chat.plugins.enabled</code> to <code>true</code>, add the marketplace <code>jbrianfrancis-ir/devflow</code> and install DevFlow. A plugin the CLI installed also appears in VS Code. The Copilot cloud agent on github.com is not supported. Steps are in <a href="{{repo}}/blob/main/docs/getting-started-copilot.md">docs/getting-started-copilot.md</a>.</p>
+</section>
+
 <section aria-labelledby="h-check">
-<h2 id="h-check"><span class="sec">D</span>Check the install</h2>
+<h2 id="h-check"><span class="sec">E</span>Check the install</h2>
 <p>In an empty git repository, ask for status. With no <code>.planning/</code> directory there is nothing to report, so it names the next step and stops at a gate, because <code>/flow-new</code> needs your answers.</p>
 <div class="breakout">
 {{capture:00-status-empty}}
@@ -44,7 +51,7 @@ description: Install the DevFlow plugin in Claude Code or Codex, check the insta
 </section>
 
 <section aria-labelledby="h-tree">
-<h2 id="h-tree"><span class="sec">E</span>Run a checkout for one session</h2>
+<h2 id="h-tree"><span class="sec">F</span>Run a checkout for one session</h2>
 <p>For trying a branch or contributing. This changes no installed plugin and no marketplace. From a scratch directory:</p>
 <pre class="code" tabindex="0">claude --plugin-dir &lt;path-to-checkout&gt;/plugins/devflow</pre>
 <p>Skills are then namespaced by the plugin name, so type <code>/devflow:flow-status</code>. Headless works too:</p>
@@ -53,6 +60,6 @@ description: Install the DevFlow plugin in Claude Code or Codex, check the insta
 </section>
 
 <section aria-labelledby="h-then">
-<h2 id="h-then"><span class="sec">F</span>Then</h2>
+<h2 id="h-then"><span class="sec">G</span>Then</h2>
 <p><a class="btn" href="first-workflow.html">Walk through a first workflow</a></p>
 </section>

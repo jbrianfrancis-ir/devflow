@@ -6,7 +6,7 @@ higher than the source shifts up by one (filename, `plan:` field, and every `NN-
 reference in any plan's frontmatter or prose that names a shifted plan). All-or-nothing —
 nothing is written unless the computed result is provably free of dangling references.
 
-Stdlib only (ARCHITECTURE.md: Python 3.9+, no dependencies). Plan frontmatter is a small,
+Stdlib only (ARCHITECTURE.md: Python 3.12+, no dependencies). Plan frontmatter is a small,
 known shape (see plan-format.md), so this parses only the fields it needs with
 line-oriented code — not a general YAML parser.
 """

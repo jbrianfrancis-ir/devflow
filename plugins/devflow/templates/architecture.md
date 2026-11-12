@@ -7,19 +7,20 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 ## Stack
 | What | Exactly | Major |
 |------|---------|-------|
-| Runtime | {e.g. .NET} | {e.g. 10} |
-| Language | {e.g. C#} | {14} |
+| Runtime | {e.g. .NET} | {e.g. 11} |
+| Language | {e.g. C#} | {15} |
 | Orchestration | Aspire | {13.x} |
-<!-- MAJOR VERSIONS ONLY — this table AND `## Frameworks & libraries` below. Write `10`, `13.x`,
-     `24 LTS`; never `13.5.1`. The exact version lives only in the manifest/lockfile
-     (csproj, Directory.Packages.props, global.json, package.json + lockfile, ...), so a
-     minor/patch bump changes the manifest and never this file, and raises no warning. Only a
-     major change (e.g. Aspire 13 → 14) is a checkpoint:decision, and then the major here changes.
-     A deliberate exact pin must carry its reason — `10.0.3 (exact: <why>)` — and only then
-     binds below the major. Every number shown is an illustrative example: resolve the current
-     major from its own source (`dotnet --list-sdks`, the vendor's release page,
-     `dotnet package search <id> --exact-match`), never from this template.
-     Aspire: within-major updates auto-apply; a major bump needs approval. -->
+| Frontend | {pick per app, no default: Blazor Web App for internal staff tools; React + Vite via Aspire's JS integrations for rich or public UIs; Next.js only when SSR is needed} | {11} |
+| Auth | {Entra ID via Microsoft.Identity.Web with a default-deny authorization policy; Entra External ID for non-staff users; managed identity for service-to-Azure calls} | {4.x} |
+<!-- MAJOR VERSIONS ONLY — this table AND `## Frameworks & libraries` below. Write `11`, `13.x`, `26 LTS`;
+     never `13.5.1`. The exact version lives only in the manifest/lockfile (csproj, Directory.Packages.props,
+     global.json, package.json + lockfile, ...), so a minor/patch bump changes the manifest and never this file,
+     and raises no warning. Only a major change (e.g. Aspire 13 → 14) is a checkpoint:decision, and then the major
+     here changes. A deliberate exact pin must carry its reason — `11.0.3 (exact: <why>)` — and only then binds below
+     the major. Every number shown is an illustrative example: resolve the current major from its own source
+     (`dotnet --list-sdks`, the vendor's release page, `dotnet package search <id> --exact-match`), never from this
+     template. Aspire: within-major updates auto-apply; a major bump needs approval. Default for all new
+     apps: .NET 11 / C# 15 / EF Core 11; Postgres apps pin Npgsql EF Core 11 at the current rc until it is stable. -->
 
 ## Principles
 <!-- Practice law for THIS project — the rules a plan may not trade away for convenience.
@@ -47,20 +48,21 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 ## Frameworks & libraries
 | Library | Major | Use for |
 |---------|-------|---------|
-| {e.g. EF Core} | {10.x} | {data access} |
-| {e.g. xUnit} | {2.x} | {tests} |
+| {e.g. EF Core} | {11.x} | {data access} |
+| {e.g. xunit.v3} | {4.x} | {tests} |
+| {e.g. Microsoft.Playwright} | {1.x} | {E2E in the Smoke project, when the app has a UI} |
 
 ## Architecture & patterns
 - {e.g. vertical slice per feature; API in Minimal APIs; no MediatR}
-- {project layout rules: solution structure, naming}
+- {project layout: solution structure, naming. Default: CPM (`Directory.Packages.props`), `global.json` with `rollForward: latestFeature`, `Directory.Build.props` with Nullable on and warnings as errors}
 
 ## Infrastructure (Azure / Aspire resources)
-- {e.g. PostgreSQL Flexible Server via AddAzurePostgresFlexibleServer; Redis for cache; Key Vault for secrets}
+- {e.g. Azure SQL via AddAzureSqlServer, or PostgreSQL Flexible Server via AddAzurePostgresFlexibleServer — either on managed identity. Azure SQL when the app joins a shared IR database or must run on Mac and PC without a local SQL container; PostgreSQL Flexible when the app owns its database and local containers are fine. Redis for cache; Key Vault for secrets}
 
 ## Environment (names only — never values)
 | Var / parameter | Source | Used by |
 |-----------------|--------|---------|
-| {e.g. POSTGRES_PASSWORD} | {azd parameter (secret) / Key Vault / .env.example (local) / CI secret} | {service} |
+| {e.g. ConnectionStrings__appdb — Entra / managed-identity auth, no password} | {AppHost resource reference / azd parameter / .env.example (local) / CI secret} | {service} |
 
 **Fail fast — no fallback values.** Every setting/env var here is required unless marked `(optional, default: X)`. Code must not silently default a required value (`?? "..."`, `os.environ.get(k, default)`, `GetValueOrDefault`, empty-string coalescing) — validate at startup and fail immediately with an error naming the missing key (e.g. options validation / `ValidateOnStart`).
 <!-- Discovery never opens .env* files: names come from code accessors and .env.example.
@@ -68,11 +70,9 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 
 ## Forbidden
 - {libraries, patterns, or shortcuts explicitly not allowed}
-<!-- An entry may end with an optional backticked regex, e.g. a bullet ending
-" — pattern: `\b[A-Z0-9]{10}\b`". Optional: a prose-only entry stays valid and stays
-unenforced — only entries that carry a regex are machine-checked. **Python `re` syntax,
-matched case-sensitively** — that is what the guard compiles, so POSIX classes like
-`[[:digit:]]` are accepted by the parser and then silently never match. Write `[0-9]`, `\d`.
-Keep it simple: a pattern with nested quantifiers (`(a+)+`) backtracks catastrophically and is
-blocked as could-not-check rather than run. See conventions.md's "Secret scan (fail-closed)"
-section for how the regex gets enforced. -->
+<!-- An entry may end with an optional backticked regex, e.g. a bullet ending " — pattern: `\b[A-Z0-9]{10}\b`".
+Optional: a prose-only entry stays valid and stays unenforced — only entries that carry a regex are machine-checked.
+**Python `re` syntax, matched case-sensitively** — that is what the guard compiles, so POSIX classes like
+`[[:digit:]]` are accepted by the parser and then silently never match. Write `[0-9]`, `\d`. Keep it simple: a
+pattern with nested quantifiers (`(a+)+`) backtracks catastrophically and is blocked as could-not-check rather
+than run. See conventions.md's "Secret scan (fail-closed)" section for how the regex gets enforced. -->

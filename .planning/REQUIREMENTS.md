@@ -31,7 +31,7 @@
 - SC-02: Zero unresolvable internal references across scoped markdown — `scripts/check-links.py` exits 0.
 - SC-03: No `docs/` file exceeds 250 lines.
 - SC-04: A first-time reader goes from the top of README to a running `/flow-new` without opening `docs/`.
-- SC-05: Zero third-party dependencies — no `pip install`, no npm, no CI action beyond `actions/checkout@v4`.
+- SC-05: Zero third-party dependencies — first-party `actions/*` only; no `pip install`, no npm.
 
 ## Assumptions
 - `docs/blitzos.md` and `docs/status-contract.md` keep their paths and contents; the index links them alongside new pages.

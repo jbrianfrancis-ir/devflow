@@ -13,7 +13,7 @@ dotnet package search Aspire.Hosting.AppHost --exact-match --take 5
 curl -s https://api.nuget.org/v3-flatcontainer/aspire.hosting.apphost/index.json   # every published version
 aspire --version                                                                   # the installed CLI
 ```
-Latest stable when this was last checked: **13.5.0** (released 2026-08-18; release notes at https://aspire.dev/whats-new/). A version a document mentions but the feed doesn't carry is not a near-miss to route around — per the executor's package rule, a package that can't be found is a `CHECKPOINT` (human-action), never a retry with a neighbouring version.
+Latest stable when this was last checked: **13.6.5** (released 2026-11-10; no 14.x yet; release notes at https://aspire.dev/whats-new/). A version a document mentions but the feed doesn't carry is not a near-miss to route around — per the executor's package rule, a package that can't be found is a `CHECKPOINT` (human-action), never a retry with a neighbouring version.
 
 ## Detection
 - AppHost: `Glob **/*.AppHost/*.csproj`, or grep `Aspire.Hosting.AppHost` across csprojs, or a single-file `apphost.cs`.
@@ -21,7 +21,7 @@ Latest stable when this was last checked: **13.5.0** (released 2026-08-18; relea
 - CLIs: `aspire --version`, `azd version`. Missing → the user installs (aspire.dev quickstart; azd: https://aka.ms/azd).
 
 ## No AppHost? Create one (first hardening task)
-`aspire new` (or `dotnet new aspire-apphost` + `dotnet new aspire-servicedefaults`), then in AppHost: `AddProject`/`AddContainer` for each existing service; `AddAzure*` resources for every external dependency (Postgres → `AddAzurePostgresFlexibleServer`, Redis → `AddAzureRedis`, storage, service bus, Key Vault). Each service: `builder.AddServiceDefaults()` + `app.MapDefaultEndpoints()`. Gate: `aspire run` works locally.
+`aspire new` (or `dotnet new aspire-apphost` + `dotnet new aspire-servicedefaults`), then in AppHost: `AddProject`/`AddContainer` for each existing service; `AddAzure*` resources for every external dependency (Azure SQL → `AddAzureSqlServer`, Postgres → `AddAzurePostgresFlexibleServer` (EF Core 11: pin Npgsql at its current rc until stable), both on managed identity; Redis → `AddAzureRedis`, storage, service bus, Key Vault). Each service: `builder.AddServiceDefaults()` + `app.MapDefaultEndpoints()`. Gate: `aspire run` works locally.
 
 ## Build gate
 `aspire publish` — generates deployment artifacts from the AppHost model. Must succeed before any deploy; failures are hardening findings.

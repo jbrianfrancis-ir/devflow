@@ -187,7 +187,7 @@ def parse_requirements(text):
     return entries
 
 
-# Just enough TOML for dependency tables, stdlib-only on 3.9+ (tomllib is 3.11+): yields
+# Just enough TOML for dependency tables, stdlib-only on 3.12+ (hand-rolled; tomllib is not used): yields
 # (table, key, raw_value) per assignment, joining multi-line arrays and inline tables.
 TOML_HEADER_RE = re.compile(r"^\s*(\[\[?)\s*([^\]]+?)\s*\]\]?\s*(#.*)?$")
 TOML_ASSIGN_RE = re.compile(r"^\s*(\"[^\"]*\"|'[^']*'|[A-Za-z0-9_.-]+)\s*=\s*(.*)$")
