@@ -1,6 +1,6 @@
 # DevFlow
 
-Token-efficient spec-driven development for Claude Code and local Codex clients. Fresh-context subagents, wave-parallel execution, plan checking, independent diff review, goal-backward verification that abstains rather than guessing, and durable `.planning/` state. Claude invokes skills as `/flow-*`; Codex invokes the same skills as `$flow-*`.
+Token-efficient spec-driven development for Claude Code, local Codex clients and GitHub Copilot. Fresh-context subagents, wave-parallel execution, plan checking, independent diff review, goal-backward verification that abstains rather than guessing, and durable `.planning/` state. Claude invokes skills as `/flow-*`; Codex invokes the same skills as `$flow-*`.
 
 ## Install
 
@@ -17,6 +17,13 @@ Token-efficient spec-driven development for Claude Code and local Codex clients.
 codex plugin marketplace add jbrianfrancis-ir/devflow
 codex plugin add devflow@devflow
 ```
+### GitHub Copilot
+
+```text
+copilot plugin marketplace add jbrianfrancis-ir/devflow
+copilot plugin install devflow@devflow
+```
+VS Code and the github.com cloud agent: [docs/installation.md](docs/installation.md#github-copilot).
 ## Quick start
 
 1. `/flow-new` — run it in the repo you want to work in (new or existing). It asks a bounded round of

@@ -19,3 +19,4 @@ Every row is filled. A host you could not run is `NOT RUN — <reason>`; a row i
 |------|-----------------------------------------------|----------------------|-----------------|
 | Claude Code | | | |
 | Codex | | | |
+| Copilot CLI | | | |

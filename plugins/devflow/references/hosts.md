@@ -1,6 +1,6 @@
 # DevFlow host and provider contract
 
-DevFlow runs in Claude Code and local Codex clients. The `.planning/` files and
+DevFlow runs in Claude Code, local Codex clients and GitHub Copilot. The `.planning/` files and
 the bundled skills, role contracts, references, and templates are the portable
 source of truth.
 
@@ -28,6 +28,20 @@ before calling a tool.
   the review page beneath `.planning/reviews/` and return its path.
 - `/goal`, `/loop`, and `/clear` are optional Claude conveniences. In Codex,
   repeatedly invoke `$flow-next` for durable one-step advancement.
+
+## GitHub Copilot
+
+Copilot (github.com cloud agent, VS Code agent mode, CLI) loads the plugin or the pack
+`scripts/flow-copilot.py` vendors into `.github/`, where `devflow_root` is `.github` and
+role contract files end in `.agent.md`.
+- Run skills by name: `/flow-*` in the CLI and VS Code; on github.com, name it in the task.
+- Roles: VS Code and the CLI run the `flow-<role>` custom agent as a subagent. The cloud agent
+  has no subagents: read the role contract fully and follow it inline, holding a read-only
+  role to no edits, and say in the result that it was not a fresh context.
+- No question tool: ask in chat. The cloud agent cannot ask, so a human gate ends the run with
+  the question in the PR; never answer it. Only `native` exists (no `--host copilot` bridge),
+  so refuse a peer provider. `model:` tiers and `agents.models` do not apply.
+- Never add a Stop or agentStop hook. After a DevFlow update, re-render the pack.
 
 ## Provider selection and dispatch
 
