@@ -28,5 +28,5 @@ Signature: rule8:phase04:plans4/4:verifverified
 - none
 
 ## Session
-Stopped: no active phase — 0.55.0 architecture refresh is on feat/arch-refresh
-Resume: /flow-status
+Stopped: no active phase — 0.55.0 architecture refresh open as PR #85 (feat/arch-refresh)
+Resume: /flow-ci 85, then /flow-status
