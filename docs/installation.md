@@ -10,19 +10,15 @@ part of the initial support contract.
 
 ## GitHub Copilot
 
-All three surfaces read the repo's `AGENTS.md`, where `/flow-new` writes DevFlow's rules.
-Host behaviour: [`hosts.md`](../plugins/devflow/references/hosts.md) → GitHub Copilot.
+Copilot CLI and VS Code agent mode; the Copilot cloud agent on github.com is not supported at
+this time. Install: [README](../README.md#github-copilot-cli-and-vs-code). First run, gates, roles
+and gaps: [getting-started-copilot.md](getting-started-copilot.md). Host behaviour:
+[`hosts.md`](../plugins/devflow/references/hosts.md) → GitHub Copilot.
 
-- **Copilot CLI**: `copilot plugin marketplace add jbrianfrancis-ir/devflow`, then
-  `copilot plugin install devflow@devflow`.
-- **VS Code agent mode**: agent plugins (preview: `chat.plugins.enabled`, this repo in
-  `chat.plugins.marketplaces`), or the vendored pack below.
-- **Cloud agent** (assigned from an issue or PR on github.com) installs no plugins, so vendor
-  the pack and commit `.github/`: `python3 <devflow>/scripts/flow-copilot.py render --repo .`
-  (`<devflow>` is a checkout's `plugins/devflow` or an installed copy). It writes skills,
-  `flow-*` custom agents, the references, templates and scripts, and `copilot-setup-steps.yml`,
-  which installs Python and runs `flow-copilot.py check` on PRs that touch `.github/`. No hooks.
-  Re-render after each DevFlow update; `check` fails on a hand edit or a stale pack.
+VS Code without agent plugins: `python3 <devflow>/scripts/flow-copilot.py render --repo .`
+(`<devflow>` is a checkout's `plugins/devflow` or an installed copy) vendors the skills, `flow-*`
+custom agents, references, templates and scripts into `.github/`, with no hooks, plus a workflow
+that runs `flow-copilot.py check` on PRs touching `.github/`. Re-render after each DevFlow update.
 
 ## Test the working tree for one session
 

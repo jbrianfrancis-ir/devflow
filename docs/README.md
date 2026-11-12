@@ -5,6 +5,7 @@ Reference pages for DevFlow that go beyond what the [repo README](../README.md) 
 ## Getting started
 
 - [installation.md](installation.md) — what happens after the README's install commands: Codex invocation, self-bootstrapping, and context-repo integration.
+- [getting-started-copilot.md](getting-started-copilot.md) — DevFlow in GitHub Copilot CLI and VS Code: install, first run, gates, roles, gaps.
 - [providers.md](providers.md) — which provider runs a role, and which model tier it gets.
 - [execution-model.md](execution-model.md) — how a phase actually executes: the plan dependency graph, the smoke gate, state files, and map staleness.
 

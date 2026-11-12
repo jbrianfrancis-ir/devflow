@@ -17,13 +17,20 @@ Token-efficient spec-driven development for Claude Code, local Codex clients and
 codex plugin marketplace add jbrianfrancis-ir/devflow
 codex plugin add devflow@devflow
 ```
-### GitHub Copilot
+### GitHub Copilot (CLI and VS Code)
+
+Copilot CLI (then `/skills list` in a session shows the `flow-*` skills):
 
 ```text
 copilot plugin marketplace add jbrianfrancis-ir/devflow
 copilot plugin install devflow@devflow
 ```
-VS Code and the github.com cloud agent: [docs/installation.md](docs/installation.md#github-copilot).
+
+VS Code agent mode (agent plugins are in preview): set `chat.plugins.enabled` to `true`, then open
+`vscode://chat-plugin/install?source=jbrianfrancis-ir%2Fdevflow&plugin=devflow`, or run
+**Chat: Open Customizations** → **Browse** → **Configure Marketplaces** → **Add Marketplace**
+`jbrianfrancis-ir/devflow`, and **Install** DevFlow. A plugin the CLI installed also appears in
+VS Code. Walkthrough: [docs/getting-started-copilot.md](docs/getting-started-copilot.md).
 ## Quick start
 
 1. `/flow-new` — run it in the repo you want to work in (new or existing). It asks a bounded round of
