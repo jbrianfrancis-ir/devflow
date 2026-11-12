@@ -7,20 +7,20 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 ## Stack
 | What | Exactly | Major |
 |------|---------|-------|
-| Runtime | {e.g. .NET} | {e.g. 10} |
-| Language | {e.g. C#} | {14} |
+| Runtime | {e.g. .NET} | {e.g. 11} |
+| Language | {e.g. C#} | {15} |
 | Orchestration | Aspire | {13.x} |
-| Frontend | {pick per app, no default: Blazor Web App for internal staff tools; React + Vite via Aspire's JS integrations for rich or public UIs; Next.js only when SSR is needed} | {10} |
+| Frontend | {pick per app, no default: Blazor Web App for internal staff tools; React + Vite via Aspire's JS integrations for rich or public UIs; Next.js only when SSR is needed} | {11} |
 | Auth | {Entra ID via Microsoft.Identity.Web with a default-deny authorization policy; Entra External ID for non-staff users; managed identity for service-to-Azure calls} | {4.x} |
-<!-- MAJOR VERSIONS ONLY — this table AND `## Frameworks & libraries` below. Write `10`, `13.x`, `26 LTS`;
+<!-- MAJOR VERSIONS ONLY — this table AND `## Frameworks & libraries` below. Write `11`, `13.x`, `26 LTS`;
      never `13.5.1`. The exact version lives only in the manifest/lockfile (csproj, Directory.Packages.props,
      global.json, package.json + lockfile, ...), so a minor/patch bump changes the manifest and never this file,
      and raises no warning. Only a major change (e.g. Aspire 13 → 14) is a checkpoint:decision, and then the major
-     here changes. A deliberate exact pin must carry its reason — `10.0.3 (exact: <why>)` — and only then binds below
+     here changes. A deliberate exact pin must carry its reason — `11.0.3 (exact: <why>)` — and only then binds below
      the major. Every number shown is an illustrative example: resolve the current major from its own source
      (`dotnet --list-sdks`, the vendor's release page, `dotnet package search <id> --exact-match`), never from this
-     template. Aspire: within-major updates auto-apply; a major bump needs approval. Runtime default is .NET 10 LTS;
-     .NET 11 / C# 15 only for an app that uses only Azure SQL (Npgsql EF 11 was still rc.3 as of 2026-11-12). -->
+     template. Aspire: within-major updates auto-apply; a major bump needs approval. Default for all new
+     apps: .NET 11 / C# 15 / EF Core 11; Postgres apps pin Npgsql EF Core 11 at the current rc until it is stable. -->
 
 ## Principles
 <!-- Practice law for THIS project — the rules a plan may not trade away for convenience.
@@ -48,7 +48,7 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 ## Frameworks & libraries
 | Library | Major | Use for |
 |---------|-------|---------|
-| {e.g. EF Core} | {10.x} | {data access} |
+| {e.g. EF Core} | {11.x} | {data access} |
 | {e.g. xunit.v3} | {4.x} | {tests} |
 | {e.g. Microsoft.Playwright} | {1.x} | {E2E in the Smoke project, when the app has a UI} |
 

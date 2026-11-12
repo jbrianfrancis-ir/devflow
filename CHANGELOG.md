@@ -2,7 +2,7 @@
 
 ## 0.55.0 (2026-11-12)
 - Telemetry gate (`references/telemetry-readiness.md` C4/C9): accepts either OTel distro, `Microsoft.OpenTelemetry` (`UseMicrosoftOpenTelemetry`, JS `@microsoft/opentelemetry`) or Azure Monitor (`UseAzureMonitor`), still gated on `APPLICATIONINSIGHTS_CONNECTION_STRING`; both initialized in one app → BLOCK. Apps on the Azure Monitor distro stay valid.
-- Target-app `templates/architecture.md`: xunit.v3 4.x, Playwright E2E, Frontend and Auth rows (Entra ID), Azure SQL or PostgreSQL Flexible on managed identity, .NET 10 LTS default (.NET 11 only for Azure SQL-only apps), CPM + `global.json` + `Directory.Build.props`. `aspire.md`: last checked 13.6.5.
+- Target-app `templates/architecture.md`: xunit.v3 4.x, Playwright E2E, Frontend and Auth rows (Entra ID), Azure SQL or PostgreSQL Flexible on managed identity, .NET 11 / C# 15 / EF Core 11 default for all new apps (Postgres pins the Npgsql EF Core 11 rc until stable), CPM + `global.json` + `Directory.Build.props`. `aspire.md`: last checked 13.6.5.
 - This repo: architecture docs carve out the Pages site, Python floor 3.12, CI on `actions/checkout@v7` + `setup-python@v7` and checks the site on PRs; install page gains GitHub Copilot.
 
 ## 0.54.0 (2026-11-12)

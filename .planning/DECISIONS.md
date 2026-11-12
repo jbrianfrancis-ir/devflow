@@ -77,3 +77,9 @@ user.email — never a guess at who was at the keyboard. -->
 - **answered**: Default to .NET 10 LTS. .NET 11 / C# 15 is allowed only for apps that use only Azure SQL, because the PostgreSQL EF Core provider for 11 (Npgsql) was still at rc.3 on 2026-11-12. Existing apps are not migrated.
 - **by**: Brian Francis <brianf@informativeresearch.com>
 - **at**: 89be577 · feat/arch-refresh (0.55.0)
+
+## 2026-11-12 · checkpoint-decision
+- **asked**: .NET 10 and .NET 11 both end support on 2028-11-14. Keep the .NET 10 LTS default chosen earlier on this PR, or move new IR apps to .NET 11?
+- **answered**: Supersedes the earlier 2026-11-12 runtime entry that chose .NET 10 LTS. Default all new IR apps to .NET 11 / C# 15 / EF Core 11, because .NET 10 and .NET 11 both end support on 2028-11-14. Npgsql EF Core 11 is still rc, so Postgres apps pin that rc until it is stable. Existing apps are not migrated.
+- **by**: Brian Francis <brianf@informativeresearch.com>
+- **at**: cee3a97 · feat/arch-refresh (0.55.0)

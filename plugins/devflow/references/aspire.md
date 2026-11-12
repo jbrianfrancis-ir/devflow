@@ -21,7 +21,7 @@ Latest stable when this was last checked: **13.6.5** (released 2026-11-10; no 14
 - CLIs: `aspire --version`, `azd version`. Missing → the user installs (aspire.dev quickstart; azd: https://aka.ms/azd).
 
 ## No AppHost? Create one (first hardening task)
-`aspire new` (or `dotnet new aspire-apphost` + `dotnet new aspire-servicedefaults`), then in AppHost: `AddProject`/`AddContainer` for each existing service; `AddAzure*` resources for every external dependency (Azure SQL → `AddAzureSqlServer`, Postgres → `AddAzurePostgresFlexibleServer`, both on managed identity; Redis → `AddAzureRedis`, storage, service bus, Key Vault). Each service: `builder.AddServiceDefaults()` + `app.MapDefaultEndpoints()`. Gate: `aspire run` works locally.
+`aspire new` (or `dotnet new aspire-apphost` + `dotnet new aspire-servicedefaults`), then in AppHost: `AddProject`/`AddContainer` for each existing service; `AddAzure*` resources for every external dependency (Azure SQL → `AddAzureSqlServer`, Postgres → `AddAzurePostgresFlexibleServer` (EF Core 11: pin Npgsql at its current rc until stable), both on managed identity; Redis → `AddAzureRedis`, storage, service bus, Key Vault). Each service: `builder.AddServiceDefaults()` + `app.MapDefaultEndpoints()`. Gate: `aspire run` works locally.
 
 ## Build gate
 `aspire publish` — generates deployment artifacts from the AppHost model. Must succeed before any deploy; failures are hardening findings.
