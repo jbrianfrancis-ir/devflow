@@ -41,7 +41,7 @@ role contract files end in `.agent.md`.
 - No question tool: ask in chat. The cloud agent cannot ask, so a human gate ends the run with
   the question in the PR; never answer it. Only `native` exists (no `--host copilot` bridge),
   so refuse a peer provider. `model:` tiers and `agents.models` do not apply.
-- Never add a Stop or agentStop hook. After a DevFlow update, re-render the pack.
+- The pack ships no hooks; never add a Stop or agentStop hook. Re-render it after a DevFlow update.
 
 ## Provider selection and dispatch
 

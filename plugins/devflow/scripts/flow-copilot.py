@@ -1,30 +1,26 @@
 #!/usr/bin/env python3
-"""Render, check, and guard the DevFlow pack for GitHub Copilot. Stdlib only.
+"""Render and check the DevFlow pack for GitHub Copilot. Stdlib only.
 
   render --repo <target>   Write the pack into <target>/.github from this installed plugin.
   check  --repo <target>   Exit 1 when the pack drifted: a generated file was edited, deleted
                            or (run from the plugin) differs from what this version renders.
                            The vendored copy (.github/scripts/flow-copilot.py) checks the
                            recorded hashes only, so a target repo's CI can run it.
-  guard                    Copilot preToolUse hook: reads the hook JSON on stdin and denies
-                           reading `.env*` files and force pushes. Bad input exits 1, which
-                           Copilot treats as deny (fail-closed).
 
 Layout (`{devflow_root}` = `../..` from a skill, so it is `.github`): skills/<name>/SKILL.md,
 agents/flow-<role>.agent.md (Copilot custom agents; the body is the role contract),
-references/, templates/, scripts/ copied verbatim, hooks/devflow-guard.json,
-workflows/copilot-setup-steps.yml, and devflow-copilot.json (version + sha256 of every file).
+references/, templates/, scripts/ copied verbatim, workflows/copilot-setup-steps.yml, and
+devflow-copilot.json (version + sha256 of every file). No hooks are emitted.
 Rules reach Copilot through the AGENTS.md pointer block that /flow-new writes, which the
 cloud agent, VS Code and the CLI all read; no copilot-instructions.md is written.
 
-Exit codes: 0 ok; 1 drift, conflict, or denied input; 2 usage error.
+Exit codes: 0 ok; 1 drift or conflict; 2 usage error.
 """
 
 import argparse
 import hashlib
 import json
 import re
-import shlex
 import sys
 from pathlib import Path
 
@@ -58,9 +54,6 @@ jobs:
       - name: Check the vendored DevFlow pack
         run: python3 .github/scripts/flow-copilot.py check --repo .
 """
-GUARD_HOOK = {"version": 1, "hooks": {"preToolUse": [{
-    "type": "command", "bash": "python3 .github/scripts/flow-copilot.py guard",
-    "cwd": ".", "timeoutSec": 15}]}}
 
 
 def split_frontmatter(text, path):
@@ -126,7 +119,6 @@ def build():
         out[f".github/agents/{agent.stem}.agent.md"] = emit(fields, marker, body)
     for sub in ("references", "templates", "scripts"):
         copy_tree(out, SOURCE / sub, f".github/{sub}")
-    out[".github/hooks/devflow-guard.json"] = (json.dumps(GUARD_HOOK, indent=2) + "\n").encode()
     out[".github/workflows/copilot-setup-steps.yml"] = SETUP_STEPS.format(marker=marker).encode()
     return version, out
 
@@ -200,63 +192,12 @@ def cmd_check(repo):
     return 0
 
 
-def is_env_path(value):
-    name = value.strip("'\"").lstrip("<>").rstrip(";&|)").replace("\\", "/").rsplit("/", 1)[-1]
-    return name.startswith(".env")
-
-
-def is_force_push(command):
-    for segment in re.split(r"&&|\|\||[;|\n]", command):
-        words = segment.split()
-        if "git" in words and "push" in words[words.index("git"):]:
-            flags = words[words.index("push") + 1:]
-            if any(f.startswith("--force") or re.fullmatch(r"-[A-Za-z]*f[A-Za-z]*", f)
-                   for f in flags):
-                return True
-    return False
-
-
-def cmd_guard():
-    try:
-        payload = json.loads(sys.stdin.read())
-        args = payload.get("toolArgs", payload.get("tool_input"))
-        if isinstance(args, str):
-            try:
-                args = json.loads(args)
-            except json.JSONDecodeError:
-                args = {"command": args}
-    except (json.JSONDecodeError, AttributeError) as exc:
-        print(f"flow-copilot guard: unreadable hook input ({exc}); denying", file=sys.stderr)
-        return 1
-    args = args if isinstance(args, dict) else {}
-    reason = None
-    paths = [args.get(k) for k in ("path", "file_path", "filePath")]
-    if any(isinstance(p, str) and is_env_path(p) for p in paths):
-        reason = "DevFlow: do not open .env* files; reference env vars by name"
-    command = args.get("command")
-    if isinstance(command, str) and reason is None:
-        try:
-            words = shlex.split(command)
-        except ValueError:
-            words = command.split()
-        if any(is_env_path(w) for w in words):
-            reason = "DevFlow: do not open .env* files; reference env vars by name"
-        elif is_force_push(command):
-            reason = "DevFlow: force push is blocked; push a new commit instead"
-    if reason:
-        print(json.dumps({"permissionDecision": "deny", "permissionDecisionReason": reason}))
-    return 0
-
-
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
     for name in ("render", "check"):
         sub.add_parser(name).add_argument("--repo", required=True, type=Path)
-    sub.add_parser("guard")
     ns = parser.parse_args(argv)
-    if ns.cmd == "guard":
-        return cmd_guard()
     repo = ns.repo.resolve()
     if not repo.is_dir():
         parser.error(f"--repo {repo}: not a directory")

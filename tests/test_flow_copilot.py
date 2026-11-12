@@ -2,14 +2,13 @@
 
 Renders into temp dirs only. Checks: every skill and agent is emitted with frontmatter valid
 for Copilot, Claude tools map to Copilot aliases (read-only roles never get `edit`), output is
-deterministic, `check` catches drift and passes after regeneration, no Stop-type hook is
-emitted, the guard denies `.env*` reads and force pushes, and the Claude sources are untouched.
+deterministic, `check` catches drift and passes after regeneration, no hook is emitted,
+Copilot-specific text has no secret wording, and the Claude sources are untouched.
 """
 
 import hashlib
 import json
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -24,12 +23,11 @@ AGENTS = sorted(p.stem for p in PLUGIN.glob("agents/flow-*.md"))
 COPILOT_ALIASES = {"read", "edit", "execute", "search", "web", "agent", "todo"}
 SKILL_KEYS = {"name", "description", "license", "disable-model-invocation"}
 AGENT_KEYS = {"name", "description", "tools"}
-STOP_EVENTS = {"agentStop", "subagentStop", "Stop", "SubagentStop", "stop"}
+SECRET_WORDING = re.compile(r"\.env|secret|credential", re.I)
 
 
-def run(*args, stdin=None):
-    return subprocess.run([sys.executable, str(SCRIPT), *args], input=stdin,
-                          capture_output=True, text=True)
+def run(*args):
+    return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True)
 
 
 def render(repo):
@@ -157,16 +155,34 @@ class RenderedPack(unittest.TestCase):
         self.assertEqual(set(), missing)
         self.assertTrue((self.gh / "skills/flow-status/../../references/hosts.md").resolve().is_file())
 
-    def test_hooks_have_no_stop_events_and_guard_wired(self):
-        hook_files = list(self.gh.glob("hooks/*.json"))
-        self.assertEqual(["devflow-guard.json"], [p.name for p in hook_files])
-        config = json.loads(hook_files[0].read_text(encoding="utf-8"))
-        self.assertEqual(1, config["version"])
-        self.assertEqual(["preToolUse"], list(config["hooks"]))
-        self.assertFalse(STOP_EVENTS & set(config["hooks"]))
-        entry = config["hooks"]["preToolUse"][0]
-        self.assertEqual("command", entry["type"])
-        self.assertIn(".github/scripts/flow-copilot.py guard", entry["bash"])
+    def test_no_hooks_emitted(self):
+        self.assertFalse((self.gh / "hooks").exists())
+        self.assertFalse(any("hook" in p.name.lower() and p.suffix == ".json"
+                             for p in self.repo.rglob("*")))
+
+    def test_copilot_specific_text_has_no_secret_wording(self):
+        # Generator-authored text only; vendored skill/agent/reference bodies stay verbatim.
+        texts = {
+            "copilot-setup-steps.yml":
+                (self.gh / "workflows/copilot-setup-steps.yml").read_text(encoding="utf-8"),
+            "devflow-copilot.json keys": json.dumps(
+                {k: v for k, v in json.loads((self.gh / "devflow-copilot.json")
+                                             .read_text(encoding="utf-8")).items() if k != "files"}),
+            "marker": (self.gh / "skills/flow-new/SKILL.md").read_text(encoding="utf-8")
+                      .split("\n---\n", 1)[1].splitlines()[0],
+            "flow-copilot.py": SCRIPT.read_text(encoding="utf-8"),
+            "flow-copilot.py --help": run("--help").stdout,
+        }
+        for path, start, end in (("plugins/devflow/references/hosts.md", "## GitHub Copilot", "\n## "),
+                                 ("docs/installation.md", "## GitHub Copilot", "\n## "),
+                                 ("README.md", "### GitHub Copilot", "\n## "),
+                                 ("CHANGELOG.md", "## 0.54.0", "\n## ")):
+            text = (ROOT / path).read_text(encoding="utf-8")
+            section = text[text.index(start):]
+            texts[f"{path} {start}"] = section[:section.find(end, len(start)) % (len(section) + 1)]
+        for label, text in texts.items():
+            self.assertIsNone(SECRET_WORDING.search(text), label)
+        self.assertFalse((self.gh / "copilot-instructions.md").exists())
 
     def test_setup_steps_single_named_job(self):
         text = (self.gh / "workflows/copilot-setup-steps.yml").read_text(encoding="utf-8")
@@ -239,38 +255,6 @@ class DriftCheck(unittest.TestCase):
             self.assertEqual(1, result.returncode)
             self.assertIn("copilot-setup-steps.yml", result.stderr)
             self.assertEqual("mine\n", target.read_text(encoding="utf-8"))
-
-
-class Guard(unittest.TestCase):
-    def decide(self, tool, args, as_string=True):
-        payload = {"sessionId": "s", "timestamp": 1, "cwd": "/tmp", "toolName": tool,
-                   "toolArgs": json.dumps(args) if as_string else args}
-        result = run("guard", stdin=json.dumps(payload))
-        self.assertEqual(0, result.returncode, result.stderr)
-        out = result.stdout.strip()
-        return json.loads(out)["permissionDecision"] if out else "default"
-
-    def test_denies_env_reads(self):
-        self.assertEqual("deny", self.decide("view", {"path": "/repo/.env"}))
-        self.assertEqual("deny", self.decide("view", {"path": ".env.local"}, as_string=False))
-        self.assertEqual("deny", self.decide("bash", {"command": "cat .env"}))
-        self.assertEqual("deny", self.decide("bash", {"command": "source ./config/.env.prod && run"}))
-
-    def test_denies_force_push(self):
-        for cmd in ("git push --force", "git push -f origin x", "git push --force-with-lease",
-                    "cd a && git push origin main --force"):
-            self.assertEqual("deny", self.decide("bash", {"command": cmd}), cmd)
-
-    def test_allows_ordinary_calls(self):
-        for tool, args in (("bash", {"command": "git push -u origin flow/x"}),
-                           ("bash", {"command": "cat README.md"}),
-                           ("bash", {"command": "python3 -m venv .venv"}),
-                           ("view", {"path": "docs/environment.md"}),
-                           ("edit", {"path": "src/app.py"})):
-            self.assertEqual("default", self.decide(tool, args), args)
-
-    def test_unparseable_input_fails_closed(self):
-        self.assertNotEqual(0, run("guard", stdin="not json").returncode)
 
 
 if __name__ == "__main__":

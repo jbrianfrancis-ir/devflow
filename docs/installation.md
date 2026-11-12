@@ -20,10 +20,9 @@ Host behaviour: [`hosts.md`](../plugins/devflow/references/hosts.md) → GitHub 
 - **Cloud agent** (assigned from an issue or PR on github.com) installs no plugins, so vendor
   the pack and commit `.github/`: `python3 <devflow>/scripts/flow-copilot.py render --repo .`
   (`<devflow>` is a checkout's `plugins/devflow` or an installed copy). It writes skills,
-  `flow-*` custom agents, the references, templates and scripts, a `preToolUse` guard that
-  denies `.env*` reads and force pushes (no Stop hooks), and `copilot-setup-steps.yml`, which
-  installs Python and runs `flow-copilot.py check` on PRs that touch `.github/`. Re-render
-  after each DevFlow update; `check` fails on a hand edit or a stale pack.
+  `flow-*` custom agents, the references, templates and scripts, and `copilot-setup-steps.yml`,
+  which installs Python and runs `flow-copilot.py check` on PRs that touch `.github/`. No hooks.
+  Re-render after each DevFlow update; `check` fails on a hand edit or a stale pack.
 
 ## Test the working tree for one session
 
