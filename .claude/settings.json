@@ -2,5 +2,17 @@
   "extraKnownMarketplaces": {
     "devflow": { "source": { "source": "github", "repo": "jbrianfrancis-ir/devflow" } }
   },
-  "enabledPlugins": { "devflow@devflow": true }
+  "enabledPlugins": { "devflow@devflow": true },
+  "permissions": {
+    "deny": [
+      "Read(./.env*)",
+      "Read(./**/.env)",
+      "Read(./**/.env.local)",
+      "Read(./**/.env.*.local)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * --force*)",
+      "Bash(git push * -f*)"
+    ]
+  }
 }
