@@ -32,8 +32,8 @@ before calling a tool.
 ## GitHub Copilot
 
 Copilot (github.com cloud agent, VS Code agent mode, CLI) loads the plugin or the pack
-`scripts/flow-copilot.py` vendors into `.github/`, where `devflow_root` is `.github` and
-role contract files end in `.agent.md`.
+`scripts/flow-copilot.py` vendors into `.github/`. In the vendored pack `devflow_root` is
+`.github` and role contract files end in `.agent.md`.
 - Run skills by name: `/flow-*` in the CLI and VS Code; on github.com, name it in the task.
 - Roles: VS Code and the CLI run the `flow-<role>` custom agent as a subagent. The cloud agent
   has no subagents: read the role contract fully and follow it inline, holding a read-only

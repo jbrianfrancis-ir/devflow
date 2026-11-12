@@ -7,6 +7,7 @@ Copilot-specific text has no secret wording, and the Claude sources are untouche
 """
 
 import hashlib
+import importlib.util
 import json
 import re
 import subprocess
@@ -230,7 +231,11 @@ class DriftCheck(unittest.TestCase):
         result = self.check()
         self.assertEqual(1, result.returncode)
         self.assertIn(".github/skills/flow-plan/SKILL.md", result.stdout)
-        render(self.repo)
+        refused = run("render", "--repo", str(self.repo))
+        self.assertEqual(1, refused.returncode)
+        self.assertIn(".github/skills/flow-plan/SKILL.md", refused.stderr)
+        self.assertTrue(skill.read_text(encoding="utf-8").endswith("hand edit\n"))
+        self.assertEqual(0, run("render", "--repo", str(self.repo), "--force").returncode)
         self.assertEqual(0, self.check().returncode)
 
     def test_check_fails_on_deleted_file(self):
@@ -245,6 +250,29 @@ class DriftCheck(unittest.TestCase):
         result = self.check(vendored)
         self.assertEqual(1, result.returncode)
         self.assertIn(".github/references/hosts.md", result.stdout)
+
+    def test_manifest_path_outside_github_is_refused(self):
+        victim = self.repo / "src/app.py"
+        victim.parent.mkdir()
+        victim.write_text("keep\n", encoding="utf-8")
+        manifest_path = self.repo / ".github/devflow-copilot.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["files"]["src/app.py"] = hashlib.sha256(b"keep\n").hexdigest()
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        for args in (("render", "--repo", str(self.repo)), ("check", "--repo", str(self.repo))):
+            result = run(*args)
+            self.assertEqual(1, result.returncode, args)
+            self.assertIn("refusing path outside .github/", result.stderr)
+        self.assertEqual("keep\n", victim.read_text(encoding="utf-8"))
+
+    def test_quoted_or_block_frontmatter_values_are_refused(self):
+        spec = importlib.util.spec_from_file_location("flow_copilot", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertEqual("plain - text", module.scalar({"d": "plain - text"}, "d", "x"))
+        for value in ('"Run X: then Y"', "'quoted'", ">-", "|", ""):
+            with self.assertRaises(SystemExit):
+                module.scalar({"d": value}, "d", "x")
 
     def test_refuses_to_overwrite_unowned_file(self):
         with tempfile.TemporaryDirectory() as other:

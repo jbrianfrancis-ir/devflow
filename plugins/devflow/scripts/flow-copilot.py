@@ -2,6 +2,8 @@
 """Render and check the DevFlow pack for GitHub Copilot. Stdlib only.
 
   render --repo <target>   Write the pack into <target>/.github from this installed plugin.
+                           Refuses to overwrite or delete a file it did not write, or one
+                           edited since it wrote it (--force discards those edits).
   check  --repo <target>   Exit 1 when the pack drifted: a generated file was edited, deleted
                            or (run from the plugin) differs from what this version renders.
                            The vendored copy (.github/scripts/flow-copilot.py) checks the
@@ -68,6 +70,15 @@ def split_frontmatter(text, path):
     return values, body
 
 
+def scalar(fm, key, path):
+    """A plain one-line frontmatter value. Quoted or block-scalar YAML is refused rather than
+    re-quoted wrong (the parser above does not unquote)."""
+    value = fm.get(key, "")
+    if not value or value[0] in "\"'>|":
+        raise SystemExit(f"flow-copilot: {path}: {key} must be a plain one-line value")
+    return value
+
+
 def emit(fields, marker, body):
     lines = ["---"] + [f"{k}: {v}" for k, v in fields] + ["---", f"<!-- {marker} -->"]
     return ("\n".join(lines) + "\n" + AGENT_PATH.sub(r"\1.agent.md", body)).encode()
@@ -94,8 +105,8 @@ def build():
     out = {}
     for skill in sorted(SOURCE.glob("skills/*/SKILL.md")):
         fm, body = split_frontmatter(skill.read_text(encoding="utf-8"), skill)
-        fields = [("name", fm["name"]),
-                  ("description", json.dumps(fm["description"], ensure_ascii=False)),
+        fields = [("name", scalar(fm, "name", skill)),
+                  ("description", json.dumps(scalar(fm, "description", skill), ensure_ascii=False)),
                   ("license", "MIT")]
         if fm.get("disable-model-invocation") == "true":
             fields.append(("disable-model-invocation", "true"))
@@ -113,8 +124,8 @@ def build():
             raise SystemExit(f"flow-copilot: {agent.name}: no Copilot alias for {unknown}")
         aliases = {TOOL_ALIASES[t] for t in claude}
         tools = [a for a in ALIAS_ORDER if a in aliases]
-        fields = [("name", fm["name"]),
-                  ("description", json.dumps(fm["description"], ensure_ascii=False)),
+        fields = [("name", scalar(fm, "name", agent)),
+                  ("description", json.dumps(scalar(fm, "description", agent), ensure_ascii=False)),
                   ("tools", json.dumps(tools))]
         out[f".github/agents/{agent.stem}.agent.md"] = emit(fields, marker, body)
     for sub in ("references", "templates", "scripts"):
@@ -129,20 +140,33 @@ def sha(data):
 
 def load_manifest(repo):
     path = repo / MANIFEST
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+    if not path.is_file():
+        return None
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    for rel in manifest["files"]:
+        if not rel.startswith(".github/") or ".." in Path(rel).parts or "\\" in rel:
+            raise SystemExit(f"flow-copilot: {MANIFEST}: refusing path outside .github/: {rel}")
+    return manifest
 
 
-def cmd_render(repo):
+def cmd_render(repo, force):
     version, files = build()
     previous = load_manifest(repo)
-    owned = set(previous["files"]) if previous else set()
+    owned = previous["files"] if previous else {}
     conflicts = [rel for rel, data in files.items() if rel not in owned
                  and (repo / rel).is_file() and (repo / rel).read_bytes() != data]
     if conflicts:
         print("flow-copilot: refusing to overwrite files DevFlow did not write:\n  "
               + "\n  ".join(conflicts), file=sys.stderr)
         return 1
-    for rel in sorted(owned - set(files)):
+    edited = [rel for rel, digest in owned.items()
+              if (repo / rel).is_file() and sha((repo / rel).read_bytes()) != digest]
+    if edited and not force:
+        print("flow-copilot: these pack files were edited since render; move the change out "
+              "of the pack, or re-run with --force to discard it:\n  " + "\n  ".join(edited),
+              file=sys.stderr)
+        return 1
+    for rel in sorted(set(owned) - set(files)):
         (repo / rel).unlink(missing_ok=True)
     for rel, data in files.items():
         path = repo / rel
@@ -196,12 +220,16 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
     for name in ("render", "check"):
-        sub.add_parser(name).add_argument("--repo", required=True, type=Path)
+        cmd = sub.add_parser(name)
+        cmd.add_argument("--repo", required=True, type=Path)
+        if name == "render":
+            cmd.add_argument("--force", action="store_true",
+                             help="overwrite pack files edited since the last render")
     ns = parser.parse_args(argv)
     repo = ns.repo.resolve()
     if not repo.is_dir():
         parser.error(f"--repo {repo}: not a directory")
-    return cmd_render(repo) if ns.cmd == "render" else cmd_check(repo)
+    return cmd_render(repo, ns.force) if ns.cmd == "render" else cmd_check(repo)
 
 
 if __name__ == "__main__":
