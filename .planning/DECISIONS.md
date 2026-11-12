@@ -58,3 +58,22 @@ user.email — never a guess at who was at the keyboard. -->
 - **why it is recorded**: the admin exemption means the protection is a stop, not a wall — an admin push to main still skips both the required check and the PR-only version gate. That limit was chosen knowingly rather than overlooked, and a later reader finding the hole should meet the reasoning here rather than assume an oversight. Review of quick 013 caught ARCHITECTURE.md asserting the opposite ("direct pushes are closed off") and it was corrected before merge.
 - **by**: jbrianfrancis-ir <brianf@informativeresearch.com>
 - **at**: cbe508b · main branch protection
+
+## 2026-11-12 · checkpoint-decision
+- **asked**: `ARCHITECTURE.md` says this repo has no build step and no deployable artifact, yet 0.52.0 shipped `site/build.py` and `pages.yml`, which deploys the committed `site/public/` to GitHub Pages. Record the exception, or remove the site?
+- **answered**: Keep the site as the one carve-out: `site/build.py` is a stdlib-only static builder, `site/public/` is committed, and `pages.yml` deploys it to GitHub Pages on merge to `main`. Nothing else builds or deploys; no third-party docs build system; `docs/` stays plain markdown; `deploy.tool` stays `null` and `/flow-harden`, `/flow-uat`, `/flow-release` stay N/A.
+- **why it is recorded**: the exception shipped in 0.52.0 without an entry, and the constraint doc kept saying the opposite. This entry documents an existing state; it does not approve a new one.
+- **by**: Brian Francis <brianf@informativeresearch.com>
+- **at**: 89be577 · feat/arch-refresh (0.55.0)
+
+## 2026-11-12 · checkpoint-decision
+- **asked**: `ARCHITECTURE.md` sets DevFlow's own Python floor at 3.9+. Keep 3.9, or raise it?
+- **answered**: Raise it to 3.12+. CI pins `actions/setup-python` to 3.12 so the floor is the version that gets tested. Stdlib-only still holds; 3.9-only workarounds are no longer needed.
+- **by**: Brian Francis <brianf@informativeresearch.com>
+- **at**: 89be577 · feat/arch-refresh (0.55.0)
+
+## 2026-11-12 · checkpoint-decision
+- **asked**: Which runtime should the target-project template default new IR apps to: .NET 10 LTS or .NET 11 / C# 15?
+- **answered**: Default to .NET 10 LTS. .NET 11 / C# 15 is allowed only for apps that use only Azure SQL, because the PostgreSQL EF Core provider for 11 (Npgsql) was still at rc.3 on 2026-11-12. Existing apps are not migrated.
+- **by**: Brian Francis <brianf@informativeresearch.com>
+- **at**: 89be577 · feat/arch-refresh (0.55.0)

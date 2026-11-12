@@ -1,5 +1,4 @@
 {
-  "mode": "interactive",
   "commit_docs": true,
   "agents": {
     "provider": "native"
@@ -10,7 +9,6 @@
   "git": {
     "base": "main",
     "origin": "origin",
-    "upstream": null,
-    "branch": "flow/quick-014-verify-negative-controls"
+    "upstream": null
   }
 }

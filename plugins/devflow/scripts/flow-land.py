@@ -32,7 +32,7 @@ branch. Output is one JSON object; exit 0 = ok, 1 = findings. Fail-closed: a git
 fails, or state that cannot be read, is a `could-not-check` finding — never a pass
 (conventions.md -> Fail-closed guards).
 
-Stdlib only (ARCHITECTURE.md: Python 3.9+, no dependencies).
+Stdlib only (ARCHITECTURE.md: Python 3.12+, no dependencies).
 """
 
 from __future__ import annotations

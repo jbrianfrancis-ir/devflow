@@ -2,6 +2,9 @@
      Overwrite sections, don't append. -->
 # DevFlow Documentation Restructure
 
+**Status: complete and superseded.** Every phase shipped; later work runs as quick tasks and
+releases, not as phases of this project. Kept as the record of its decisions.
+
 ## What
 `README.md` has grown to 167 lines / 31.6KB across nine topics. Split it into focused pages
 under `docs/`, leave a README that gets someone installed and oriented, and add a stdlib-only
@@ -14,7 +17,8 @@ exactly one authoritative page per topic.
 
 ## Out of scope
 - Behavior changes to skills, agents, or references — documentation only.
-- A docs build system or hosted site; `docs/` stays plain markdown read on GitHub.
+- A third-party docs build system; `docs/` stays plain markdown read on GitHub. A hosted site was
+  added later as a separate exception — see `.planning/ARCHITECTURE.md` (Stack carve-out).
 - Restructuring `plugins/devflow/references/*.md` — agent prompt contracts, not reader docs.
 - Moving or editing `docs/blitzos.md`, `docs/status-contract.md` — existing external contracts.
 - Editing `NOTICE`, `LICENSE`, or any manifest version field.

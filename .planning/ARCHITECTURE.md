@@ -11,12 +11,14 @@
 | What | Exactly | Version |
 |------|---------|---------|
 | Content | Markdown (GitHub-flavored) | — |
-| Scripting | Python 3, **stdlib only** | 3.9+ |
-| Packaging | Claude + Codex plugin manifests | per `plugins/devflow/.claude-plugin/plugin.json` |
-| CI | GitHub Actions | `actions/checkout@v4` |
+| Scripting | Python 3, **stdlib only**; POSIX bash for `scripts/budget-count.sh` | 3.12+ |
+| Packaging | Claude + Codex plugin manifests; Copilot installs the same plugin, or `flow-copilot.py` vendors it (cloud agent not supported) | per `plugins/devflow/.claude-plugin/plugin.json` |
+| CI | GitHub Actions, first-party `actions/*` only | current majors (see `.github/workflows/`) |
 
 This repo is the **DevFlow plugin source**, not an application: no package manifest, no
 build step, no runtime dependency, no deployable artifact. Nothing may introduce one.
+**One carve-out:** `site/build.py` is a stdlib-only static builder; the committed `site/public/`
+is deployed to GitHub Pages by `pages.yml`. Nothing else builds or deploys.
 
 ## Principles
 - **Layout override**: content under `plugins/devflow/{agents,references,skills,templates,scripts}/`, repo tooling under `scripts/`, tests under `tests/`, prose under `docs/`. DevFlow's default `src/` layout does **not** apply; never create `src/`.
@@ -26,8 +28,8 @@ build step, no runtime dependency, no deployable artifact. Nothing may introduce
 - **Manifests are the version source of truth.** `plugins/devflow/.claude-plugin/plugin.json` `version` drives releases; the Codex manifest and `.claude-plugin/marketplace.json`'s entry must match, and all three move in one commit. The dividing line is *shipped* vs *repo-internal*, not code vs prose: anything under `plugins/devflow/**` is content a consumer installs, so editing it — **including its markdown** — requires a bump, which `check-version-bump.py` enforces. Work confined to `docs/`, `.planning/`, `tests/`, `scripts/`, or the root pointer files never touches a version field.
 
 ## Smoke
-- **Command**: `python3 scripts/validate-plugin.py && python3 -m unittest discover -s tests -v && python3 scripts/check-links.py`
-- **Pass looks like**: exit 0 from all three; validator prints no error lines; unittest reports `OK`, 0 failures, 0 errors; checker prints no failure lines.
+- **Command**: `python3 scripts/validate-plugin.py && python3 -m unittest discover -s tests -v && python3 scripts/check-links.py && python3 site/build.py --check && bash scripts/budget-count.sh --check`
+- **Pass looks like**: exit 0 from all five; validator prints no error lines; unittest reports `OK`, 0 failures, 0 errors; checker prints no failure lines; the site build reports `site/public up to date`; no `OVER BUDGET` line.
 
 ## CI gates
 `lint.yml`'s single job `validate` is the merge gate. Step composition lives in that file, not
@@ -81,7 +83,7 @@ look at frontmatter lines, since a YAML literal block may legitimately contain a
 stopped being checked.
 
 **Coverage is reported, not assumed.** Output is `N failures, M references checked`, and a test asserts
-a floor of 140 against this repo (currently 225). `0 failures` from a checker that examined nothing is
+a floor of 140 against this repo. `0 failures` from a checker that examined nothing is
 precisely the failure this guard exists to prevent, so a collapse turns CI red instead of printing a
 smaller number.
 
@@ -110,8 +112,9 @@ No third-party packages. No `requirements.txt`, no `pyproject.toml`.
 - `validate-plugin.py` parses role sets out of `flow-agent.py` by regex — keep those literals regex-parseable.
 
 ## Infrastructure (Azure / Aspire resources)
-**None.** No deployable surface. `/flow-harden`, `/flow-uat`, `/flow-release` are N/A;
-integration ends at `/flow-pr` + `/flow-ci` and merge to `main`. `config.json` sets `deploy.tool: null`.
+**No Azure surface.** One GitHub Pages site (the carve-out under `## Stack`). `/flow-harden`,
+`/flow-uat`, `/flow-release` stay N/A; integration ends at `/flow-pr` + `/flow-ci` and merge to
+`main`. `config.json` keeps `deploy.tool: null`.
 
 ## Environment (names only — never values)
 | Var / parameter | Source | Used by |
@@ -126,7 +129,7 @@ No local environment variables are required to work on this repo.
 
 ## Forbidden
 - Any third-party Python package, or any `pip install` step in CI.
-- A docs build system (MkDocs, Docusaurus, Sphinx, Jekyll).
+- A third-party docs build system (MkDocs, Docusaurus, Sphinx, Jekyll). `site/build.py` (stdlib) is the only builder; `docs/` stays plain markdown read on github.com.
 - `src/` at the repo root.
 - Restating requirements, versions, or roadmap content in `CLAUDE.md`/`AGENTS.md` — pointers only.
 - Editing manifest version fields for work that touches no shipped content under `plugins/devflow/**` — see the Principle on manifests for the boundary.
