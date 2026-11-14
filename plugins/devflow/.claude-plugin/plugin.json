@@ -1,7 +1,7 @@
 {
   "name": "devflow",
   "displayName": "DevFlow",
-  "version": "0.55.0",
+  "version": "0.56.0",
   "description": "Token-efficient spec-driven development for Claude Code, Codex and GitHub Copilot: plan, execute, independently verify, review, and ship with native or explicitly selected cross-provider subagents.",
   "author": {
     "name": "jbrianfrancis-ir",
