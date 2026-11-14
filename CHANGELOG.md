@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.56.0 (2026-11-14)
+- Trust checks, prompt text only: a fixed review `class:` finding (`/flow-pr`) or class-shaped bot fix (`/flow-ci`) also adds a check in existing tooling (BannedApiAnalyzers, eslint, `tests/Architecture`, a Forbidden regex) or a `TODOS.md` line saying why not, and `templates/architecture.md` defaults those checks; `MAP.md` gains **Features** (feeds the `/flow-uat` route sweep and verifier UI truths) and **Do not copy** (fixed grep list; planners never copy one); UI PRs embed ≤5 Playwright screenshots or say why not. No new hook, skill or gate.
+
 ## 0.55.0 (2026-11-12)
 - Telemetry gate (`references/telemetry-readiness.md` C4/C9): accepts either OTel distro, `Microsoft.OpenTelemetry` (`UseMicrosoftOpenTelemetry`, JS `@microsoft/opentelemetry`) or Azure Monitor (`UseAzureMonitor`), still gated on `APPLICATIONINSIGHTS_CONNECTION_STRING`; both initialized in one app → BLOCK. Apps on the Azure Monitor distro stay valid.
 - Target-app `templates/architecture.md`: xunit.v3 4.x, Playwright E2E, Frontend and Auth rows (Entra ID), Azure SQL or PostgreSQL Flexible on managed identity, .NET 11 / C# 15 / EF Core 11 default for all new apps (Postgres pins the Npgsql EF Core 11 rc until stable), CPM + `global.json` + `Directory.Build.props`. `aspire.md`: last checked 13.6.5.

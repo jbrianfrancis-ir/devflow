@@ -25,7 +25,7 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 ## Principles
 <!-- Practice law for THIS project — the rules a plan may not trade away for convenience.
      The stack tables above say what to build with; this says how work is done here.
-     Keep 3–6, each testable enough that a reviewer can point at a violation. Delete the rest —
+     Keep 3–6, each enforced by an analyzer, architecture test, lint rule or Forbidden regex where tooling can express it, else testable enough that a reviewer can point at a violation. Delete the rest —
      a principle nobody would enforce is a comment.
      DevFlow's own defaults (src//tests/ layout, dead-code deletion, regression test per bug fix,
      fail-closed guards) already apply everywhere and don't need restating; write only what is
@@ -54,7 +54,7 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 
 ## Architecture & patterns
 - {e.g. vertical slice per feature; API in Minimal APIs; no MediatR}
-- {project layout: solution structure, naming. Default: CPM (`Directory.Packages.props`), `global.json` with `rollForward: latestFeature`, `Directory.Build.props` with Nullable on and warnings as errors}
+- {project layout: solution structure, naming. Default: CPM (`Directory.Packages.props`), `global.json` with `rollForward: latestFeature`, `Directory.Build.props` with Nullable on, warnings as errors and Microsoft.CodeAnalysis.BannedApiAnalyzers + `BannedSymbols.txt`; a `tests/Architecture` boundary test (TngTech.ArchUnitNET or NetArchTest.Rules — app picks); React: eslint `import/no-restricted-paths` + `react-hooks` (per app, `no-restricted-syntax` may confine `useEffect` to framework code)}
 
 ## Infrastructure (Azure / Aspire resources)
 - {e.g. Azure SQL via AddAzureSqlServer, or PostgreSQL Flexible Server via AddAzurePostgresFlexibleServer — either on managed identity. Azure SQL when the app joins a shared IR database or must run on Mac and PC without a local SQL container; PostgreSQL Flexible when the app owns its database and local containers are fine. Redis for cache; Key Vault for secrets}
