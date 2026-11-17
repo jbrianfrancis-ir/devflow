@@ -2,7 +2,7 @@
 
 The command reference is generated from plugins/devflow/skills/*/SKILL.md by site/build.py,
 so a skill added, renamed or removed without a rebuild fails here instead of shipping a stale
-page. site/ holds no Markdown, so it never counts toward the prompt-lines budget.
+page. site/ holds no Markdown.
 """
 import importlib.util
 import re
@@ -58,7 +58,6 @@ class CommittedOutputTest(unittest.TestCase):
                              (PUBLIC / "assets" / name).read_bytes(), name)
 
     def test_no_markdown_under_site(self):
-        # budget-count.sh counts every tracked *.md outside .planning/; site/ must add none.
         self.assertEqual([], sorted(str(p) for p in SITE.rglob("*.md")))
 
 
