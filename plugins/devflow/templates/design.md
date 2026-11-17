@@ -1,20 +1,26 @@
-<!-- .planning/DESIGN.md — cap 2KB. HARD design constraints, linked from Claude Design (claude.ai/design).
-UI work uses these tokens and components exactly — no invented styles, colors, or one-off components.
-Additions/changes to the design system are a checkpoint:decision, then updated in Claude Design, then re-pulled. -->
+<!-- .planning/DESIGN.md — cap 2KB. HARD UI constraints written by /flow-design: the org brand base (cited, never copied) + this app's brief + tokens. Build to them, never to framework defaults or a ui-design.json template_tell; changes are a checkpoint:decision. -->
 ---
-project: {Claude Design project name}
-projectId: {uuid}
+brand: {canonical brand source: repo path, package, or URL — or [NEEDS CLARIFICATION] brand source}
+project: {Claude Design project name, or none}
+projectId: {uuid, or none}
 pulled: {YYYY-MM-DD}
 local: {repo path the design system is pulled into, e.g. design-system/}
 ---
 # Design constraints
 
+## Base
+{brand source + version/date; what it supplies (logo, core palette, faces, shared components/tokens) — cite, never copy values}
+
+## Brief
+Users: {who, how often, on what screen}. Personality: {3 traits as visual facts per impact.md}. Reference: {named era/style or product, never "modern"}.
+Siblings: {app — DESIGN.md path or screenshot — how this one differs, one line each}. Distinct: {accent (within the base's roles), layout, density, hero/dashboard composition}.
+Not this: {the template_tells this app avoids, plus any sibling look}
+
 ## Tokens
-{distilled: colors (semantic names + values), type scale, spacing scale, radii, shadows — one line each}
+{one line each: palette roles (60/30/10); type: real faces + weights + scale; layout + density: grid, spacing step, row height; radii; elevation}
 
 ## Components (by group)
 {group}: {component names} — specs in {local}/{path}
-<!-- one line per group; executors Read the local spec file before building that component -->
 
 ## Rules
-- {e.g. dark-mode required; density; accessibility floor (WCAG AA); motion rules; IMPACT facts, not adjectives: reading order + headline ratio, margin %, palette roles 60/30/10, one grid, ≤ 2 faces, AVOID: gradients/shadows/…}
+- {e.g. dark mode; WCAG AA; motion; IMPACT facts, not adjectives; template_tells found in the existing UI}

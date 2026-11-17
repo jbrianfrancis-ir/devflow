@@ -88,7 +88,7 @@ the complete gate list: [docs/autonomy.md](docs/autonomy.md).
 | ad-hoc | `/flow-todo <idea>` | Capture without derailing; `--incident <alert or link>` captures a production alert for later, with the same release trace |
 | ad-hoc | `/flow-undo <sha>` | Explicit-only undo of unpublished commits on a feature branch — preview, human confirmation, apply with a backup ref; refuses published work, merges, and the base branch |
 | memory | `/flow-map` | Codebase memory for planners/executors (`--docs`, `--refresh`) |
-| design | `/flow-design` | Link + pull a Claude Design (claude.ai/design) design system as hard UI constraints (`--refresh`) |
+| design | `/flow-design` | Per-app design brief + tokens on the org brand base, or link + pull a Claude Design (claude.ai/design) system (`--refresh`); required before UI builds |
 | guardrails | `/flow-hooks` | Scaffold deterministic base-branch, protected-paths, secret-scan, dependency, and destructive-git hooks into `.claude/settings.json` |
 | integrate | `/flow-pr` | Independent lens review of the outgoing diff, push to origin, open a PR (narrative recap + reviewer's guide) against upstream (`--adversarial` reviews through the peer provider and adjudicates into a ledger) |
 | integrate | `/flow-ci` | Drive the open PR to green — watch checks, fix failures, answer bot review threads |

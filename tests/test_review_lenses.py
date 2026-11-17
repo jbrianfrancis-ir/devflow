@@ -4,6 +4,7 @@ The lenses and the drift mode are prompt content, so these pin the contract a
 caller relies on: every lens /flow-pr can select is defined in flow-reviewer, the
 drift mode keeps its five checks and stays read-only, and the docs name both.
 """
+import json
 import re
 import unittest
 from pathlib import Path
@@ -41,6 +42,12 @@ class ReviewLensesTest(unittest.TestCase):
         line = next(l for l in text.splitlines() if l.startswith("- **comprehension**"))
         for word in ("*what*", "*why*", "**invariant**", "**blast radius**"):
             self.assertIn(word, line)
+
+    def test_design_lens_reference_data(self):
+        data = json.loads(read("plugins/devflow/references/ui-design.json"))
+        self.assertGreaterEqual(len(data["template_tells"]), 8)
+        self.assertRegex(data["polish"]["commit"], r"^[0-9a-f]{40}$")
+        self.assertIn("\n## Brief\n", read("plugins/devflow/templates/design.md"))
 
     def test_docs_list_matches_agent(self):
         docs = read("docs/review.md")
