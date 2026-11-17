@@ -9,7 +9,7 @@ description: Do a small ad-hoc task with Flow guarantees (atomic commits, deviat
 
 **Agent provider**: accept `--provider native|claude|codex`. Resolve and dispatch every role in this run exactly as `{devflow_root}/references/hosts.md` specifies. The selected provider applies to all delegated roles unless this skill explicitly calls an external consultation engine. A missing or failed peer is fail-closed; report `FLOW: BLOCKED` with remediation and never fall back silently.
 
-Context rules: read `.planning/STATE.md` first (no `.planning/` → this still works, just skip logging and warn once). Keep output terse.
+Context rules: read `.planning/STATE.md` first (no `.planning/` → this still works, just skip logging and warn once). Keep output terse. A task creating a new screen with no `.planning/DESIGN.md` Brief → `GATE`: run `/flow-design` first.
 
 **Triage** the task:
 - **Trivial** (≤2 files, obvious approach, no new dependencies): do it directly in this session. One atomic commit `type(quick): description` (secret-scan the staged diff first, per conventions.md — hit → GATE, no commit). Append one line to `.planning/quick/LOG.md`: `- NNN | YYYY-MM-DD | description | commit SHA` (create the file if missing; NNN = next number). Tests follow `{devflow_root}/references/test-policy.md`: integration/behavior first; thin units only for pure logic or regression pins; no post-hoc coverage suites. Size tests to the change (test-policy.md): a small change adds no test file and runs only the targeted existing tests; a behavior change runs the full suite. Name the tier and the exact test commands in the commit body.

@@ -1,0 +1,47 @@
+{
+  "_about": "Long-form UI design content for /flow-design (brief mode), flow-planner, flow-plan-checker 2c, flow-executor, the flow-reviewer design lens and flow-verifier. Brand values never live here: the brand base is the project's own source (DESIGN.md `brand:`, config.json design.brand). template_tells are generic and brand-neutral.",
+  "template_tells": [
+    "slate/zinc/neutral/gray UI chrome with a single blue, indigo or violet accent and no other color role",
+    "Inter, Geist or system-ui for every element at one or two weights, with no display or contrasting face",
+    "flat type scale: page title under 2x body size, so nothing reads first",
+    "rounded-lg/xl cards with a soft shadow and a 1px gray border on every surface, cards nested in cards",
+    "a 3- or 4-up row of identical stat cards (label, big number, small % delta) at the top of every dashboard",
+    "centered hero with gradient text, blurred gradient blobs, or a glassmorphism panel",
+    "purple-to-blue (or pink-to-violet) gradients on buttons, headings or backgrounds",
+    "a lucide icon in every card header, nav item and empty state, all the same size and stroke",
+    "identical shell: fixed left sidebar of icon+label links plus a top bar with search and an avatar",
+    "default shadcn/ui Button, Badge, Card, Table and Input styling unchanged (default radius, ring, muted-foreground text)",
+    "uniform 16px/24px spacing everywhere, same gap inside and between groups, so there is no grouping or hierarchy",
+    "every section centered in a max-w container with equal margins, nothing anchored to a left edge or grid",
+    "emoji used as icons or section markers",
+    "pill badges in pastel green/yellow/red for every status, regardless of importance",
+    "placeholder copy and data: 'Welcome back', lorem ipsum, round fake metrics (+12.5%), generic avatars"
+  ],
+  "brief_prompts": [
+    "Brand base: where is the canonical brand source (shared tokens package, brand repo dir, or Claude Design project URL), and which version or date? If none is known, say so: it is flagged, never invented.",
+    "Siblings: which other apps share this brand base (name + DESIGN.md path or a screenshot when known)?",
+    "Distinct: in one line each, what makes this app look different from each sibling (accent within the base's allowed roles, layout, density, hero/dashboard composition)?",
+    "Users: who uses it, how often, for how long per session, and on what screen (laptop, wall monitor, phone, field tablet)?",
+    "Environment: lighting, attention level and task (glance at status, scan a table all day, fill a form once a quarter)?",
+    "Density: how much must be on one screen at once (rows visible, fields per form, charts per view)?",
+    "Personality: three traits, each stated as a visual fact per references/impact.md (e.g. 'tight 28px table rows', 'one saturated accent used only for the primary action'), not adjectives.",
+    "Reference direction: a named era, style or product it should resemble (e.g. Swiss International, Bloomberg terminal, Linear, a printed timetable), never 'modern' or 'clean'.",
+    "Not this: what must it not look like, from template_tells and from any sibling it could be confused with?"
+  ],
+  "polish": {
+    "status": "optional supporting polish, never the gate; referenced upstream, not vendored",
+    "repo": "https://github.com/emilkowalski/skills",
+    "author": "Emil Kowalski",
+    "license": "MIT",
+    "commit": "64eb3deb9a5fbfa041faf783e0bc3fd635872e9c",
+    "install_claude": "npx skills@latest add https://github.com/emilkowalski/skills/tree/64eb3deb9a5fbfa041faf783e0bc3fd635872e9c -s emil-design-eng -s break-ui -a claude-code --copy -y",
+    "install_codex": "npx skills@latest add https://github.com/emilkowalski/skills/tree/64eb3deb9a5fbfa041faf783e0bc3fd635872e9c -s emil-design-eng -s break-ui -a codex --copy -y",
+    "install_note": "writes skills-lock.json with the ref and hash; commit it",
+    "skills": {
+      "emil-design-eng": "interaction polish while building UI",
+      "break-ui": "worst-case data (long strings, empty, huge counts); report-only, behind a dev-only toggle",
+      "review-animations": "has disable-model-invocation: Read its SKILL.md and STANDARDS.md instead of invoking it",
+      "optional": ["mobile-native", "animation-performance", "remove-animations", "find-animation-opportunities", "improve-animations"]
+    }
+  }
+}

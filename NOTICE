@@ -79,4 +79,14 @@ No source files or prompt text from it are included; only the policies above wer
 taken, and each was rebuilt against DevFlow's own file-and-prompt artifacts with
 thresholds chosen for DevFlow's own unit of work.
 
+The optional UI polish skills listed in plugins/devflow/references/ui-design.json
+(`polish`) are referenced, not included: users install them from upstream at a
+pinned commit with `npx skills`. No source files or prompt text from them are
+included in DevFlow:
+
+  skills (emilkowalski/skills) — MIT License
+  Copyright (c) 2026 Emil Kowalski
+  https://github.com/emilkowalski/skills
+  pinned commit 64eb3deb9a5fbfa041faf783e0bc3fd635872e9c
+
 This notice is provided as attribution under the spirit of the MIT License.
