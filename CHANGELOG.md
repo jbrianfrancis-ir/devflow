@@ -3,6 +3,9 @@
 ## 0.57.0 (2026-11-17)
 - Better-looking UIs, prompt text only: `/flow-design` brief mode (default without a Claude Design system) writes DESIGN.md `## Base` citing the org's one canonical brand source (`design.brand`; never invented, missing → `[NEEDS CLARIFICATION]` + GATE) and a per-app `## Brief` (users, personality as visual facts, reference direction, siblings and how this app differs, `Not this:`) with tokens that avoid the default template look in new `references/ui-design.json` (`template_tells`, `brief_prompts`, optional pinned Emil Kowalski polish skills, referenced not vendored). Planner, plan-checker 2c, `/flow-new` and `/flow-quick` (new screens) require it before UI builds; the executor builds to it; the `/flow-pr` design lens runs whenever UI changed and checks base, brief/siblings and template tells against the step-4 screenshots; the verifier spot-checks the same.
 
+## 0.56.1 (2026-11-17)
+- Size budget, tooling only: `prompt_lines` counts only text under `plugins/devflow/` that agents load or Read (every `*.md`, `references/` and `templates/` `*.json`/`*.txt`/`*.yml`/`*.yaml`, anything under agents/, commands/, skills/); scripts, hook `*.py` and plugin manifests are excluded. README, CHANGELOG, AGENTS.md, CLAUDE.md and docs/ move to new uncapped `repo_docs_lines_info`. On this tree `prompt_lines` 4547 → 3320, `repo_docs_lines_info` 1230; cap unchanged at 4548.
+
 ## 0.56.0 (2026-11-14)
 - Trust checks, prompt text only: a fixed review `class:` finding (`/flow-pr`) or class-shaped bot fix (`/flow-ci`) also adds a check in existing tooling (BannedApiAnalyzers, eslint, `tests/Architecture`, a Forbidden regex) or a `TODOS.md` line saying why not, and `templates/architecture.md` defaults those checks; `MAP.md` gains **Features** (feeds the `/flow-uat` route sweep and verifier UI truths) and **Do not copy** (fixed grep list; planners never copy one); UI PRs embed ≤5 Playwright screenshots or say why not. No new hook, skill or gate.
 
