@@ -1,21 +1,14 @@
 name: release
 
-# Cuts a GitHub Release (and tag) whenever the plugin version on main is new.
-# The version string in plugins/devflow/.claude-plugin/plugin.json is the source
-# of truth; validation requires the Codex manifest to match it.
-# Back-fill older versions via workflow_dispatch (version + target inputs).
+# On every push to main, publishes the next GitHub Release (and its vX.Y.Z tag) when
+# changes/ gained fragments since the last tag. Nothing is committed back to main: the
+# version lives only in the tag, computed by scripts/next-release.py (docs/releasing.md).
+# workflow_dispatch re-runs the same computation on main, e.g. after a failed run.
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to release (e.g. 0.2.0); defaults to plugin.json's version"
-        required: false
-      target:
-        description: "Commit SHA to tag; defaults to the current main tip"
-        required: false
 
 permissions:
   contents: write
@@ -26,20 +19,25 @@ concurrency:
 
 jobs:
   release:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Create release if version is untagged
+        with:
+          # The version is computed from the tags and the fragments added since the last one.
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Release if fragments were added since the last tag
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          VERSION="${{ inputs.version }}"
-          [ -n "$VERSION" ] || VERSION="$(jq -r .version plugins/devflow/.claude-plugin/plugin.json)"
-          TARGET="${{ inputs.target }}"
-          [ -n "$TARGET" ] || TARGET="$GITHUB_SHA"
-          if git ls-remote --exit-code origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
-            echo "v$VERSION already released — nothing to do."
+          VERSION="$(python3 scripts/next-release.py --notes-file "$RUNNER_TEMP/notes.md")"
+          if [ -z "$VERSION" ]; then
+            echo "No fragments added since the last tag — nothing to release."
             exit 0
           fi
-          gh release create "v$VERSION" --target "$TARGET" --title "v$VERSION" --generate-notes
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" \
+            --notes "$(cat "$RUNNER_TEMP/notes.md")" --generate-notes

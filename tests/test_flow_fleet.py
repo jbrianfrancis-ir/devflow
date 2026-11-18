@@ -544,6 +544,14 @@ class PluginRegistryReadingTests(unittest.TestCase):
         self.assertEqual(v["state"], "ok")
         self.assertEqual(v["user"], "0.15.0")
 
+    def test_commit_sha_pin_is_known_not_unknown(self):
+        # A manifest without `version` installs as its 12-hex commit SHA (DevFlow 0.58.0+).
+        v = self.build(registry={"plugins": {"devflow@devflow": [
+            {"scope": "project", "projectPath": "/somewhere/app", "version": "e6143c9807a0"}]}})
+        self.assertEqual(v["by_path"][os.path.realpath("/somewhere/app")], "e6143c9807a0")
+        self.assertTrue(MODULE.known_pin("e6143c9807a0"))
+        self.assertFalse(MODULE.known_pin("e6143c98"))
+
 
 if __name__ == "__main__":
     unittest.main()

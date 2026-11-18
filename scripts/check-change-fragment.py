@@ -1,28 +1,27 @@
 #!/usr/bin/env python3
 """Fail a pull request that ships plugin content without a change fragment, or that edits
-the shared release lines outside a release.
+the shared release lines.
 
 Parallel PRs used to each bump the three manifest `version` lines and prepend a CHANGELOG
 entry, so every pair of them conflicted textually on the same lines and reused or skipped
 versions. Now a feature PR adds one `changes/<slug>.md` fragment instead:
 
     bump: minor
-    The CHANGELOG bullet text.
+    The release-note bullet text.
 
-(or the same `bump:` line inside `---` front matter). `scripts/release-cut.py` later turns
-every fragment into one version and one CHANGELOG entry on a `release/X.Y.Z` branch.
+(or the same `bump:` line inside `---` front matter). On merge, release.yml runs
+`scripts/next-release.py`, which computes the version from tags + fragments and publishes a
+GitHub Release; nothing is committed back.
 
 Rules, all fail-closed:
 - shipped content (`plugins/devflow/**`) changed -> at least one added fragment;
 - every added or edited fragment has a valid `bump:` line and bullet text;
-- a non-release PR may not touch a manifest `version` line or CHANGELOG.md;
-- a release PR (branch `release/*`, or a diff that is only release-cut output) may, and its
-  CHANGELOG top entry must name the new plugin.json version.
+- no PR adds a manifest `version` line (validate-plugin.py rejects one outright) or changes
+  a released `## X.Y.Z` CHANGELOG.md entry; only the note above the first entry may change.
 
-Usage: check-change-fragment.py <base-ref> <head-branch>. Stdlib only.
+Usage: check-change-fragment.py <base-ref>. Stdlib only.
 """
 
-import json
 import re
 import subprocess
 import sys
@@ -34,8 +33,8 @@ MANIFESTS = (MANIFEST, "plugins/devflow/.codex-plugin/plugin.json", ".claude-plu
 CHANGELOG = "CHANGELOG.md"
 FRAGMENT_RE = re.compile(r"^changes/(?!README\.md$)[^/]+\.md$")
 BUMP_RE = re.compile(r"^bump:\s*(major|minor|patch)\s*$")
-VERSION_LINE_RE = re.compile(r'^[+-](?![+-]).*"version"\s*:')
-FIX = "add a changes/<slug>.md fragment instead (first line `bump: major|minor|patch`, then the CHANGELOG bullet; see docs/releasing.md)"
+VERSION_LINE_RE = re.compile(r'^\+(?!\+).*"version"\s*:')
+FIX = "add a changes/<slug>.md fragment instead (first line `bump: major|minor|patch`, then the release-note bullet; see docs/releasing.md)"
 
 
 class Result(NamedTuple):
@@ -44,7 +43,7 @@ class Result(NamedTuple):
 
 
 def parse_fragment(text):
-    """(bump, bullet) or raise ValueError. Shared with release-cut.py."""
+    """(bump, bullet) or raise ValueError. Shared with next-release.py."""
     lines = text.strip().splitlines()
     if lines and lines[0].strip() == "---":
         try:
@@ -84,49 +83,26 @@ def _version_line_edits(root, base_ref):
     return [line for line in out.splitlines() if VERSION_LINE_RE.match(line)] if ok else None
 
 
-def _plugin_version(root, ref):
-    ok, out = _git(root, "show", f"{ref}:{MANIFEST}")
-    try:
-        version = json.loads(out).get("version") if ok else None
-    except (json.JSONDecodeError, AttributeError):
-        version = None
-    return version if isinstance(version, str) and version else None
+def _entries(root, ref):
+    """CHANGELOG.md from its first `## ` entry on: released history, frozen since 0.58.0."""
+    ok, out = _git(root, "show", f"{ref}:{CHANGELOG}")
+    return out.partition("\n## ")[2] if ok else None
 
 
-def _is_release_cut_output(changes):
-    """Only the three manifests, CHANGELOG.md and deleted fragments — what release-cut writes."""
-    deleted = [p for p, s in changes.items() if FRAGMENT_RE.match(p) and s == "D"]
-    rest = [p for p in changes if p not in MANIFESTS and p != CHANGELOG and p not in deleted]
-    return bool(deleted) and not rest
-
-
-def check(root, base_ref, head_branch):
+def check(root, base_ref):
     """Empty `failures` means the diff is clear to merge."""
     failures, notes = [], []
     changes = _changes(root, base_ref)
     if changes is None:
         return Result([f"could not resolve base ref '{base_ref}' — the check did not run"], notes)
 
-    if head_branch.startswith("release/") or _is_release_cut_output(changes):
-        version = _plugin_version(root, "HEAD")
-        if version is None:
-            return Result([f"{MANIFEST} has no readable version at HEAD"], notes)
-        if version == _plugin_version(root, base_ref):
-            failures.append(f"release PR but {MANIFEST} is still {version} — run scripts/release-cut.py")
-        ok, log = _git(root, "show", f"HEAD:{CHANGELOG}")
-        top = next((line for line in log.splitlines() if line.startswith("## ")), "") if ok else ""
-        if not top.startswith(f"## {version} ("):
-            failures.append(f"release PR: {CHANGELOG} top entry is '{top}', expected '## {version} (YYYY-MM-DD)'")
-        notes.append(f"release PR for {version}")
-        return Result(failures, notes)
-
     edits = _version_line_edits(root, base_ref)
     if edits is None:
         return Result(["could not diff the manifests — the check did not run"], notes)
     if edits:
-        failures.append(f"manifest version line edited outside a release ({edits[0].strip()}) — {FIX}")
-    if CHANGELOG in changes:
-        failures.append(f"{CHANGELOG} edited outside a release — {FIX}")
+        failures.append(f"manifest version line added ({edits[0].strip()}) — {FIX}")
+    if CHANGELOG in changes and _entries(root, "HEAD") != _entries(root, base_ref):
+        failures.append(f"{CHANGELOG} release entries edited; releases are GitHub Releases now — {FIX}")
 
     fragments = sorted(p for p, s in changes.items() if FRAGMENT_RE.match(p) and s != "D")
     for path in fragments:
@@ -148,15 +124,15 @@ def check(root, base_ref, head_branch):
 
 
 def main(argv):
-    if len(argv) != 3:
-        print("usage: check-change-fragment.py <base-ref> <head-branch>", file=sys.stderr)
+    if len(argv) != 2:
+        print("usage: check-change-fragment.py <base-ref>", file=sys.stderr)
         return 2
     root = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True).stdout.strip()
     if not root:
         print("not inside a git repository", file=sys.stderr)
         return 2
     print(f"repo: {root}")
-    result = check(root, argv[1], argv[2])
+    result = check(root, argv[1])
     for note in result.notes:
         print(note)
     for failure in result.failures:

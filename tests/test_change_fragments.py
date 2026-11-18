@@ -1,5 +1,5 @@
-"""Tests for scripts/check-change-fragment.py and scripts/release-cut.py, against tempdir
-git fixtures (never this repo's tree)."""
+"""Tests for scripts/check-change-fragment.py, against tempdir git fixtures (never this
+repo's tree)."""
 import contextlib
 import importlib.util
 import io
@@ -22,7 +22,6 @@ def load(name, filename):
 
 
 CHECK = load("check_change_fragment", "check-change-fragment.py")
-CUT = load("release_cut", "release-cut.py")
 GIT_ENV = dict(os.environ, GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_SYSTEM="/dev/null",
                GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@example.com",
                GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@example.com")
@@ -43,7 +42,7 @@ class FragmentFixture(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
         self.git("init", "-q", "-b", "main")
         for rel in CHECK.MANIFESTS:
-            self.write(rel, json.dumps({"name": "devflow", "version": "0.19.0"}, indent=2) + "\n")
+            self.write(rel, json.dumps({"name": "devflow"}, indent=2) + "\n")
         self.write("CHANGELOG.md", "# Changelog\n\n## 0.19.0 (2026-01-01)\n- old\n")
         self.write("plugins/devflow/agents/flow-planner.md", "original\n")
         self.git("add", "-A")
@@ -54,8 +53,8 @@ class FragmentFixture(unittest.TestCase):
         self.git("add", "-A")
         self.git("commit", "-qm", "work")
 
-    def check(self, branch="feature"):
-        return CHECK.check(self.root, "main", branch)
+    def check(self):
+        return CHECK.check(self.root, "main")
 
 
 class CheckTests(FragmentFixture):
@@ -90,7 +89,10 @@ class CheckTests(FragmentFixture):
             with self.subTest(text), self.assertRaises(ValueError):
                 CHECK.parse_fragment(text)
 
-    def test_version_or_changelog_edit_outside_a_release_fails(self):
+    def test_version_line_or_changelog_entry_edit_fails_but_the_note_may_change(self):
+        self.write("CHANGELOG.md", "# Changelog\n\nReleases now live in GitHub Releases.\n\n## 0.19.0 (2026-01-01)\n- old\n")
+        self.commit()
+        self.assertEqual(self.check().failures, [])
         self.write(CHECK.MANIFEST, json.dumps({"name": "devflow", "version": "0.20.0"}, indent=2) + "\n")
         self.write("CHANGELOG.md", "# Changelog\n\n## 0.20.0 (2026-01-02)\n- new\n\n## 0.19.0 (2026-01-01)\n- old\n")
         self.write("changes/planner.md", "bump: minor\nNew thing.\n")
@@ -100,47 +102,18 @@ class CheckTests(FragmentFixture):
         self.assertTrue(all("add a changes/<slug>.md fragment instead" in f for f in failures))
 
     def test_unresolvable_base_ref_fails_closed(self):
-        self.assertIn("did not run", CHECK.check(self.root, "no-such-ref", "feature").failures[0])
+        self.assertIn("did not run", CHECK.check(self.root, "no-such-ref").failures[0])
 
-
-class ReleaseCutTests(FragmentFixture):
-    def setUp(self):
-        super().setUp()
-        self.write("changes/a.md", "bump: patch\nFix a.\n")
-        self.write("changes/b.md", "bump: minor\n- Add b.\n")
-        self.write("changes/README.md", "not a fragment\n")
-        self.git("add", "-A")
-        self.git("commit", "-qm", "fragments")
-        self.git("checkout", "-q", "main")
-        self.git("merge", "-q", "--ff-only", "feature")
-
-    def test_cut_writes_one_version_and_entry_and_passes_the_check(self):
-        _, version, _, _ = CUT.cut(self.root, "2026-02-03", dry_run=True)
-        self.assertEqual(version, "0.20.0")
-        self.assertTrue(os.path.exists(os.path.join(self.root, "changes/a.md")))  # dry run wrote nothing
-        CUT.cut(self.root, "2026-02-03", dry_run=False)
-        for rel in CHECK.MANIFESTS:
-            self.assertEqual(json.loads(Path(self.root, rel).read_text())["version"], "0.20.0")
-        self.assertTrue(Path(self.root, "CHANGELOG.md").read_text().startswith(
-            "# Changelog\n\n## 0.20.0 (2026-02-03)\n- Fix a.\n- Add b.\n\n## 0.19.0"))
-        self.assertEqual(sorted(os.listdir(os.path.join(self.root, "changes"))), ["README.md"])
-        self.git("checkout", "-q", "-b", "chore/cut")
-        self.commit()
-        for branch in ("release/0.20.0", "chore/cut"):  # by branch name, or by release-cut shape
-            with self.subTest(branch):
-                self.assertEqual(self.check(branch).failures, [])
 
     def test_exit_codes(self):
         cwd = os.getcwd()
         os.chdir(self.root)
         self.addCleanup(os.chdir, cwd)
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            self.assertEqual(CHECK.main(["x", "main"]), 2)
-            self.git("checkout", "-q", "-b", "edit")
+            self.assertEqual(CHECK.main(["x"]), 2)
             self.write("plugins/devflow/agents/flow-planner.md", "edited\n")
             self.commit()
-            self.assertEqual(CHECK.main(["x", "main", "edit"]), 1)
-            self.assertEqual(CUT.main(["--dry-run"]), 0)
+            self.assertEqual(CHECK.main(["x", "main"]), 1)
 
 
 if __name__ == "__main__":

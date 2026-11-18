@@ -1,5 +1,7 @@
 # Changelog
 
+From 0.58.0 on, releases are recorded in [GitHub Releases](https://github.com/jbrianfrancis-ir/devflow/releases), published on merge from the `changes/` fragments ([docs/releasing.md](docs/releasing.md)). The entries below are the history before that.
+
 ## 0.57.0 (2026-11-17)
 - Better-looking UIs, prompt text only: `/flow-design` brief mode (default without a Claude Design system) writes DESIGN.md `## Base` citing the org's one canonical brand source (`design.brand`; never invented, missing → `[NEEDS CLARIFICATION]` + GATE) and a per-app `## Brief` (users, personality as visual facts, reference direction, siblings and how this app differs, `Not this:`) with tokens that avoid the default template look in new `references/ui-design.json` (`template_tells`, `brief_prompts`, optional pinned Emil Kowalski polish skills, referenced not vendored). Planner, plan-checker 2c, `/flow-new` and `/flow-quick` (new screens) require it before UI builds; the executor builds to it; the `/flow-pr` design lens runs whenever UI changed and checks base, brief/siblings and template tells against the step-4 screenshots; the verifier spot-checks the same.
 
