@@ -32,8 +32,9 @@ jobs:
         run: bash scripts/budget-count.sh --check
       - name: Check change fragment on shipped content
         if: github.event_name == 'pull_request'
-        # Branch names via env, never interpolated into the shell command.
+        # Branch name via env, never interpolated into the shell command.
         env:
           BASE_REF: ${{ github.base_ref }}
-          HEAD_REF: ${{ github.head_ref }}
-        run: python3 scripts/check-change-fragment.py "origin/$BASE_REF" "$HEAD_REF"
+        run: python3 scripts/check-change-fragment.py "origin/$BASE_REF"
+      - name: Preview the release this merge would publish
+        run: python3 scripts/next-release.py

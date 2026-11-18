@@ -10,6 +10,8 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLUGIN = os.path.join(ROOT, "plugins", "devflow")
 errors = []
+NO_VERSION = ("a committed version stops installs updating until it is changed; add a "
+              "changes/<slug>.md fragment instead (docs/releasing.md)")
 
 
 def err(message):
@@ -49,13 +51,13 @@ claude = load_json("plugins/devflow/.claude-plugin/plugin.json")
 codex = load_json("plugins/devflow/.codex-plugin/plugin.json")
 for host, manifest in (("Claude", claude), ("Codex", codex)):
     if manifest:
-        for key in ("name", "version", "description"):
+        for key in ("name", "description"):
             if not manifest.get(key):
                 err(f"{host} manifest: missing {key}")
         if manifest.get("name") != "devflow":
             err(f"{host} manifest: name must be devflow")
-if claude and codex and claude.get("version") != codex.get("version"):
-    err("Claude and Codex manifest versions differ")
+        if "version" in manifest:
+            err(f"{host} manifest: remove `version` — {NO_VERSION}")
 if codex and codex.get("skills") != "./skills/":
     err("Codex manifest: skills must point to ./skills/")
 if claude and any(key in claude for key in ("skills", "agents")):
@@ -67,8 +69,8 @@ if claude_market:
     entries = claude_market.get("plugins") or []
     if len(entries) != 1 or entries[0].get("source") != "./plugins/devflow":
         err("Claude marketplace must point to ./plugins/devflow")
-    elif claude and entries[0].get("version") != claude.get("version"):
-        err("Claude marketplace version differs from plugin manifest")
+    elif "version" in entries[0]:
+        err(f"Claude marketplace entry: remove `version` — {NO_VERSION}")
 if codex_market:
     entries = codex_market.get("plugins") or []
     source = entries[0].get("source", {}) if len(entries) == 1 else {}
