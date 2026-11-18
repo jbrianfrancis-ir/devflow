@@ -57,6 +57,8 @@ Context rules: read `.planning/STATE.md` and `.planning/config.json` (`git` bloc
 
    `Merge Danger: <LOW|MEDIUM|HIGH> — <one-way|two-way> door; blast radius: <who or what is affected if this is wrong>`
 
+   With `/flow-hooks` installed, `destructive-git-guard.py` blocks `gh pr create` when the body lacks this line.
+
    - **Door** — two-way when reverting the merge commit restores the previous state completely. One-way when it does not: a schema or data migration that runs on deploy, a destructive operation, a removed or renamed public API, contract, config key or file path that consumers already use, a published release, tag or package version, or a message, webhook or email that leaves the system. Unsure → one-way, and name what makes it so.
    - **Blast radius** — name who is affected, not how many files changed: which users, services, pipelines or downstream repos see the change if it is wrong, and how they would notice (a broken consumer, a failed deploy, wrong data, a layout shift). Use the same signals as the Read-first ranking: auth and security boundaries, data and migrations, public API and contracts.
    - **Level** — `LOW` is a two-way door with a narrow radius. `HIGH` is any one-way door, or a radius that reaches data, auth, money or an external contract. Everything else is `MEDIUM`.

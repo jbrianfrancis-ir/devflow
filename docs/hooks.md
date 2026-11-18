@@ -87,6 +87,12 @@ and `eval`, and skips leading `VAR=value` assignments, `sudo`/`env`-style wrappe
 global options. `git restore --staged .` (unstaging only) and `git checkout <branch>` pass. The
 block-list idea comes from Matt Pocock's git-guardrails-claude-code skill (concept only, no code).
 
+The same guard blocks `gh pr create` when the PR body has no line
+`Merge Danger: LOW|MEDIUM|HIGH — one-way|two-way door; blast radius: <what breaks>` (the
+[`/flow-pr` section](review.md)). It reads the body from `--body`/`-b`, or from the one file named
+by `--body-file`/`-F`; with `-F -` it searches the command text (a heredoc). `--fill` or no body is
+blocked too. It lives in this guard because the hooks budget ([budget.md](budget.md)) is full.
+
 ## Known limitations
 
 These guards match on the literal `Bash` command string and a computed diff/file listing — they
