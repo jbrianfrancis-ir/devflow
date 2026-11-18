@@ -7,7 +7,7 @@
 - [ ] New/changed skills end with a `FLOW:` status line (see `plugins/devflow/references/autonomy.md`)
 - [ ] State-file templates keep their size caps; ARCHITECTURE/DESIGN constraints still honored
 - [ ] Commands remain `/flow-*`
-- [ ] Shipped change (`plugins/devflow/**`) adds one `changes/<slug>.md` fragment (`bump: major|minor|patch`, then the CHANGELOG bullet); manifest versions and `CHANGELOG.md` are **not** edited — only a `release/X.Y.Z` PR made by `scripts/release-cut.py` touches them ([docs/releasing.md](../docs/releasing.md))
+- [ ] Shipped change (`plugins/devflow/**`) adds one `changes/<slug>.md` fragment (`bump: major|minor|patch`, then the release-note bullet); no manifest `version` and no `CHANGELOG.md` entry is edited — the merge publishes the release ([docs/releasing.md](../docs/releasing.md))
 
 ## Host smoke receipt
 

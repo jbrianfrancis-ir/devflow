@@ -58,6 +58,21 @@ class ExplicitOnlySkillsTest(unittest.TestCase):
         self.assertIn("flow-pr/SKILL.md: /flow-next chains to this skill, so it must stay "
                       "model-invocable", result.stdout)
 
+    def test_committed_version_fails(self):
+        for rel, anchor in (("plugins/devflow/.claude-plugin/plugin.json", '"name": "devflow",'),
+                            ("plugins/devflow/.codex-plugin/plugin.json", '"name": "devflow",'),
+                            (".claude-plugin/marketplace.json", '"source": "./plugins/devflow",')):
+            with self.subTest(rel):
+                path = self.tmp / rel
+                original = path.read_text(encoding="utf-8")
+                self.assertIn(anchor, original)
+                path.write_text(original.replace(anchor, anchor + ' "version": "1.0.0",'),
+                                encoding="utf-8")
+                result = self.run_validator()
+                path.write_text(original, encoding="utf-8")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("remove `version`", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

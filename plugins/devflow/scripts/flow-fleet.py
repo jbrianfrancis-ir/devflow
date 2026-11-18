@@ -227,6 +227,12 @@ def semver(text):
     return tuple(int(x) for x in parts)
 
 
+def known_pin(text):
+    """A semver, or the 12-hex commit SHA Claude Code records for a plugin whose manifest
+    has no `version` (DevFlow since 0.58.0). A SHA is a known build but has no order."""
+    return bool(semver(text)) or (isinstance(text, str) and re.fullmatch(r"[0-9a-f]{12}", text) is not None)
+
+
 def plugin_versions():
     """Which DevFlow build each project is pinned to, read locally.
 
@@ -284,8 +290,8 @@ def plugin_versions():
                     # Only a parseable pin is recorded; storing an unparseable
                     # one raw makes it render as though it were a version.
                     out["by_path"][os.path.realpath(str(entry["projectPath"]))] = (
-                        entry.get("version") if parsed else None)
-                elif entry.get("scope") == "user" and parsed:
+                        entry.get("version") if known_pin(entry.get("version")) else None)
+                elif entry.get("scope") == "user" and known_pin(entry.get("version")):
                     out["user"] = entry.get("version")
     except (AttributeError, TypeError):
         out["state"] = "unreadable"
@@ -437,7 +443,7 @@ def scan(path, today, stale_days, versions):
     p["devflow_version"] = versions["by_path"].get(real)
     if versions["state"] == "unreadable":
         p["flags"].append("VER-UNKNOWN")
-    elif real in versions["by_path"] and not semver(p["devflow_version"]):
+    elif real in versions["by_path"] and not known_pin(p["devflow_version"]):
         # Registered here, but the pin does not parse — unknown, never clean.
         # Checked at the point of use rather than trusting the reader upstream:
         # a caller can hand us any mapping, and "unknown" must not depend on
