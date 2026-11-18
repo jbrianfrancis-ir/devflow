@@ -11,7 +11,7 @@ This repo IS a Claude Code / Codex plugin (not an app that runs it): markdown pr
 ## Layout
 ```
 plugins/devflow/          portable payload, shared by both hosts
-  .claude-plugin/, .codex-plugin/  per-host plugin.json manifests (version must match)
+  .claude-plugin/, .codex-plugin/  per-host plugin.json manifests (no `version`; releases are tags)
   agents/*.md                11 subagent role files (name/description/tools/model)
   skills/<flow-x>/SKILL.md   20 skill dirs — /flow-* (Claude) == $flow-* (Codex)
   references/*.md            11 shared doctrine docs — the authoritative layer
@@ -19,8 +19,8 @@ plugins/devflow/          portable payload, shared by both hosts
   scripts/flow-agent.py      cross-provider dispatch bridge (role → claude -p / codex exec)
   scripts/flow-fleet.py      fleet scanner (walks .planning/ across repos)
 .claude-plugin/, .agents/plugins/  repo-root marketplace.json files → ./plugins/devflow
-scripts/validate-plugin.py, scripts/check-links.py, scripts/check-fenced-paths.py, scripts/check-version-bump.py   repo-level CI validators (not shipped as plugin content)
-tests/*.py                  unittest suites: flow_agent, flow_fleet, check_links, check_fenced_paths, check_version_bump (183 tests)
+scripts/validate-plugin.py, scripts/check-links.py, scripts/check-fenced-paths.py, scripts/check-change-fragment.py, scripts/next-release.py   repo-level CI validators (not shipped as plugin content)
+tests/*.py                  unittest suites: flow_agent, flow_fleet, check_links, check_fenced_paths, check_change_fragment, next_release
 docs/                       11 pages: blitzos.md, status-contract.md (pre-existing) + 9 new (phase 02) —
                              acknowledgements, autonomy, execution-model, installation, parallel-work,
                              provenance, providers, requirements-clarity, review — each summarizing +
@@ -32,17 +32,17 @@ CLAUDE.md, AGENTS.md, .claude/settings.json   repo root — plugin self-bootstra
 Layout deliberately differs from DevFlow's default convention (code under `src/`) — payload lives under `plugins/devflow/` because that's the plugin-source layout, not an app layout.
 
 ## Architecture
-Not a running app — no runtime data flow. A user's project installs `plugins/devflow` via the marketplace; each skill is a markdown prompt loaded on invocation (`/flow-*`/`$flow-*`); heavy work spawns fresh-context subagents (`agents/*.md`); cross-provider roles route through `flow-agent.py` (`claude -p`/`codex exec`, sandboxed via `READ_ONLY_ROLES`/`WRITE_ROLES`); `flow-fleet.py` backs `/flow-status --all`. `validate-plugin.py`, `check-links.py` and `check-version-bump.py` (PR-only) are the code that runs in CI (`lint.yml`); `check-fenced-paths.py` is wired to no workflow. `docs/*.md` are pure summaries — detail stays in `references/*.md`.
+Not a running app — no runtime data flow. A user's project installs `plugins/devflow` via the marketplace; each skill is a markdown prompt loaded on invocation (`/flow-*`/`$flow-*`); heavy work spawns fresh-context subagents (`agents/*.md`); cross-provider roles route through `flow-agent.py` (`claude -p`/`codex exec`, sandboxed via `READ_ONLY_ROLES`/`WRITE_ROLES`); `flow-fleet.py` backs `/flow-status --all`. `validate-plugin.py`, `check-links.py`, `check-change-fragment.py` (PR-only) and `next-release.py` (also `release.yml`) are the code that runs in CI (`lint.yml`); `check-fenced-paths.py` is wired to no workflow. `docs/*.md` are pure summaries — detail stays in `references/*.md`.
 
 ## Conventions
 - Skill dirs and agent files name-match 1:1 into `flow-agent.py`'s `READ_ONLY_ROLES`/`WRITE_ROLES` sets (filename minus `flow-`); `validate-plugin.py` regex-parses those literals and enforces the match, plus frontmatter shape and read-only agents declaring no write tools.
-- Both plugin.json manifests must carry identical `version`; marketplace.json points at `./plugins/devflow`. CI pins exactly 20 skills, 11 agents.
+- No manifest carries `version` (`validate-plugin.py` rejects one); marketplace.json points at `./plugins/devflow`. CI pins exactly 20 skills, 11 agents.
 - Prose style (README + docs/ + references + skills): dense, terse, load-bearing — no filler.
 - `docs/*.md` (phase 02): one H1, topical H2s, each links its authority as `[`file.md`](../plugins/devflow/references/file.md)` — never a bare backticked path. Sibling links as `blitzos.md`, not `docs/blitzos.md` (markdown links resolve against the referring file's own dir only — github.com's rule).
 - Tests import hyphenated `flow-*.py`/`check-links.py` via `importlib.util.spec_from_file_location` (hyphens aren't valid module names).
 
 ## Commands
-Smoke (verified; `.planning/ARCHITECTURE.md ## Smoke`; CI `lint.yml` runs these 3 plus a PR-only version-bump gate):
+Smoke (verified; `.planning/ARCHITECTURE.md ## Smoke`; CI `lint.yml` runs these 3 plus a PR-only change-fragment gate):
 `python3 scripts/validate-plugin.py && python3 -m unittest discover -s tests -v && python3 scripts/check-links.py`
 build: none | test: unittest, 183 tests | lint: validate-plugin.py | links: check-links.py (`0 failures, 179 checked`; floor 140) | run: N/A — install via `/plugin marketplace add jbrianfrancis-ir/devflow` (Claude) or `codex plugin marketplace add …/devflow` (Codex).
 

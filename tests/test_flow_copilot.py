@@ -206,7 +206,7 @@ class RenderedPack(unittest.TestCase):
         self.assertFalse((self.gh / "copilot-instructions.md").exists())
 
     def test_marker_on_generated_text_files(self):
-        version = json.loads((PLUGIN / ".claude-plugin/plugin.json").read_text())["version"]
+        version = json.loads((PLUGIN / ".claude-plugin/plugin.json").read_text()).get("version", "unversioned")
         for rel in ("skills/flow-new/SKILL.md", "agents/flow-verifier.agent.md",
                     "workflows/copilot-setup-steps.yml"):
             text = (self.gh / rel).read_text(encoding="utf-8")

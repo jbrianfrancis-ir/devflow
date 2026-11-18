@@ -12,7 +12,7 @@
 |------|---------|---------|
 | Content | Markdown (GitHub-flavored) | — |
 | Scripting | Python 3, **stdlib only**; POSIX bash for `scripts/budget-count.sh` | 3.12+ |
-| Packaging | Claude + Codex plugin manifests; Copilot installs the same plugin, or `flow-copilot.py` vendors it (cloud agent not supported) | per `plugins/devflow/.claude-plugin/plugin.json` |
+| Packaging | Claude + Codex plugin manifests; Copilot installs the same plugin, or `flow-copilot.py` vendors it (cloud agent not supported) | per the latest `vX.Y.Z` git tag |
 | CI | GitHub Actions, first-party `actions/*` only | current majors (see `.github/workflows/`) |
 
 This repo is the **DevFlow plugin source**, not an application: no package manifest, no
@@ -25,7 +25,7 @@ is deployed to GitHub Pages by `pages.yml`. Nothing else builds or deploys.
 - **Docs are pointers, never copies.** A fact belongs in exactly one file. If a doc restates what `references/` or a skill defines, link instead — a stale duplicate is worse than none.
 - **No dependencies.** Python stays stdlib-only; CI actions stay pinned. A proposed dependency — including a docs generator or a link-checker needing `pip install` — is a `checkpoint:decision`.
 - **Every internal reference resolves.** A path that 404s is a defect, not a nit. Splitting a document is complete only when every inbound reference is repointed — including prose mentions, which no checker catches.
-- **Manifests are the version source of truth.** `plugins/devflow/.claude-plugin/plugin.json` `version` drives releases; the Codex manifest and `.claude-plugin/marketplace.json`'s entry must match, and all three move in one commit. The dividing line is *shipped* vs *repo-internal*, not code vs prose: anything under `plugins/devflow/**` is content a consumer installs, so editing it — **including its markdown** — requires a bump, which `check-version-bump.py` enforces. Work confined to `docs/`, `.planning/`, `tests/`, `scripts/`, or the root pointer files never touches a version field.
+- **Tags are the version source of truth.** No manifest carries `version` (a committed one pins installs; `validate-plugin.py` rejects it). On push to main, `release.yml` runs `scripts/next-release.py`: latest `vX.Y.Z` tag + highest `bump:` of the fragments added since → new tag and GitHub Release, nothing committed (`docs/releasing.md`). The dividing line is *shipped* vs *repo-internal*, not code vs prose: anything under `plugins/devflow/**` is content a consumer installs, so editing it — **including its markdown** — requires a `changes/<slug>.md` fragment, never a hand bump, which `check-change-fragment.py` enforces. Work confined to `docs/`, `.planning/`, `tests/`, `scripts/`, or the root pointer files needs no fragment.
 
 ## Smoke
 - **Command**: `python3 scripts/validate-plugin.py && python3 -m unittest discover -s tests -v && python3 scripts/check-links.py && python3 site/build.py --check && bash scripts/budget-count.sh --check`
@@ -40,10 +40,10 @@ here — three things about it are binding and belong in law:
   `gh api repos/<owner>/<repo>/branches/main/protection`. Admin bypass is retained by decision
   (`.planning/DECISIONS.md`, 2026-09-08), so protection is a stop, not a wall; what closes the
   admin push path is the base-branch rule in `CLAUDE.md`/`AGENTS.md`, by convention.
-- **The job needs full history** (`fetch-depth: 0`) because the version gate resolves `origin/$BASE_REF`.
-- **The version gate is pull-request-only** (`github.base_ref` is empty on a push, so there is no
+- **The job needs full history** (`fetch-depth: 0`) because the fragment gate resolves `origin/$BASE_REF` and the release preview reads the tags.
+- **The fragment gate is pull-request-only** (`github.base_ref` is empty on a push, so there is no
   base to diff). A scope limit, not a fail-open — but it means shipped content reaching main
-  outside a PR is unchecked. The bump rule itself is the Principle on manifests.
+  outside a PR is unchecked. The fragment rule itself is the Principle on tags.
 
 ## Link checking
 `scripts/check-links.py` — **stdlib only, no network, no allowlist file**. Run by `lint.yml` →

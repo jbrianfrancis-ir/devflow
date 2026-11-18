@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # The version-bump guard diffs against the base branch, which a shallow
+          # The change-fragment guard diffs against the base branch, which a shallow
           # clone does not contain.
           fetch-depth: 0
       - uses: actions/setup-python@v7
@@ -30,9 +30,11 @@ jobs:
         run: python3 site/build.py --check
       - name: Check size budget
         run: bash scripts/budget-count.sh --check
-      - name: Check version bump on shipped content
+      - name: Check change fragment on shipped content
         if: github.event_name == 'pull_request'
         # Branch name via env, never interpolated into the shell command.
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: python3 scripts/check-version-bump.py "origin/$BASE_REF"
+        run: python3 scripts/check-change-fragment.py "origin/$BASE_REF"
+      - name: Preview the release this merge would publish
+        run: python3 scripts/next-release.py
