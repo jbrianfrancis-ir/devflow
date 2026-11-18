@@ -7,7 +7,7 @@ entry, so every pair of them conflicted textually on the same lines and reused o
 versions. Now a feature PR adds one `changes/<slug>.md` fragment instead:
 
     bump: minor
-    The CHANGELOG bullet text.
+    The release-note bullet text.
 
 (or the same `bump:` line inside `---` front matter). On merge, release.yml runs
 `scripts/next-release.py`, which computes the version from tags + fragments and publishes a
@@ -34,7 +34,7 @@ CHANGELOG = "CHANGELOG.md"
 FRAGMENT_RE = re.compile(r"^changes/(?!README\.md$)[^/]+\.md$")
 BUMP_RE = re.compile(r"^bump:\s*(major|minor|patch)\s*$")
 VERSION_LINE_RE = re.compile(r'^\+(?!\+).*"version"\s*:')
-FIX = "add a changes/<slug>.md fragment instead (first line `bump: major|minor|patch`, then the CHANGELOG bullet; see docs/releasing.md)"
+FIX = "add a changes/<slug>.md fragment instead (first line `bump: major|minor|patch`, then the release-note bullet; see docs/releasing.md)"
 
 
 class Result(NamedTuple):

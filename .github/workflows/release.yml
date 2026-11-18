@@ -40,4 +40,4 @@ jobs:
             exit 0
           fi
           gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" \
-            --notes-file "$RUNNER_TEMP/notes.md" --generate-notes
+            --notes "$(cat "$RUNNER_TEMP/notes.md")" --generate-notes
