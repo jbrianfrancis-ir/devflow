@@ -35,6 +35,7 @@ Reference pages for DevFlow that go beyond what the [repo README](../README.md) 
 
 - [acknowledgements.md](acknowledgements.md) — which external projects DevFlow's concepts are derived from.
 - [budget.md](budget.md) — the size budget: what `scripts/budget-count.sh` counts and the caps CI enforces.
+- [releasing.md](releasing.md) — change fragments instead of version bumps, and cutting a release PR.
 - [non-goals.md](non-goals.md) — standing rules and features DevFlow deliberately does not adopt, with the reason for each.
 
 ## Integration contracts

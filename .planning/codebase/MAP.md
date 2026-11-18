@@ -19,8 +19,8 @@ plugins/devflow/          portable payload, shared by both hosts
   scripts/flow-agent.py      cross-provider dispatch bridge (role → claude -p / codex exec)
   scripts/flow-fleet.py      fleet scanner (walks .planning/ across repos)
 .claude-plugin/, .agents/plugins/  repo-root marketplace.json files → ./plugins/devflow
-scripts/validate-plugin.py, scripts/check-links.py, scripts/check-fenced-paths.py, scripts/check-version-bump.py   repo-level CI validators (not shipped as plugin content)
-tests/*.py                  unittest suites: flow_agent, flow_fleet, check_links, check_fenced_paths, check_version_bump (183 tests)
+scripts/validate-plugin.py, scripts/check-links.py, scripts/check-fenced-paths.py, scripts/check-change-fragment.py, scripts/release-cut.py   repo-level CI validators (not shipped as plugin content)
+tests/*.py                  unittest suites: flow_agent, flow_fleet, check_links, check_fenced_paths, check_change_fragment, release_cut
 docs/                       11 pages: blitzos.md, status-contract.md (pre-existing) + 9 new (phase 02) —
                              acknowledgements, autonomy, execution-model, installation, parallel-work,
                              provenance, providers, requirements-clarity, review — each summarizing +
@@ -42,7 +42,7 @@ Not a running app — no runtime data flow. A user's project installs `plugins/d
 - Tests import hyphenated `flow-*.py`/`check-links.py` via `importlib.util.spec_from_file_location` (hyphens aren't valid module names).
 
 ## Commands
-Smoke (verified; `.planning/ARCHITECTURE.md ## Smoke`; CI `lint.yml` runs these 3 plus a PR-only version-bump gate):
+Smoke (verified; `.planning/ARCHITECTURE.md ## Smoke`; CI `lint.yml` runs these 3 plus a PR-only change-fragment gate):
 `python3 scripts/validate-plugin.py && python3 -m unittest discover -s tests -v && python3 scripts/check-links.py`
 build: none | test: unittest, 183 tests | lint: validate-plugin.py | links: check-links.py (`0 failures, 179 checked`; floor 140) | run: N/A — install via `/plugin marketplace add jbrianfrancis-ir/devflow` (Claude) or `codex plugin marketplace add …/devflow` (Codex).
 
