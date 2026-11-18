@@ -31,6 +31,12 @@ same as the other DevFlow guards: it is a backstop, not the only control.
 
 The idea of a destructive-git block list comes from Matt Pocock's git-guardrails-claude-code
 skill (concept only; no code from it is used).
+
+It also blocks `gh pr create` whose body has no line
+`Merge Danger: LOW|MEDIUM|HIGH — one-way|two-way door; blast radius: ...` (flow-pr's section).
+The body comes from the last `--body`/`-b`, or `--body-file`/`-F` <path> (the only file this
+guard ever reads); with `-F -` it is searched for in the command text itself (a heredoc).
+`--fill`, `--template`, `--web` or no body at all is blocked with the same message.
 """
 import json
 import os
@@ -257,6 +263,66 @@ def find_destructive(command, depth=0):
     return None
 
 
+GH_PR_CREATE_RE = re.compile(r"\bgh\s+pr\s+create\b")
+MERGE_DANGER_RE = re.compile(
+    r"Merge Danger:\s*(LOW|MEDIUM|HIGH)(?=[^\n]*\b(one|two)-way\b)(?=[^\n]*blast radius)")
+MERGE_DANGER_MSG = ("PR body needs: 'Merge Danger: LOW|MEDIUM|HIGH — one-way|two-way door; "
+                    "blast radius: <what breaks>'")
+BODY_FLAGS = {"--body": "text", "-b": "text", "--body-file": "file", "-F": "file"}
+
+
+def gh_pr_create_args(command):
+    """The argument list of each `gh pr create` in the command (quotes respected, so a body
+    containing `;` or newlines stays one word)."""
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|()\n")
+    lexer.whitespace, lexer.whitespace_split, lexer.commenters = " \t\r", True, ""
+    current = []
+    for token in list(lexer) + [";"]:
+        if token and set(token) <= set(";&|()\n"):
+            tokens = strip_prefix(current)
+            if tokens and os.path.basename(tokens[0]) == "gh" and tokens[1:3] == ["pr", "create"]:
+                yield tokens[3:]
+            current = []
+        else:
+            current.append(token)
+
+
+def pr_body(args, cwd):
+    """(kind, value) of the last body flag, or None. kind is "text", "file" or "stdin"."""
+    found = None
+    for i, word in enumerate(args):
+        flag, sep, value = word.partition("=")
+        if flag not in BODY_FLAGS and word[:2] in ("-b", "-F") and len(word) > 2:
+            flag, sep, value = word[:2], "=", word[2:]  # -bTEXT / -Fpath
+        if flag in BODY_FLAGS:
+            if not sep:
+                value = args[i + 1] if i + 1 < len(args) else ""
+            found = (BODY_FLAGS[flag], value)
+    if found and found == ("file", "-"):
+        return ("stdin", "")
+    if found and found[0] == "file":
+        try:
+            with open(os.path.join(cwd, found[1]), encoding="utf-8", errors="replace") as stream:
+                return ("text", stream.read(1_000_000))
+        except OSError:
+            return ("text", "")
+    return found
+
+
+def merge_danger_missing(command, cwd):
+    """True when a `gh pr create` in the command lacks a Merge Danger line in its body."""
+    try:
+        creates = list(gh_pr_create_args(command))
+    except ValueError:  # unbalanced quotes, e.g. an apostrophe in an unquoted heredoc
+        creates = [["-F", "-"]] if GH_PR_CREATE_RE.search(command) else []
+    for args in creates:
+        body = pr_body(args, cwd)
+        text = command if body and body[0] == "stdin" else (body or ("", ""))[1]
+        if not MERGE_DANGER_RE.search(text):
+            return True
+    return False
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -264,6 +330,10 @@ def main():
         warn(f"could not parse stdin JSON: {exc}")
         return 0
     command = (payload.get("tool_input") or {}).get("command") or ""
+    if GH_PR_CREATE_RE.search(command) and merge_danger_missing(
+            command, payload.get("cwd") or os.getcwd()):
+        print(MERGE_DANGER_MSG, file=sys.stderr)
+        return 2
     if "git" not in command:
         return 0
     hit = find_destructive(command)
