@@ -1,0 +1,2 @@
+bump: minor
+Review-disposition gate: new `scripts/flow-review-gate.py` exits non-zero listing every Critical/Blocker/Warning finding in the phase's `*-REVIEW.md` that has no `fixed: <sha>`, `refuted: <reason>` or `deferred: <TODOS.md line | #issue>` line (or a `REVIEW-FIX.md` Fixed entry), and every `PENDING OWNER` or unbackfilled `FIX NOW` row in the current `LEDGER.md` round; no review file passes with a note. `/flow-pr` step 5 runs it before the human gate and stops on failure, so a PR no longer reaches merge with review findings silently open.
