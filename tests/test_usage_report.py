@@ -414,6 +414,134 @@ class RecordTest(unittest.TestCase):
         self.assertFalse((self.repo.root / ".planning/phases/01-a/VERIFICATION.md").exists())
 
 
+def turn(model, *tools, cwd=None):
+    """One assistant line making tool calls: (id, name, input) triples."""
+    return {"type": "assistant", "isSidechain": False, "cwd": cwd,
+            "message": {"model": model, "content": [
+                {"type": "tool_use", "id": i, "name": n, "input": a} for i, n, a in tools]}}
+
+
+def result(tool_id, error=False, text="ok", **extra):
+    return {"type": "user", "message": {"content": [
+        {"type": "tool_result", "tool_use_id": tool_id, "is_error": error,
+         "content": text}]}, **extra}
+
+
+class TrailTest(unittest.TestCase):
+    """protects: the opt-in session trail through its real entry point — off unless both
+    keys are on (and then it never opens the transcript), every step shown in order with
+    the helper's exact task text, and every path shown the same way. SYNTHETIC
+    transcripts, shaped like Claude Code 2.1.319's saved .jsonl and subagents/ files."""
+
+    def setUp(self):
+        self.repo = Repo()
+        self.addCleanup(self.repo.temp.cleanup)
+        self.work = Path(self.repo.temp.name) / "work"
+        self.work.mkdir()
+
+    def transcript(self, lines, helpers=None):
+        session = Path(self.repo.temp.name) / "projects/s-1.jsonl"
+        session.parent.mkdir(parents=True, exist_ok=True)
+        session.write_text("\n".join(l if isinstance(l, str) else json.dumps(l)
+                                     for l in lines) + "\n", encoding="utf-8")
+        for agent, (meta, body) in (helpers or {}).items():
+            sub = session.parent / "s-1/subagents"
+            sub.mkdir(parents=True, exist_ok=True)
+            (sub / f"agent-{agent}.meta.json").write_text(json.dumps(meta))
+            (sub / f"agent-{agent}.jsonl").write_text(
+                "\n".join(json.dumps(l) for l in body) + "\n")
+        return session
+
+    def trail(self, session):
+        return subprocess.run([sys.executable, str(REPORT), "trail", "--repo",
+                               str(self.repo.root), "--session", str(session)],
+                              text=True, capture_output=True)
+
+    def test_disabled_unless_both_keys_and_never_opens_the_session(self):
+        missing = Path(self.repo.temp.name) / "no-such-session.jsonl"
+        for config in (None, {"usage_report": True}, {"usage_trail": True},
+                       {"usage_report": True, "usage_trail": False}):
+            if config is not None:
+                self.repo.config(**config)
+            run = self.trail(missing)  # an enabled run exits 2 on a missing transcript
+            self.assertEqual((0, ""), (run.returncode, run.stderr), config)
+            self.assertEqual(1, len(run.stdout.splitlines()), run.stdout)
+            self.assertIn("session trail: disabled", run.stdout)
+            self.assertIn('"usage_trail": true', run.stdout)
+        self.repo.config(usage_report=True, usage_trail="yes")
+        run = self.trail(missing)
+        self.assertEqual(2, run.returncode)
+        self.assertIn("usage_trail must be true or false", run.stderr)
+
+    def test_enabled_renders_summary_steps_and_helper_handoff(self):
+        self.repo.config(usage_report=True, usage_trail=True)
+        task = "Fix the parser.\n  Keep the API stable."
+        session = self.transcript([
+            turn("model-a", ("t1", "Read", {"file_path": "src/app.py"})),
+            result("t1"),
+            "{not json",
+            turn("model-b", ("t2", "mcp__docs__fetch", {"url": "x"}),
+                 ("t3", "Agent", {"subagent_type": "fixer", "description": "fix it",
+                                  "prompt": task})),
+            result("t2"),
+            result("t3", toolUseResult={"agentId": "abc", "status": "completed"}),
+            turn("model-b", ("t4", "Bash", {"command": "make deploy"})),
+            result("t4", True, "Permission to use Bash has been denied.",
+                   toolDenialKind="permission-rule"),
+        ], helpers={"abc": ({"toolUseId": "t3", "agentType": "fixer"}, [
+            {"type": "user", "isSidechain": True, "message": {"content": task}},
+            turn("model-b", ("h1", "Edit", {"file_path": "src/parse.py"})),
+            turn("model-c", ("h2", "Bash", {"command": "python3 -m unittest\necho done"})),
+        ])})
+        run = self.trail(session)
+        self.assertEqual(0, run.returncode, run.stderr)
+        out = run.stdout.splitlines()
+        self.assertEqual(["Steps: 6 — reads 1, commands 2, edits 1, MCP calls 1, helpers 1 "
+                          "(session and helpers)",
+                          "Models: model-a, model-b, model-c; model changes: 2",
+                          "Helpers: Helper 1 (fixer) 2 steps. Shell reads found as second "
+                          "evidence: 0. Steps stopped by a rule: 1"], out[2:5])
+        body = run.stdout[run.stdout.index("### Step by step"):]
+        self.assertIn("Model: model-a\n  1. read      src/app.py\n"
+                      "     model changed: model-a → model-b\n"
+                      "  2. MCP       docs.fetch — opaque: the transcript cannot show what this "
+                      "tool touched\n  3. gave work to Helper 1\n"
+                      "  4. command   make deploy — stopped by a rule in your settings\n", body)
+        self.assertIn("Helper 1 — fixer: fix it\n"
+                      "  Models: model-b, model-c; model changed while it worked\n"
+                      "  Task given (verbatim):\n      Fix the parser.\n"
+                      "        Keep the API stable.\n  Steps:\n    Model: model-b\n"
+                      "      1. edit      src/parse.py\n"
+                      "         model changed: model-b → model-c\n"
+                      "      2. command   python3 -m unittest …\n", body)
+        self.assertTrue(out[-1].startswith("Limits: this shows what was written and done"))
+        self.assertIn("Skipped 1 unreadable transcript line(s).", out[-1])
+
+    def test_shell_reads_add_second_evidence_and_dotenv_is_a_plain_read(self):
+        self.repo.config(usage_report=True, usage_trail=True)
+        (self.work / "notes.txt").write_text("a\nb\n")
+        (self.work / ".env").write_text("KEY=value\n")
+        cwd = str(self.work)
+        session = self.transcript([
+            turn("m", ("t1", "Read", {"file_path": ".env"}), cwd=cwd),
+            turn("m", ("t2", "Bash", {"command": "cat notes.txt | head -1"}), cwd=cwd),
+            turn("m", ("t3", "Bash", {"command": "sed -n '1,2p' notes.txt missing.txt"}),
+                 cwd=cwd),
+            turn("m", ("t4", "Bash", {"command": "cat .env > copy.txt"}), cwd=cwd),
+        ])
+        run = self.trail(session)
+        self.assertEqual(0, run.returncode, run.stderr)
+        self.assertIn("  1. read      .env\n", run.stdout)
+        evidence = run.stdout[run.stdout.index("### Second evidence"):]
+        self.assertIn("read (via shell, second evidence)  notes.txt  — from step 2\n"
+                      "read (via shell, second evidence)  notes.txt  — from step 3\n"
+                      "read (via shell, second evidence)  .env  — from step 4\n", evidence)
+        self.assertNotIn("missing.txt", evidence)
+        self.assertIn("Steps: 4 — reads 1, commands 3", run.stdout)
+        self.assertNotRegex(run.stdout.lower(),
+                            r"warn|finding|risk|secret|sensitive|issue|violation|problem")
+
+
 class SkillRecordingContractTest(unittest.TestCase):
     """protects: the skills route every usage write through `record` at a durable point.
     The skills are prose a host follows, so this pins the text (as test_flow_execute_skill
