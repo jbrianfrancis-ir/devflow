@@ -64,6 +64,7 @@ is summed per dispatch, so parallel work sums past wall-clock time.
 
 Usage: flow-usage.py --repo PATH [--phase ID]        (ID: a phase dir prefix, or quick)
        flow-usage.py record --file ARTIFACT --record JSON [--content FILE]
+       flow-usage.py trail --repo PATH --session JSONL_OR_ID   (see `trail --help`)
 Stdlib only. Exit codes: 0 rendered, recorded, or disabled; 2 bad config, malformed or
 refused record.
 """
@@ -76,6 +77,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import sys
 import tempfile
 
@@ -105,7 +107,7 @@ def bridge_roles() -> list[str]:
     return sorted(module.ALL_ROLES)
 
 
-def enabled(planning: Path) -> bool:
+def enabled(planning: Path, key: str = "usage_report") -> bool:
     path = planning / "config.json"
     if not path.is_file():
         return False
@@ -113,12 +115,11 @@ def enabled(planning: Path) -> bool:
         config = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise RecordError(f"{path}: unreadable config ({exc})")
-    if not isinstance(config, dict) or "usage_report" not in config:
+    if not isinstance(config, dict) or key not in config:
         return False
-    if not isinstance(config["usage_report"], bool):
-        raise RecordError(f"{path}: usage_report must be true or false, "
-                          f"got {config['usage_report']!r}")
-    return config["usage_report"]
+    if not isinstance(config[key], bool):
+        raise RecordError(f"{path}: {key} must be true or false, got {config[key]!r}")
+    return config[key]
 
 
 def role_for(path: Path) -> str | None:
@@ -433,7 +434,425 @@ def record(path: Path, raw: str, content: Path | None) -> str:
     return f"recorded {role} n={new['n']} in {path}"
 
 
+# --- trail -------------------------------------------------------------------
+
+TRAIL_DOC = """Session trail: what one Claude Code session read, ran, edited and handed to helpers.
+
+Opt-in twice: `.planning/config.json` needs "usage_report": true AND "usage_trail": true.
+Otherwise it prints one line and reads nothing else (a non-boolean value exits 2).
+Read-only: it reads the saved transcript and prints to stdout; it writes no file.
+
+Input. --session is a transcript .jsonl path, or a session id resolved under
+~/.claude/projects/*/<id>.jsonl. Helper transcripts are read from
+<transcript dir>/<session id>/subagents/agent-<agentId>.jsonl and matched to their
+Agent/Task call by the call result's `agentId`, or by `toolUseId` in agent-*.meta.json; a
+helper matched by neither reads "transcript not found". The main transcript's
+isSidechain lines are skipped (they belong to helpers). A line that is not a JSON object
+is skipped and counted; unknown line types are ignored.
+
+Output, in order:
+  1. Summary, three lines: steps by kind across the session and its helpers; models
+     seen and model changes; helpers with their own step counts, shell reads found as
+     second evidence, and steps stopped by a rule.
+  2. Step by step, one numbered row per tool call in transcript order: Read/Glob/Grep =
+     read; Bash = command (first line, cut at 100 chars); Edit/Write/MultiEdit/
+     NotebookEdit = edit; mcp__<server>__<tool> = MCP, opaque; Agent/Task = gave work to
+     Helper N; any other tool is listed by name. A "model changed" row marks a step whose
+     assistant message model differs from the previous step's (`<synthetic>` ignored).
+     A step whose result carries toolDenialKind "permission-rule" (or, in older
+     transcripts, an error saying permission was denied or the call was blocked) reads
+     "stopped by a rule in your settings"; toolDenialKind "user-rejected" reads
+     "declined at the permission prompt".
+  3. Helper handoffs: per helper, its subagent_type and description, the models it ran
+     on, the exact `prompt` it was given (verbatim, indented), and its own steps; a
+     helper's helpers nest as N.1, N.2.
+  4. Second evidence: each Bash command is split (shlex) on |, &&, ||, ;, & and newlines;
+     a segment whose program is one of SHELL_READERS, or python/python3 -c with
+     open('<literal path>'), adds "read (via shell, second evidence)" for each operand
+     that is a regular file NOW, relative to that line's cwd or absolute. sed/awk/grep/rg
+     skip their first operand (the script/pattern) unless -e/-f gave it. It only adds
+     reads; a command it cannot tokenize adds none.
+  5. Limits.
+
+Every path is shown the same way; nothing is classified or scored.
+"""
+
+SHELL_READERS = {"cat", "head", "tail", "less", "more", "sed", "awk", "grep", "rg", "nl",
+                 "bat", "wc", "cut", "sort", "uniq", "strings", "xxd", "od"}
+SCRIPT_FIRST = {"sed", "awk", "grep", "rg"}
+PYTHON_RE = re.compile(r"^python(3(\.\d+)?)?$")
+HEREDOC_RE = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+OPEN_RE = re.compile(r"""open\(\s*(['"])([^'"]+)\1""")
+READ_TOOLS = {"Read", "Glob", "Grep"}
+EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+HELPER_TOOLS = {"Agent", "Task"}
+SEPARATORS = {"|", "||", "&&", ";", "&", ";;", "|&"}
+RULE = "stopped by a rule in your settings"
+DECLINED = "declined at the permission prompt"
+DENIED_RE = re.compile(r"permission.*\b(denied|not granted|haven't granted)\b|\bblocked\b",
+                       re.IGNORECASE | re.DOTALL)
+LIMITS = ("Limits: this shows what was written and done, not the reasoning behind it; "
+          "helpers that ran in parallel have no ordering between them; it cannot show "
+          "which files an MCP tool opened.")
+
+
+def load_lines(path: Path) -> tuple[list[dict], int]:
+    """The transcript's JSON-object lines, and how many lines were skipped."""
+    lines, skipped = [], 0
+    with path.open(encoding="utf-8", errors="replace") as stream:
+        for raw in stream:
+            if not raw.strip():
+                continue
+            try:
+                value = json.loads(raw)
+            except json.JSONDecodeError:
+                value = None
+            if isinstance(value, dict):
+                lines.append(value)
+            else:
+                skipped += 1
+    return lines, skipped
+
+
+def result_text(block: dict) -> str:
+    content = block.get("content")
+    if isinstance(content, list):
+        return " ".join(c.get("text", "") for c in content if isinstance(c, dict))
+    return str(content or "")
+
+
+def stop_reason(block: dict, denial: object) -> str | None:
+    if denial == "permission-rule":
+        return RULE
+    if denial == "user-rejected":
+        return DECLINED
+    text = result_text(block)
+    if block.get("is_error") and not text.startswith("Exit code") and DENIED_RE.search(text):
+        return RULE
+    return None
+
+
+def parse_trace(path: Path, main: bool) -> dict:
+    """{steps, skipped}: one step per tool_use, in order, with its model, result and
+    the cwd recorded on its line (else the transcript's first)."""
+    lines, skipped = load_lines(path)
+    steps, seen, results, cwd = [], set(), {}, None
+    model = None
+    for line in lines:
+        if main and line.get("isSidechain") is True:
+            continue
+        cwd = cwd or line.get("cwd")
+        message = line.get("message")
+        content = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(content, list):
+            continue
+        if line.get("type") == "assistant":
+            if isinstance(message.get("model"), str) and message["model"] != "<synthetic>":
+                model = message["model"]
+            for block in content:
+                if (isinstance(block, dict) and block.get("type") == "tool_use"
+                        and block.get("id") not in seen):
+                    seen.add(block.get("id"))
+                    steps.append({"id": block.get("id"), "name": str(block.get("name")),
+                                  "input": block.get("input") if isinstance(
+                                      block.get("input"), dict) else {},
+                                  "model": model, "cwd": line.get("cwd") or cwd})
+        elif line.get("type") == "user":
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "tool_result":
+                    results[block.get("tool_use_id")] = (
+                        stop_reason(block, line.get("toolDenialKind")),
+                        line.get("toolUseResult"))
+    for step in steps:
+        step["stopped"], step["result"] = results.get(step["id"], (None, None))
+    return {"steps": steps, "skipped": skipped}
+
+
+def kind(name: str) -> str:
+    if name in READ_TOOLS:
+        return "read"
+    if name == "Bash":
+        return "command"
+    if name in EDIT_TOOLS:
+        return "edit"
+    if name.startswith("mcp__"):
+        return "MCP"
+    if name in HELPER_TOOLS:
+        return "helper"
+    return "other"
+
+
+def first_line(text: str, width: int = 100) -> str:
+    lines = text.strip().splitlines() or [""]
+    line = lines[0]
+    if len(line) > width:
+        return line[:width - 1] + "…"
+    return line + (" …" if len(lines) > 1 else "")
+
+
+def describe(step: dict, label: str | None) -> str:
+    name, args = step["name"], step["input"]
+    k = kind(name)
+    if k == "read":
+        if name == "Read":
+            return f"read      {args.get('file_path', '?')}"
+        where = f" in {args['path']}" if args.get("path") else ""
+        return f"read      {name.lower()} {args.get('pattern', '?')}{where}"
+    if k == "command":
+        return f"command   {first_line(str(args.get('command', '')))}"
+    if k == "edit":
+        return f"edit      {args.get('file_path') or args.get('notebook_path') or '?'}"
+    if k == "MCP":
+        server, _, tool = name[len("mcp__"):].partition("__")
+        return f"MCP       {server}.{tool} — opaque: the transcript cannot show what this tool touched"
+    if k == "helper":
+        return f"gave work to Helper {label}"
+    return f"other     {name}"
+
+
+def operands(tokens: list[str]) -> list[str]:
+    """File operands of one shell segment, or [] when it is not a known reader."""
+    while tokens and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", tokens[0]):
+        tokens = tokens[1:]  # leading VAR=value assignments
+    if not tokens:
+        return []
+    program = os.path.basename(tokens[0])
+    if PYTHON_RE.match(program):
+        if "-c" not in tokens[1:-1]:
+            return []
+        return [m.group(2) for m in OPEN_RE.finditer(tokens[tokens.index("-c") + 1])]
+    if program not in SHELL_READERS:
+        return []
+    found, skip_next = [], False
+    for token in tokens[1:]:
+        if skip_next:
+            skip_next = False
+        elif set(token) <= set("<>&0123456789") and (">" in token or "<<" in token):
+            skip_next = True  # a write target or heredoc delimiter, not a read
+        elif not token.startswith("-") and token != "<":
+            found.append(token)
+    script_given = any(t in ("-e", "-f") or re.match(r"^-[a-zA-Z]*[ef]$", t)
+                       for t in tokens[1:])
+    if program in SCRIPT_FIRST and not script_given and found:
+        found = found[1:]
+    return found
+
+
+def shell_reads(command: str, cwd: str | None) -> list[str]:
+    kept, end = [], None
+    for line in command.replace("\\\n", " ").splitlines():
+        if end is not None:  # a heredoc body is data, not commands
+            end = None if line.strip() == end else end
+            continue
+        kept.append(line)
+        heredoc = HEREDOC_RE.search(line)
+        end = heredoc.group(2) if heredoc else None
+    try:
+        lexer = shlex.shlex(" ; ".join(kept), posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:
+        return []
+    reads, segment = [], []
+    for token in tokens + [";"]:
+        if token not in SEPARATORS:
+            segment.append(token)
+            continue
+        for operand in operands(segment):
+            path = Path(operand) if os.path.isabs(operand) or cwd is None \
+                else Path(cwd) / operand
+            if path.is_file() and operand not in reads:
+                reads.append(operand)
+        segment = []
+    return reads
+
+
+def helper_files(subagents: Path) -> dict[str, Path]:
+    """{tool_use id or agentId: helper transcript} from the files on disk."""
+    found: dict[str, Path] = {}
+    if not subagents.is_dir():
+        return found
+    for transcript in subagents.glob("agent-*.jsonl"):
+        found[transcript.stem.removeprefix("agent-")] = transcript
+        meta = transcript.with_name(transcript.stem + ".meta.json")
+        try:
+            tool_use = json.loads(meta.read_text(encoding="utf-8")).get("toolUseId")
+        except (OSError, json.JSONDecodeError, AttributeError):
+            tool_use = None
+        if isinstance(tool_use, str):
+            found[tool_use] = transcript
+    return found
+
+
+def build(path: Path, files: dict[str, Path], label: str, main: bool, seen: set) -> dict:
+    """A trace with its helpers attached recursively; `label` is "" for the session."""
+    seen.add(path)
+    trace = parse_trace(path, main)
+    trace["label"], trace["helpers"] = label, []
+    for step in trace["steps"]:
+        step["evidence"] = shell_reads(str(step["input"].get("command", "")), step["cwd"]) \
+            if step["name"] == "Bash" else []
+        if kind(step["name"]) != "helper":
+            continue
+        number = f"{label}.{len(trace['helpers']) + 1}" if label else \
+            str(len(trace["helpers"]) + 1)
+        result = step["result"] if isinstance(step["result"], dict) else {}
+        transcript = files.get(str(result.get("agentId"))) or files.get(step["id"])
+        child = None
+        if transcript is not None and transcript not in seen:
+            child = build(transcript, files, number, False, seen)
+        step["helper"] = number
+        trace["helpers"].append({"label": number, "step": step, "trace": child})
+    return trace
+
+
+def walk(trace: dict):
+    yield trace
+    for helper in trace["helpers"]:
+        if helper["trace"] is not None:
+            yield from walk(helper["trace"])
+
+
+def changes(trace: dict) -> list[tuple[str, str]]:
+    models = [s["model"] for s in trace["steps"] if s["model"]]
+    return [(a, b) for a, b in zip(models, models[1:]) if a != b]
+
+
+def all_helpers(trace: dict):
+    for helper in trace["helpers"]:
+        yield helper
+        if helper["trace"] is not None:
+            yield from all_helpers(helper["trace"])
+
+
+def helper_type(helper: dict) -> str:
+    args = helper["step"]["input"]
+    return str(args.get("subagent_type") or "general-purpose")
+
+
+def summary(root: dict) -> list[str]:
+    traces = list(walk(root))
+    steps = [s for t in traces for s in t["steps"]]
+    counts = {k: sum(1 for s in steps if kind(s["name"]) == k)
+              for k in ("read", "command", "edit", "MCP", "helper", "other")}
+    by_kind = (f"reads {counts['read']}, commands {counts['command']}, edits "
+               f"{counts['edit']}, MCP calls {counts['MCP']}, helpers {counts['helper']}")
+    if counts["other"]:
+        by_kind += f", other tools {counts['other']}"
+    models = list(dict.fromkeys(s["model"] for s in steps if s["model"]))
+    helpers = [f"Helper {h['label']} ({helper_type(h)}) "
+               + (f"{len(h['trace']['steps'])} steps" if h["trace"] else "transcript not found")
+               for h in all_helpers(root)]
+    evidence = sum(len(s["evidence"]) for s in steps)
+    stopped = sum(1 for s in steps if s["stopped"] == RULE)
+    return [f"Steps: {len(steps)} — {by_kind} (session and helpers)",
+            f"Models: {', '.join(models) or 'unknown'}; model changes: "
+            f"{sum(len(changes(t)) for t in traces)}",
+            f"Helpers: {'; '.join(helpers) or 'none'}. Shell reads found as second "
+            f"evidence: {evidence}. Steps stopped by a rule: {stopped}"]
+
+
+def step_rows(trace: dict, indent: str) -> list[str]:
+    steps = trace["steps"]
+    first = next((s["model"] for s in steps if s["model"]), None)
+    rows = [f"{indent}Model: {first or 'unknown'}"]
+    previous = first
+    for number, step in enumerate(steps, 1):
+        if step["model"] and previous and step["model"] != previous:
+            rows.append(f"{indent}     model changed: {previous} → {step['model']}")
+        previous = step["model"] or previous
+        row = f"{indent}{number:>3}. {describe(step, step.get('helper'))}"
+        if step["stopped"]:
+            row += f" — {step['stopped']}"
+        rows.append(row)
+    if not steps:
+        rows.append(f"{indent}(no tool steps)")
+    return rows
+
+
+def handoffs(trace: dict, indent: str) -> list[str]:
+    out = []
+    for helper in trace["helpers"]:
+        args = helper["step"]["input"]
+        head = f"{indent}Helper {helper['label']} — {helper_type(helper)}"
+        if args.get("description"):
+            head += f": {args['description']}"
+        out.append(head)
+        child = helper["trace"]
+        if child is not None:
+            models = list(dict.fromkeys(s["model"] for s in child["steps"] if s["model"]))
+            note = "; model changed while it worked" if changes(child) else ""
+            out.append(f"{indent}  Models: {', '.join(models) or 'unknown'}{note}")
+        out.append(f"{indent}  Task given (verbatim):")
+        out += [f"{indent}      {line}" for line in str(args.get("prompt", "")).splitlines()]
+        if child is None:
+            out.append(f"{indent}  Steps: transcript not found")
+        else:
+            out.append(f"{indent}  Steps:")
+            out += step_rows(child, indent + "    ")
+            out += handoffs(child, indent + "    ")
+        out.append("")
+    return out
+
+
+def trail(root: dict) -> str:
+    out = ["## Session trail (read-only)", ""] + summary(root)
+    out += ["", "### Step by step", ""] + step_rows(root, "")
+    out += ["", "### Helper handoffs", ""] + (handoffs(root, "") or ["none", ""])
+    out += ["### Second evidence (reads found inside shell commands)", ""]
+    evidence = [f"read (via shell, second evidence)  {path}  — from "
+                + (f"Helper {t['label']} " if t["label"] else "") + f"step {n}"
+                for t in walk(root) for n, s in enumerate(t["steps"], 1)
+                for path in s["evidence"]]
+    out += evidence or ["none found"]
+    skipped = sum(t["skipped"] for t in walk(root))
+    out += ["", LIMITS + (f" Skipped {skipped} unreadable transcript line(s)."
+                          if skipped else "")]
+    return "\n".join(out) + "\n"
+
+
+def resolve_session(value: str) -> Path:
+    path = Path(value).expanduser()
+    if value.endswith(".jsonl"):
+        if not path.is_file():
+            raise RecordError(f"{value}: no such transcript")
+        return path.resolve()
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", value):
+        raise RecordError(f"{value!r}: not a .jsonl path or a session id")
+    matches = sorted((Path.home() / ".claude/projects").glob(f"*/{value}.jsonl"))
+    if len(matches) != 1:
+        raise RecordError(f"session {value}: {len(matches)} transcripts under "
+                          "~/.claude/projects (need exactly 1; pass the .jsonl path)")
+    return matches[0]
+
+
+def trail_main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="flow-usage.py trail", description=TRAIL_DOC,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--repo", required=True, help="repository root (holds .planning/)")
+    parser.add_argument("--session", required=True,
+                        help="transcript .jsonl path, or a session id")
+    args = parser.parse_args(argv)
+    planning = Path(args.repo).resolve() / ".planning"
+    try:
+        report_on, trail_on = enabled(planning), enabled(planning, "usage_trail")
+        if not (report_on and trail_on):
+            print("session trail: disabled — set \"usage_report\": true and "
+                  "\"usage_trail\": true in .planning/config.json to enable it")
+            return 0
+        session = resolve_session(args.session)
+        root = build(session, helper_files(session.parent / session.stem / "subagents"),
+                     "", True, set())
+    except (RecordError, OSError) as exc:
+        print(f"flow-usage: {exc}", file=sys.stderr)
+        return 2
+    sys.stdout.write(trail(root))
+    return 0
+
+
 def main() -> int:
+    if sys.argv[1:2] == ["trail"]:
+        return trail_main(sys.argv[2:])
     if sys.argv[1:2] == ["record"]:
         parser = argparse.ArgumentParser(prog="flow-usage.py record")
         parser.add_argument("--file", required=True, help="the SUMMARY or VERIFICATION.md")
