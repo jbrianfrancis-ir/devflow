@@ -1,0 +1,2 @@
+bump: patch
+Aspire 17 guidance, prompt text only: `references/aspire.md` records 17.0.0 as latest stable and adds the 13 → 17 upgrade checklist (`Aspire.AppHost.Sdk` → `Aspire.Hosting.AppHost` package, `AddProject`/`AddCSharpApp` → `AddDotnetProject`, required parameters reject empty values so optional config uses `.AsOptional()`, retired diagnostics, old-vs-new `aspire publish` diff as proof, trial-CLI deploy-state location). Version examples move to 17.x, and the telemetry-readiness and `/flow-verify` compute-resource detection also match `AddDotnetProject`.
