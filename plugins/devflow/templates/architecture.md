@@ -9,13 +9,13 @@ anything needed outside this file is a checkpoint:decision, never an improvisati
 |------|---------|-------|
 | Runtime | {e.g. .NET} | {e.g. 11} |
 | Language | {e.g. C#} | {15} |
-| Orchestration | Aspire | {13.x} |
+| Orchestration | Aspire | {17.x} |
 | Frontend | {pick per app, no default: Blazor Web App for internal staff tools; React + Vite via Aspire's JS integrations for rich or public UIs; Next.js only when SSR is needed} | {11} |
 | Auth | {Entra ID via Microsoft.Identity.Web with a default-deny authorization policy; Entra External ID for non-staff users; managed identity for service-to-Azure calls} | {4.x} |
-<!-- MAJOR VERSIONS ONLY — this table AND `## Frameworks & libraries` below. Write `11`, `13.x`, `26 LTS`;
-     never `13.5.1`. The exact version lives only in the manifest/lockfile (csproj, Directory.Packages.props,
+<!-- MAJOR VERSIONS ONLY — this table AND `## Frameworks & libraries` below. Write `11`, `17.x`, `26 LTS`;
+     never `17.0.1`. The exact version lives only in the manifest/lockfile (csproj, Directory.Packages.props,
      global.json, package.json + lockfile, ...), so a minor/patch bump changes the manifest and never this file,
-     and raises no warning. Only a major change (e.g. Aspire 13 → 14) is a checkpoint:decision, and then the major
+     and raises no warning. Only a major change (e.g. Aspire 13 → 17) is a checkpoint:decision, and then the major
      here changes. A deliberate exact pin must carry its reason — `11.0.3 (exact: <why>)` — and only then binds below
      the major. Every number shown is an illustrative example: resolve the current major from its own source
      (`dotnet --list-sdks`, the vendor's release page, `dotnet package search <id> --exact-match`), never from this

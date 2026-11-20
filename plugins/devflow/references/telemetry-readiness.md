@@ -14,7 +14,7 @@ The bar every deployed service has to clear: instrumentation **on in code** and 
 
 ## Target discovery
 1. **AppHost**: `rg -l "DistributedApplication.CreateBuilder" --glob '*.cs'` (covers `Program.cs`, `AppHost.cs`, single-file `apphost.cs`).
-2. **Deployable compute resources**: every `AddProject<…>`, `AddDockerfile`, `AddNextJsApp`, `AddJavaScriptApp`, `AddNodeApp`, `AddViteApp`, plus `AddContainer` resources that are app code. Note resources declared inside `if (builder.ExecutionContext.IsPublishMode)` or its `else` — the deployed set is the **publish-mode** set.
+2. **Deployable compute resources**: every `AddProject<…>`/`AddDotnetProject`, `AddDockerfile`, `AddNextJsApp`, `AddJavaScriptApp`, `AddNodeApp`, `AddViteApp`, plus `AddContainer` resources that are app code. Note resources declared inside `if (builder.ExecutionContext.IsPublishMode)` or its `else` — the deployed set is the **publish-mode** set.
 3. **Exclusions, listed**: deploying mocks and test doubles → `N/A (mock)`; third-party-image jobs with no app code (a `curlimages/curl` cron) → `N/A (no app code)`.
 4. **Platform names**: resource group from `.planning/deploy/PIPELINE.md`, `azure.yaml`, or repo docs; ACA environment and app names from P1. **Never guess a name** — unresolvable means UNVERIFIED.
 
