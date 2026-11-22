@@ -27,7 +27,7 @@ import sys
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", ".tox", "bin", "obj", "dist"}
 MAX_BYTES = 1_000_000
 
-LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal", "(localdb)", "."}
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal", "(localdb)", "(local)", "."}
 URL_HOST = re.compile(r"\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|sqlserver|mssql|cockroachdb)"
                       r"://(?:[^/\s'\"]*@)?(\[[^\]]+\]|[^@:/?\s'\",;]+)", re.I)
 # ADO.NET-style keys only inside a string (after a quote or `;`), so `host = os.environ[...]` is not read.
@@ -40,13 +40,19 @@ TEST_DIR = re.compile(r"(^|/)(tests?|__tests__|spec|fixtures?)/", re.I)
 SHELL_EXT = (".sh", ".bash", ".zsh")
 RM_SHELL = re.compile(r"\brm\s+(?:-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)\b[^\n;&|]*")
 SHELL_VAR = re.compile(r"\$\{(\w+)(:\?)?[^}]*\}|\$(\w+)")
-RM_OTHER = re.compile(r"\b(?:rmtree|rimraf(?:\.sync)?)\(\s*(?!['\"`])\S|Remove-Item\b[^\n]*-Recurse[^\n]*\$\w+", re.I)
-SET_U = re.compile(r"^\s*set\s+-[a-z]*u|^\s*set\s+-o\s+nounset", re.M)
+RM_OTHER = re.compile(r"\b(?:rmtree|rimraf|rimraf\.sync)\(\s*(?!['\"`])([^)\n]+)|Remove-Item\b[^\n]*-Recurse[^\n]*\$\w+", re.I)
+# Value names in a delete's argument: `sys.argv[1]` -> argv, `os.path.join(root, n)` -> root, n.
+ARG_NAME = re.compile(r"\b[A-Za-z_]\w*\b(?!\s*[.(])")
+SET_U = re.compile(r"^[ \t]*set[ \t]+(?:[^\n#]*[ \t])?(?:-[a-zA-Z]*u[a-zA-Z]*|-o[ \t]+nounset)\b", re.M)
+GUARD_WINDOW = 15  # lines before a delete that may hold its inside-root check
 INSIDE_ROOT = re.compile(r"realpath|readlink -f|is_relative_to|commonpath|\.resolve\(|Resolve-Path|GetFullPath|path\.resolve")
 
-HAZARD = re.compile(r"\b(DROP\s+(TABLE|DATABASE|SCHEMA)|TRUNCATE\s+(TABLE\s+)?\w|dropdb|terraform\s+destroy|"
+SQL_NAME = r"(?:\w+|\"[^\"\n]+\"|\[[^\]\n]+\]|`[^`\n]+`)"  # users, "Order Items", [dbo], `db`
+# TRUNCATE: any case with TABLE; bare TRUNCATE only in upper case, so prose like "truncate long lines" stays quiet.
+TRUNCATE = rf"(?:(?-i:TRUNCATE)\s+(?:TABLE\s+)?|TRUNCATE\s+TABLE\s+){SQL_NAME}(?:\.{SQL_NAME})*"
+HAZARD = re.compile(r"\b(DROP\s+(TABLE|DATABASE|SCHEMA)|dropdb|terraform\s+destroy|"
                     r"(az|azd)\s+(group\s+delete|down)|migrate\s+reset|db\s+reset|database\s+drop|"
-                    r"kubectl\s+delete|helm\s+uninstall|flushall)\b", re.I)
+                    rf"kubectl\s+delete|helm\s+uninstall|flushall)\b|\b{TRUNCATE}", re.I)
 HAZARD_NAME = re.compile(r"(deploy|reset|teardown|destroy|drop|nuke)[\w.-]*\.(sh|bash|ps1|py)$", re.I)
 SCRIPT_EXT = SHELL_EXT + (".ps1", ".py")
 
@@ -73,7 +79,7 @@ def compose_services(files):
 
 
 def is_local(host, services):
-    h = host.strip("[]").lower()
+    h = host.split("\\")[0].strip("[]").lower()  # SQL Server `host\INSTANCE` (JSON `\\`): judge the host part
     return (h in LOCAL_HOSTS or h.startswith("127.") or h in services
             or "testcontainers" in h or h.startswith(("$", "{", "%")) or "memory" in h
             or h.endswith((".db", ".sqlite", ".sqlite3")))
@@ -92,22 +98,27 @@ def check_testdb(rel, text, services, out):
 
 def check_rm(rel, text, out):
     shell = rel.endswith(SHELL_EXT) or text.startswith(("#!/bin/sh", "#!/bin/bash", "#!/usr/bin/env bash", "#!/usr/bin/env sh"))
-    hits = []
+    hits = []  # (offset, names in the delete target)
     if shell:
         for m in RM_SHELL.finditer(text):
+            names = [braced or bare for braced, _guard, bare in SHELL_VAR.findall(m.group(0))]
             unguarded = [braced or bare for braced, guard, bare in SHELL_VAR.findall(m.group(0)) if not guard]
-            if SHELL_VAR.search(m.group(0)):
-                hits.append(m.start())
+            if names:
+                hits.append((m.start(), names))
             if unguarded:
                 out.append((rel, lineno(text, m.start()), "S2-RM-GUARD",
                             f"recursive rm on ${unguarded[0]} without ${{{unguarded[0]}:?}}; an empty value deletes the parent"))
         if hits and not SET_U.search(text):
-            out.append((rel, lineno(text, hits[0]), "S2-SET-U", "recursive delete on a variable without `set -euo pipefail` (at least -u)"))
+            out.append((rel, lineno(text, hits[0][0]), "S2-SET-U", "recursive delete on a variable without `set -euo pipefail` (at least -u)"))
     elif rel.endswith((".py", ".js", ".mjs", ".cjs", ".ts", ".ps1")):
-        hits = [m.start() for m in RM_OTHER.finditer(text)]
-    if hits and not INSIDE_ROOT.search(text):
-        out.append((rel, lineno(text, hits[0]), "S2-REALPATH",
-                    "recursive delete on a variable target with no realpath check that it stays inside the repo root"))
+        hits = [(m.start(), ARG_NAME.findall(m.group(1)) if m.group(1) else re.findall(r"\$(\w+)", m.group(0)))
+                for m in RM_OTHER.finditer(text)]
+    for pos, names in hits:
+        # Guarded: a realpath/resolve/inside-root line naming a target variable shortly before the delete.
+        window = text[:pos].split("\n")[-GUARD_WINDOW - 1:]
+        if not any(INSIDE_ROOT.search(line) and re.search(rf"\b{re.escape(n)}\b", line) for line in window for n in names):
+            out.append((rel, lineno(text, pos), "S2-REALPATH",
+                        "recursive delete on a variable target with no realpath check that it stays inside the repo root"))
 
 
 def check_hazard(rel, text, out):

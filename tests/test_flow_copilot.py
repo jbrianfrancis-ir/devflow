@@ -300,6 +300,7 @@ class DriftCheck(unittest.TestCase):
     def test_symlink_out_of_github_is_refused(self):
         with tempfile.TemporaryDirectory() as outside:
             refs = self.repo / ".github/references"
+            self.assertTrue(refs.resolve().is_relative_to(self.repo.resolve()))
             shutil.rmtree(refs)
             refs.symlink_to(outside, target_is_directory=True)
             result = run("render", "--repo", str(self.repo), "--force")
