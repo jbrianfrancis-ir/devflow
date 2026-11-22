@@ -28,7 +28,7 @@ root=$(git rev-parse --show-toplevel)
 target=$(realpath -- "${BUILD_DIR:?}")
 [[ "$target" == "$root"/* ]] || { echo "refusing to delete $target: outside $root" >&2; exit 1; }
 echo "WARNING: deleting $target ($(find "$target" | wc -l) files)"
-rm -rf -- "$target"
+rm -rf -- "${target:?}"
 ```
 
 ## S3 Prose-only rules

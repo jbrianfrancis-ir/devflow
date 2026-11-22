@@ -323,6 +323,8 @@ def main(argv):
             print(__doc__)
             return 2
         if OUT.is_dir():
+            if not OUT.resolve().is_relative_to(SITE):
+                raise BuildError(f"refusing to delete {OUT}: outside {SITE}")
             shutil.rmtree(OUT)
         build(OUT)
         print(f"wrote {OUT.relative_to(ROOT)}")

@@ -6,6 +6,7 @@ hazard shapes they name, stay quiet on the guarded form, and never print a crede
 import contextlib
 import importlib.util
 import io
+import re
 import shutil
 import tempfile
 import unittest
@@ -41,7 +42,9 @@ class SafetyAuditTests(unittest.TestCase):
         root = self.make_repo({
             "tests/appsettings.Testing.json":
                 '{"Db": "Server=prod-sql.example.com,1433;User Id=sa;Password=hunter2",'
-                ' "Ok": "Host=localhost;Database=t"}\n',
+                ' "Ok": "Host=localhost;Database=t", "L1": "Server=(localdb)\\\\MSSQLLocalDB;Database=t",'
+                ' "L2": "Data Source=(LocalDB)\\\\v11.0;x", "L3": "Server=.\\\\SQLEXPRESS;x", "L4": "Server=(local);x",'
+                ' "L5": "Server=localhost\\\\SQLEXPRESS;x", "L6": "Server=.;x", "Bad": "Server=prod-sql2.example.com\\\\SQLEXPRESS;x"}\n',
             "docker-compose.test.yml":
                 "services:\n  db:\n    image: postgres\n  app:\n    environment:\n"
                 "      A: postgres://u:pw@db:5432/app\n      B: postgresql://admin:p@ss@prod-db.example.com/app\n",
@@ -51,18 +54,30 @@ class SafetyAuditTests(unittest.TestCase):
         self.assertEqual(0, code)
         self.assertIn("tests/appsettings.Testing.json:1  S1-TESTDB  test DB host 'prod-sql.example.com'", out)
         self.assertIn("docker-compose.test.yml:7  S1-TESTDB  test DB host 'prod-db.example.com'", out)
-        self.assertEqual(2, out.count("S1-TESTDB"))  # localhost, compose service `db`, env lookup: local/unknown
+        self.assertIn("test DB host 'prod-sql2.example.com\\\\SQLEXPRESS'", out)
+        self.assertEqual(3, out.count("S1-TESTDB"))  # localhost, LocalDB/SQLEXPRESS, compose `db`, env lookup: local/unknown
         for value in ("hunter2", "pw@", "p@ss", "admin"):
             self.assertNotIn(value, out)
 
     def test_unguarded_recursive_rm_is_flagged_and_the_guarded_form_is_clean(self):
         found = self.found({
             "scripts/clean.sh": '#!/usr/bin/env bash\nrm -rf "$BUILD_DIR/out"\n',
-            "scripts/ok.sh": '#!/usr/bin/env bash\nset -euo pipefail\nt=$(realpath "${T:?}")\nrm -rf -- "${T:?}"\n',
-            "tools/clean.py": "import shutil, sys\nshutil.rmtree(sys.argv[1])\n",
+            "scripts/ok.sh": '#!/usr/bin/env bash\nset -Eeuo pipefail\nt=$(realpath "${T:?}")\nrm -rf -- "${T:?}"\n',
+            "scripts/other-var.sh": '#!/usr/bin/env bash\nset -u\nroot=$(realpath .)\nrm -rf -- "${T:?}"\n',
+            "scripts/far.sh": '#!/usr/bin/env bash\nset -u\nt=$(realpath "${T:?}")\n' + ":\n" * 15 + 'rm -rf -- "${T:?}"\n',
+            # `rmtree` + `(` split so this file's own unguarded fixture does not trip a self-audit.
+            "tools/clean.py": "import shutil, sys\nroot = os.path.realpath('.')\nshutil.rmtree" "(sys.argv[1])\n",
+            "tools/ok.py": "p = os.path.realpath(sys.argv[1])\nif not p.startswith(ROOT): sys.exit(1)\nshutil.rmtree(p)\n",
         })
         self.assertEqual({("scripts/clean.sh", "S2-RM-GUARD"), ("scripts/clean.sh", "S2-SET-U"),
-                          ("scripts/clean.sh", "S2-REALPATH"), ("tools/clean.py", "S2-REALPATH")}, found)
+                          ("scripts/clean.sh", "S2-REALPATH"), ("scripts/other-var.sh", "S2-REALPATH"),
+                          ("scripts/far.sh", "S2-REALPATH"), ("tools/clean.py", "S2-REALPATH")}, found)
+
+    def test_reference_delete_guard_example_passes_every_check(self):
+        doc = (ROOT / "plugins/devflow/references/safety-checks.md").read_text(encoding="utf-8")
+        example = re.search(r"^## S2 .*?^```bash\n(.*?)^```", doc, re.M | re.S).group(1)
+        self.assertIn("rm -rf", example)
+        self.assertEqual(set(), self.found({"scripts/clean.sh": example}))
 
     def test_agent_job_on_untrusted_trigger_with_secrets_or_write_token_is_flagged(self):
         found = self.found({
@@ -84,8 +99,15 @@ class SafetyAuditTests(unittest.TestCase):
             "scripts/reset.sh": '#!/bin/sh\npsql -c "DROP DATABASE app"\n',
             "scripts/drop.sh": '#!/bin/sh\necho "WARNING: DATABASE_URL host is $H; this DROPS all tables"\npsql -c "DROP TABLE t"\n',
             "scripts/deploy.ps1": "az deployment group create -g $rg\n",
+            "scripts/t1.sh": "psql -c 'TRUNCATE TABLE users'\n",
+            "scripts/t2.sh": "psql -c 'TRUNCATE public.orders'\n",
+            "scripts/t3.sh": 'psql -c \'TRUNCATE TABLE "Order Items"\'\n',
+            "scripts/t4.ps1": "sqlcmd -Q 'TRUNCATE TABLE [dbo].[Users]'\n",
+            "scripts/t5.py": 'run("TRUNCATE `db`.`t`")\n',
+            "scripts/fmt.py": "# truncate long lines before printing\n",
         })
-        self.assertEqual({("scripts/reset.sh", "S5-NO-WARNING"), ("scripts/deploy.ps1", "S5-NO-WARNING")}, found)
+        self.assertEqual({(rel, "S5-NO-WARNING") for rel in ("scripts/reset.sh", "scripts/deploy.ps1", "scripts/t1.sh",
+                          "scripts/t2.sh", "scripts/t3.sh", "scripts/t4.ps1", "scripts/t5.py")}, found)
 
     def test_strict_exit_codes_and_env_files_are_never_read(self):
         root = self.make_repo({"tests/.env.test": "DATABASE_URL=postgres://u:p@prod-db.example.com/app\n"})

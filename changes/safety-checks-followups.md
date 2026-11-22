@@ -1,0 +1,2 @@
+bump: patch
+`/flow-audit --safety` follow-ups: S1 treats SQL Server LocalDB, `(local)` and `host\SQLEXPRESS` instance names as local; S2-REALPATH now requires the realpath/inside-root check to name the delete target within the 15 lines before it (not anywhere in the file); S2-SET-U accepts `set -Eeuo pipefail`, `set -e -u` and `set -o nounset`; S5 flags `TRUNCATE` on real, schema-qualified and quoted table names; and the `safety-checks.md` delete-guard example now passes its own checks (`rm -rf -- "${target:?}"`).
