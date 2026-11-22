@@ -1,17 +1,17 @@
 ---
 name: flow-audit
-description: Read-only consistency check across REQUIREMENTS, ROADMAP, plans, SUMMARYs, VERIFICATION and STATE - coverage both ways, drift, unmeasurable criteria, open clarifications, principle conflicts. Use before executing a phase, before /flow-harden, or when planning docs feel out of sync. Modes - --docs (README/docs claims vs the tree, before a docs-only PR), --drift (plan, STATE, decisions and CLAUDE.md vs code and git history), --export (agent-activity evidence pack for a compliance review).
+description: Read-only consistency check across REQUIREMENTS, ROADMAP, plans, SUMMARYs, VERIFICATION and STATE - coverage both ways, drift, unmeasurable criteria, open clarifications, principle conflicts. Use before executing a phase, before /flow-harden, or when planning docs feel out of sync. Modes - --docs (README/docs claims vs the tree, before a docs-only PR), --drift (plan, STATE, decisions and CLAUDE.md vs code and git history), --safety (test-DB, recursive-delete, prose-only-rule, CI-agent and hazard-warning guards), --export (agent-activity evidence pack for a compliance review).
 ---
 
 # flow-audit
 
 **Host setup**: resolve `devflow_root` and follow `{devflow_root}/references/hosts.md` before doing anything else.
 
-Context rules: read `.planning/STATE.md` first. Everything here is small and capped — read REQUIREMENTS.md, ROADMAP.md, ARCHITECTURE.md and STATE.md whole, and phase artifacts (`*-PLAN.md`, `*-SUMMARY.md`, `VERIFICATION.md`) **frontmatter only**. Never read source; this audits the documents against each other, not the code (`/flow-verify` proves code, `/flow-harden` audits production-readiness). `--docs` and `--drift` are the modes that read the tree, and only to check what the docs claim about it.
+Context rules: read `.planning/STATE.md` first. Everything here is small and capped — read REQUIREMENTS.md, ROADMAP.md, ARCHITECTURE.md and STATE.md whole, and phase artifacts (`*-PLAN.md`, `*-SUMMARY.md`, `VERIFICATION.md`) **frontmatter only**. Never read source; this audits the documents against each other, not the code (`/flow-verify` proves code, `/flow-harden` audits production-readiness). `--docs`, `--drift` and `--safety` are the modes that read the tree.
 
 **STRICTLY READ-ONLY.** Change nothing — not a status, not a typo, not a marker. DevFlow spreads project knowledge across artifacts on purpose, and an auditor that edits while it reads destroys the evidence of what disagreed with what. Findings end in a report and a recommended route; the human decides.
 
-**Pre-flight**: `.planning/` with REQUIREMENTS.md and ROADMAP.md. Missing → point to `/flow-new`. Scope defaults to the whole project; `N` limits it to phase N's artifacts plus the project-level files they reference. (`--export` needs only `.planning/` and a git checkout — it reports on what exists rather than checking it. `--docs` needs only a git checkout. `--drift` needs `.planning/` and a git checkout.)
+**Pre-flight**: `.planning/` with REQUIREMENTS.md and ROADMAP.md. Missing → point to `/flow-new`. Scope defaults to the whole project; `N` limits it to phase N's artifacts plus the project-level files they reference. (`--export` needs only `.planning/` and a git checkout — it reports on what exists rather than checking it. `--docs` and `--safety` need only a checkout. `--drift` needs `.planning/` and a git checkout.)
 
 ## Passes
 Run all of them; report nothing you cannot point at with a file and a line or row.
@@ -69,6 +69,19 @@ A git command that fails, or a ref that does not resolve, is `could-not-check` w
 **Severity**: a Forbidden item or principle the code violates is **CRITICAL**; a missing artifact, an off-branch SUMMARY commit, stale verification, and STATE contradicted by git are **HIGH**; unplanned work and a decision the code quietly departs from are **MEDIUM**; wording is **LOW**. `could-not-check` is listed, not graded. Same report table as above with `pass` = `X1`–`X5`, worst first, ~25 findings cap, then routes: stale verification → `/flow-verify N`; STATE drift → `/flow-status`; unplanned work → record it with `/flow-quick` or a plan; a decision the code contradicts → a decision for the human (update the decision or the code, never both silently). **Offer** the mechanical fixes and wait for an explicit yes. Write nothing to `.planning/`.
 
 Status line: clean → `FLOW: CONTINUE | drift audit clean: N claims checked | next: {the command STATE points to}`; any CRITICAL or HIGH → `FLOW: GATE | drift audit: N critical, M high | next: {route}`; only MEDIUM/LOW → `CONTINUE` naming them as known debt.
+
+## --safety (agent-safety guards)
+
+`--safety` is a **separate mode**: it does not run the passes above, and it needs only a checkout. It checks the tree for places where an agent mistake does real damage. The guard patterns and fixes are in `{devflow_root}/references/safety-checks.md`. **Strictly read-only**, like the default mode.
+
+1. **Mechanical checks.** From the repo root, run `python3 {devflow_root}/scripts/flow-safety-audit.py`. It prints `file:line  CHECK-ID  message`. **S1-TESTDB**: a test config DB host is not local or a container. **S2-RM-GUARD / S2-SET-U / S2-REALPATH**: a recursive delete on a variable has no `${VAR:?}`, no `set -u`, or no inside-root check. **S4-CI-AGENT**: a workflow runs an AI agent on an untrusted trigger and the job can reach `secrets.*` or a write token. **S5-NO-WARNING**: a destructive script prints no `WARNING:` line. These are heuristics. Open each hit's file:line and confirm it before you report it. Drop a false positive and say why.
+2. **S3 Prose-only rules.** Read `AGENTS.md`, `CLAUDE.md`, `.cursorrules` and `copilot-instructions.md` (under `.github/`), each if present. For each "never", "do not", "ask before" or "code freeze" rule, find what enforces it outside the model: a hook or `permissions.deny` entry in `.claude/settings.json`, a CI check in `.github/workflows/`, or branch protection (`gh api repos/{owner}/{repo}/branches/{base}/protection` when gh is authenticated, otherwise `could-not-check`). A rule with no control is a finding. The fix names a control and a safe command to put next to the rule. DevFlow's own block rules map to the `/flow-hooks` guards (`docs/hooks.md`), so recommend `/flow-hooks` when they are not installed. **Skip** every rule about secrets, keys, credentials or `.env` files. Never report it and never recommend a deny rule for it.
+
+Never report committed secrets, keys or `.env` files, and never print a secret or connection-string value. Name hosts and `secrets.X` expressions only.
+
+**Severity**: S4 with a write token or secrets, and S1 where tests drop/truncate/reset/migrate, are **HIGH**. Other S1, S2 and S4 hits are **MEDIUM**. S3 and S5 are **LOW**. Use the same report table with `pass` = the check ID, worst first, then the helper's count line verbatim. **Offer** the in-repo fixes and wait for an explicit yes. List fixes outside the repo (branch protection, token scopes) as manual steps. Write nothing to `.planning/`.
+
+Status line: clean → `FLOW: CONTINUE | safety audit clean | next: {the command STATE points to}`; any HIGH → `FLOW: GATE | safety audit: N high, M medium | next: apply the guards in safety-checks.md`; otherwise `CONTINUE` naming them as known debt.
 
 ## --export (evidence pack)
 

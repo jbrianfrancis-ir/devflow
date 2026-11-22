@@ -34,6 +34,7 @@ Pick one tier per task from what the diff changes, not from how much effort it t
 ## SP / AutomationHub notes
 
 - Prefer tests that exercise real-ish boundaries (test DB, emulator, WebApplicationFactory, Aspire testing) over mocking every collaborator.
+- A test DB is local or a container. Shared test setup aborts when the DB host is not local, before any drop/truncate/reset/migrate (`safety-checks.md` → S1 Test-DB guard).
 - Live/external systems (e.g. ICE) stay opt-in / trait-gated; never silent-skip to false green.
 - AccountChek remains VOIE+VOA only where that product split applies — do not expand scope via tests.
 

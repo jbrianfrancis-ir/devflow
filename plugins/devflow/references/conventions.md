@@ -31,6 +31,9 @@ Application and library code lives under `src/` off the repo root; **tests live 
 ## Dead code
 When a change supersedes an old code path, **delete the old path in the same change** — never leave both alive "just in case". The only reason to keep one is a **named contract**: public API, CLI surface, config/data format, security boundary, or observed production traffic still on it. Keeping a superseded path is a logged deviation naming that contract, plus a removal note in `.planning/LEARNINGS.md` so it doesn't outlive the reason.
 
+## Safety guards in scripts and tests
+A script or test setup you write that deletes recursively, resets or drops a DB, migrates down, deploys or destroys follows `safety-checks.md`. Use `${VAR:?}`, `set -euo pipefail` and a realpath inside-root check on deletes. Test setup stops when the DB host is not local. Print one `WARNING:` line that names the target and what gets destroyed before you act.
+
 ## Git workflow — branch → origin → PR upstream
 - **Base branch**: `dev` if it exists (locally or on a remote), else `main`. Resolved once at `/flow-new` and recorded in `.planning/config.json` under `git`.
 - **Never commit to the base branch.** All code changes land on a feature branch cut from the base: `flow/<slug>` (project, phase, or task slug).
