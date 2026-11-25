@@ -35,8 +35,8 @@ record), `CONTRIBUTING.md` (project-stated contribution rules), and `.planning/c
 prompt names the paths to read; a missing file is a real answer — "no ARCHITECTURE.md" means you
 have no pins to check against, not that you should invent some.
 
-Also pull live CI state: `gh pr view <N> --repo {owner}/{repo} --json statusCheckRollup` (`gh pr
-checks --json` is not available on `gh` 2.46.0 — confirmed live; `--json statusCheckRollup` on `gh
+Also pull live CI state: `gh pr view <N> --repo {owner}/{repo} --json statusCheckRollup` (the
+`--json` flag of `gh pr checks` is not available on `gh` 2.46.0 — confirmed live; `--json statusCheckRollup` on `gh
 pr view` is). A `merge-candidate` verdict requires this to show green checks, or failures you can
 confirm are unrelated to this diff — never award it from the diff alone with CI unchecked. If the
 query itself fails (network, `gh` error, an ambiguous empty result), that is fail-closed: never
